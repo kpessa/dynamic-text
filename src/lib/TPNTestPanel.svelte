@@ -147,7 +147,7 @@
         InfuseOver: 24,
         IVAdminSite: 'Central'
       };
-    } else if (scenario === 'pediatric') {
+    } else if (scenario === 'child') {
       inputValues = {
         ...inputValues,
         DoseWeightKG: 10,
@@ -243,7 +243,7 @@
         <div class="test-scenarios">
           <span>Quick Load:</span>
           <button onclick={() => loadTestScenario('adult')}>Adult Standard</button>
-          <button onclick={() => loadTestScenario('pediatric')}>Pediatric</button>
+          <button onclick={() => loadTestScenario('child')}>Child</button>
           <button onclick={() => loadTestScenario('peripheral')}>Peripheral</button>
           <button onclick={() => loadTestScenario('critical')}>Critical Care</button>
         </div>

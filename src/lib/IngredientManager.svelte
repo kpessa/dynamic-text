@@ -47,9 +47,15 @@
   // Population type display names
   const populationTypeNames = {
     [POPULATION_TYPES.NEONATAL]: 'Neonatal',
-    [POPULATION_TYPES.PEDIATRIC]: 'Pediatric',
+    [POPULATION_TYPES.PEDIATRIC]: 'Child',
     [POPULATION_TYPES.ADOLESCENT]: 'Adolescent',
-    [POPULATION_TYPES.ADULT]: 'Adult'
+    [POPULATION_TYPES.ADULT]: 'Adult',
+    // Handle legacy values from Firebase
+    'pediatric': 'Child',
+    'child': 'Child',
+    'neonatal': 'Neonatal',
+    'adolescent': 'Adolescent',
+    'adult': 'Adult'
   };
   
   // Population type colors
@@ -57,7 +63,13 @@
     [POPULATION_TYPES.NEONATAL]: '#ff6b6b',
     [POPULATION_TYPES.PEDIATRIC]: '#4ecdc4',
     [POPULATION_TYPES.ADOLESCENT]: '#45b7d1',
-    [POPULATION_TYPES.ADULT]: '#5f27cd'
+    [POPULATION_TYPES.ADULT]: '#5f27cd',
+    // Handle legacy values from Firebase
+    'pediatric': '#4ecdc4',
+    'child': '#4ecdc4',
+    'neonatal': '#ff6b6b',
+    'adolescent': '#45b7d1',
+    'adult': '#5f27cd'
   };
   
   // Load ingredients on mount

@@ -13,7 +13,7 @@
   import IngredientManager from './lib/IngredientManager.svelte';
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
   import DataMigrationTool from './lib/DataMigrationTool.svelte';
-  import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
+  import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
@@ -110,7 +110,7 @@
     
     sections.forEach(section => {
       if (section.type === 'dynamic') {
-        const keys = extractKeysFromCode(section.content);
+        const keys = extractDirectKeysFromCode(section.content); // Use direct keys only for badges
         const validKeys = keys.filter(key => isValidKey(key) && !isCalculatedValue(key));
         const calculatedKeys = keys.filter(key => isCalculatedValue(key));
         const nonTpnKeys = keys.filter(key => !isValidKey(key));
@@ -783,7 +783,13 @@
       [POPULATION_TYPES.NEONATAL]: '#ff6b6b',
       [POPULATION_TYPES.PEDIATRIC]: '#4ecdc4',
       [POPULATION_TYPES.ADOLESCENT]: '#45b7d1',
-      [POPULATION_TYPES.ADULT]: '#5f27cd'
+      [POPULATION_TYPES.ADULT]: '#5f27cd',
+      // Handle legacy values from Firebase
+      'pediatric': '#4ecdc4',
+      'child': '#4ecdc4',
+      'neonatal': '#ff6b6b',
+      'adolescent': '#45b7d1',
+      'adult': '#5f27cd'
     };
     return colors[populationType] || '#666';
   }
@@ -791,9 +797,15 @@
   function getPopulationName(populationType) {
     const names = {
       [POPULATION_TYPES.NEONATAL]: 'Neonatal',
-      [POPULATION_TYPES.PEDIATRIC]: 'Pediatric',
+      [POPULATION_TYPES.PEDIATRIC]: 'Child',
       [POPULATION_TYPES.ADOLESCENT]: 'Adolescent',
-      [POPULATION_TYPES.ADULT]: 'Adult'
+      [POPULATION_TYPES.ADULT]: 'Adult',
+      // Handle legacy values from Firebase
+      'pediatric': 'Child',
+      'child': 'Child',
+      'neonatal': 'Neonatal',
+      'adolescent': 'Adolescent',
+      'adult': 'Adult'
     };
     return names[populationType] || populationType;
   }
@@ -1802,10 +1814,10 @@
   .section-header {
     display: flex;
     align-items: center;
-    padding: 0.5rem;
+    padding: 0.4rem 0.5rem;
     border-bottom: 1px solid #444;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
   .drag-handle {
@@ -1833,17 +1845,18 @@
   .ingredient-badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    gap: 0.15rem;
     align-items: center;
     flex: 1;
   }
 
   .ingredient-badge {
-    font-size: 0.75rem;
-    padding: 0.125rem 0.5rem;
-    border-radius: 12px;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 10px;
     font-weight: 500;
     white-space: nowrap;
+    line-height: 1.2;
   }
 
   .ingredient-badge.tpn-badge {
@@ -1862,12 +1875,13 @@
   }
 
   .ingredient-count {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: #666;
-    padding: 0.125rem 0.5rem;
+    padding: 0.1rem 0.35rem;
     background-color: #f0f0f0;
-    border-radius: 12px;
+    border-radius: 10px;
     white-space: nowrap;
+    line-height: 1.2;
   }
 
   .delete-section-btn {

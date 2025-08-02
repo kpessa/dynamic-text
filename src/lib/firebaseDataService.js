@@ -23,7 +23,7 @@ import { getKeyCategory } from './tpnLegacy.js';
 // Population types
 export const POPULATION_TYPES = {
   NEONATAL: 'neonatal',
-  PEDIATRIC: 'pediatric',
+  PEDIATRIC: 'child',
   ADOLESCENT: 'adolescent',
   ADULT: 'adult'
 };
@@ -368,9 +368,17 @@ export const referenceService = {
   // Get references by population type
   async getReferencesByPopulation(ingredientId, populationType) {
     try {
+      // Handle child/pediatric mapping
+      const searchTypes = [populationType];
+      if (populationType === 'child') {
+        searchTypes.push('pediatric');
+      } else if (populationType === 'pediatric') {
+        searchTypes.push('child');
+      }
+      
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'),
-        where('populationType', '==', populationType)
+        where('populationType', 'in', searchTypes)
       );
       
       const snapshot = await getDocs(q);

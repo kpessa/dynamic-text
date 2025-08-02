@@ -286,7 +286,7 @@ TARGET SECTION FOR TESTING: Section ${targetSectionId}
   if (isTPN && Object.keys(variableMetadata).length > 0) {
     const patientTypeDescriptions = {
       'neonatal': 'Neonatal (newborn infants, typically 0.5-4 kg)',
-      'child': 'Pediatric (children 1-12 years)',
+      'child': 'Child (children 1-12 years)',
       'adolescent': 'Adolescent (13-18 years)',
       'adult': 'Adult (18+ years)'
     };

@@ -699,7 +699,7 @@ export function getKeyUnit(key) {
 }
 
 /**
- * Extract keys from dynamic text code
+ * Extract keys from dynamic text code (with dependencies)
  */
 export function extractKeysFromCode(code) {
   const keys = new Set();
@@ -777,6 +777,43 @@ export function extractKeysFromCode(code) {
   
   // Process all initially found keys
   allKeys.forEach(key => addDependencies(key));
+  
+  // Convert all keys to canonical form
+  const canonicalKeys = Array.from(keys).map(key => getCanonicalKey(key));
+  
+  return [...new Set(canonicalKeys)]; // Remove duplicates
+}
+
+/**
+ * Extract only directly referenced keys from dynamic text code (no dependencies)
+ */
+export function extractDirectKeysFromCode(code) {
+  const keys = new Set();
+  
+  // Match me.getValue('key') or me.getValue("key")
+  const getValueRegex = /me\.getValue\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+  let match;
+  while ((match = getValueRegex.exec(code)) !== null) {
+    keys.add(match[1]);
+  }
+  
+  // Match me.getObject('key') or me.getObject("key") - including chained methods
+  const getObjectRegex = /me\.getObject\s*\(\s*['"]([^'"]+)['"]\s*\)(?:\.[a-zA-Z_$][a-zA-Z0-9_$]*\(\))?/g;
+  while ((match = getObjectRegex.exec(code)) !== null) {
+    keys.add(match[1]);
+  }
+  
+  // Match direct template literal usage like ${TotalVolume} or ${BSA}
+  const templateRegex = /\$\{([A-Za-z_$][A-Za-z0-9_$]*)\}/g;
+  while ((match = templateRegex.exec(code)) !== null) {
+    keys.add(match[1]);
+  }
+  
+  // Match rate calculations in templates: NLrate, Lrate, TPNrate
+  const rateRegex = /\b(NLrate|Lrate|TPNrate)\b/g;
+  while ((match = rateRegex.exec(code)) !== null) {
+    keys.add(match[1]);
+  }
   
   // Convert all keys to canonical form
   const canonicalKeys = Array.from(keys).map(key => getCanonicalKey(key));

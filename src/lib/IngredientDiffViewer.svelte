@@ -27,7 +27,7 @@
       bgColor: '#ffe0e0'
     },
     [POPULATION_TYPES.PEDIATRIC]: {
-      name: 'Pediatric', 
+      name: 'Child', 
       color: '#4ecdc4',
       bgColor: '#e0f7f5'
     },
