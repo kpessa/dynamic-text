@@ -29,16 +29,53 @@ export const POPULATION_TYPES = {
 };
 
 // Helper functions for ID normalization
+// Validate if a string is a valid Firestore document ID
+function isValidFirestoreId(id) {
+  if (!id || typeof id !== 'string') return false;
+  
+  // Firebase document ID restrictions:
+  // - Must be 1-1500 characters
+  // - Cannot contain forward slashes
+  // - Cannot be . or ..
+  // - Cannot match __.*__
+  return id.length > 0 && 
+         id.length <= 1500 && 
+         !id.includes('/') &&
+         id !== '.' &&
+         id !== '..' &&
+         !/^__.*__$/.test(id);
+}
+
 export function normalizeIngredientId(name) {
   if (!name) {
     console.warn('normalizeIngredientId called with empty name');
     return '';
   }
+  
+  // Log for debugging parentheses issues
+  if (name.includes('(') || name.includes(')')) {
+    console.log(`Normalizing ingredient with parentheses: "${name}"`);
+  }
+  
   const normalized = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
     .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
     .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+  
+  // Validate the normalized ID
+  if (!isValidFirestoreId(normalized)) {
+    console.error(`Invalid Firebase ID generated: "${normalized}" from name: "${name}"`);
+    // Fallback: ensure it's valid by truncating if needed
+    if (normalized.length > 1500) {
+      return normalized.substring(0, 1500).replace(/-+$/g, '');
+    }
+  }
+  
+  // Log the result for debugging
+  if (name.includes('(') || name.includes(')')) {
+    console.log(`Normalized to: "${normalized}"`);
+  }
   
   return normalized;
 }

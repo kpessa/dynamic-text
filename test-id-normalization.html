@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test ID Normalization</title>
+</head>
+<body>
+    <h1>Testing ID Normalization Functions</h1>
+    <div id="results"></div>
+
+    <script type="module">
+        // Recreate the normalization functions for testing
+        function normalizeIngredientId(name) {
+            if (!name) return '';
+            return name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .replace(/-+/g, '-');
+        }
+
+        function normalizeConfigId(healthSystem, domain, subdomain, version) {
+            const parts = [healthSystem, domain, subdomain, version]
+                .filter(Boolean)
+                .map(part => part.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+            return parts.join('-');
+        }
+
+        // Test cases
+        const ingredientTests = [
+            { input: 'Heparin', expected: 'heparin' },
+            { input: 'Sodium Chloride', expected: 'sodium-chloride' },
+            { input: 'Dextrose 50%', expected: 'dextrose-50' },
+            { input: 'L-Cysteine HCl', expected: 'l-cysteine-hcl' },
+            { input: '  Calcium  Gluconate  ', expected: 'calcium-gluconate' },
+            { input: 'Vit-A/D/E/K', expected: 'vit-a-d-e-k' },
+            { input: '10% Lipids', expected: '10-lipids' },
+            // Test cases with parentheses
+            { input: 'Amino Acids (Trophamine)', expected: 'amino-acids-trophamine' },
+            { input: 'Calcium (Chloride)', expected: 'calcium-chloride' },
+            { input: 'Dextrose (50%)', expected: 'dextrose-50' },
+            { input: 'Trace Elements (NEOtrace)', expected: 'trace-elements-neotrace' },
+            { input: 'Sodium Phosphate (mMol)', expected: 'sodium-phosphate-mmol' },
+            { input: 'Magnesium Sulfate (mEq)', expected: 'magnesium-sulfate-meq' },
+            { input: 'TPN Amino Acids 10% (Trophamine)', expected: 'tpn-amino-acids-10-trophamine' },
+            { input: 'Calcium (Chloride) (10%)', expected: 'calcium-chloride-10' },
+            { input: 'Multiple (Parentheses) (Test)', expected: 'multiple-parentheses-test' }
+        ];
+
+        const configTests = [
+            { 
+                input: ['UHS', 'West', 'CERT', 'neonatal'], 
+                expected: 'uhs-west-cert-neonatal' 
+            },
+            { 
+                input: ['Kaiser', 'Northern California', 'Main', 'adult'], 
+                expected: 'kaiser-northern-california-main-adult' 
+            },
+            { 
+                input: ['CHI', 'main', '', 'pediatric'], 
+                expected: 'chi-main-pediatric' 
+            },
+            {
+                input: ['CHOC', 'main', 'ICU', 'neonatal'],
+                expected: 'choc-main-icu-neonatal'
+            },
+            {
+                input: ['CHOC', 'Main', 'PICU', 'Pediatric'],
+                expected: 'choc-main-picu-pediatric'
+            }
+        ];
+
+        const results = document.getElementById('results');
+
+        results.innerHTML += '<h2>Ingredient ID Tests:</h2>';
+        ingredientTests.forEach(test => {
+            const result = normalizeIngredientId(test.input);
+            const passed = result === test.expected;
+            results.innerHTML += `
+                <div style="color: ${passed ? 'green' : 'red'}">
+                    ${passed ? '✓' : '✗'} "${test.input}" → "${result}" 
+                    ${!passed ? `(expected: "${test.expected}")` : ''}
+                </div>
+            `;
+        });
+
+        results.innerHTML += '<h2>Config ID Tests:</h2>';
+        configTests.forEach(test => {
+            const result = normalizeConfigId(...test.input);
+            const passed = result === test.expected;
+            results.innerHTML += `
+                <div style="color: ${passed ? 'green' : 'red'}">
+                    ${passed ? '✓' : '✗'} [${test.input.join(', ')}] → "${result}" 
+                    ${!passed ? `(expected: "${test.expected}")` : ''}
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>

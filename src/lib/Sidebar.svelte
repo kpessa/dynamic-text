@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { isFirebaseConfigured } from './firebase.js';
-  import { configService } from './firebaseDataService.js';
+  import { configService, normalizeConfigId } from './firebaseDataService.js';
   
   let { 
     onLoadReference = () => {}, 
@@ -931,7 +931,12 @@
     
     // Save the config to Firebase first if configured
     if (importData.parsedConfig) {
-      const configId = `${importData.healthSystem}-${importData.domain}-${importData.subdomain}-${importData.version}`.toLowerCase();
+      const configId = normalizeConfigId(
+        importData.healthSystem,
+        importData.domain,
+        importData.subdomain,
+        importData.version
+      );
       
       // Save to Firebase if configured
       if (isFirebaseConfigured()) {
