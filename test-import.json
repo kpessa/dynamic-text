@@ -1,0 +1,46 @@
+{
+  "INGREDIENT": [
+    {
+      "keyname": "ACETATE",
+      "displayname": "Acetate mmol",
+      "display": "Acetate",
+      "unitofmeasure": "mmol",
+      "keyid": 125,
+      "notes": [
+        {
+          "notetype": "rounding",
+          "notetext": "0"
+        },
+        {
+          "notetype": "NOTE",
+          "notetext": "<h3>Test Static Section</h3><p>This is a static HTML section for testing.</p>"
+        },
+        {
+          "notetype": "NOTE",
+          "notetext": "[f(var total = me.getValue('acetateTotal'); var display = total > 0 ? 'Acetate is present: ' + total + ' mmol' : 'No acetate'; return display;)]"
+        }
+      ]
+    },
+    {
+      "keyname": "CALCIUM",
+      "displayname": "Calcium mg",
+      "display": "Calcium",
+      "unitofmeasure": "mg",
+      "keyid": 126,
+      "notes": [
+        {
+          "notetype": "rounding",
+          "notetext": "1"
+        },
+        {
+          "notetype": "NOTE",
+          "notetext": "<p>Calcium information:</p>"
+        },
+        {
+          "notetype": "NOTE",
+          "notetext": "[f(var calcium = me.getValue('calciumAmount'); return '<strong>Calcium: ' + me.maxP(calcium, 1) + ' mg</strong>';)]"
+        }
+      ]
+    }
+  ]
+}

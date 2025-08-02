@@ -1,0 +1,58 @@
+{
+  "INGREDIENT": [
+    {
+      "keyname": "EMPTY_INGREDIENT",
+      "displayname": "Empty Ingredient",
+      "display": "Empty",
+      "unitofmeasure": "mg",
+      "keyid": 100,
+      "notes": []
+    },
+    {
+      "keyname": "WHITESPACE_ONLY",
+      "displayname": "Whitespace Only",
+      "display": "Whitespace",
+      "unitofmeasure": "mg",
+      "keyid": 101,
+      "notes": [
+        {
+          "notetype": "NOTE",
+          "notetext": "   "
+        },
+        {
+          "notetype": "NOTE",
+          "notetext": "\n\t"
+        }
+      ]
+    },
+    {
+      "keyname": "VALID_INGREDIENT",
+      "displayname": "Valid Ingredient",
+      "display": "Valid",
+      "unitofmeasure": "mg",
+      "keyid": 102,
+      "notes": [
+        {
+          "notetype": "NOTE",
+          "notetext": "<p>This ingredient has content</p>"
+        },
+        {
+          "notetype": "NOTE",
+          "notetext": "[f(return 'Dynamic content: ' + me.getValue('amount');)]"
+        }
+      ]
+    },
+    {
+      "keyname": "NO_TEXT_FIELD",
+      "displayname": "No Text Field",
+      "display": "NoText",
+      "unitofmeasure": "mg",
+      "keyid": 103,
+      "notes": [
+        {
+          "notetype": "NOTE"
+        }
+      ]
+    }
+  ]
+}
