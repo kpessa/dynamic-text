@@ -9,6 +9,7 @@
   import TestGeneratorButton from './lib/TestGeneratorButton.svelte';
   import TestGeneratorModal from './lib/TestGeneratorModal.svelte';
   import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
+  import Navbar from './lib/Navbar.svelte';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, isValidKey, getKeyCategory } from './lib/tpnLegacy.js';
   
   let showSidebar = $state(true);
@@ -131,6 +132,7 @@ return '<h3>BMI Calculator</h3>' +
   let copied = $state(false);
   let showOutput = $state(false);
   let outputMode = $state('json'); // 'json' or 'configurator'
+  let previewMode = $state('preview'); // 'preview' or 'output'
   let draggedSection = $state(null);
   let activeTestCase = $state({}); // Track active test case per section
   let expandedTestCases = $state({}); // Track which sections have expanded test cases
@@ -469,6 +471,45 @@ return '<h3>BMI Calculator</h3>' +
     checkForChanges();
   }
   
+  function handleConvertToDynamic(sectionId, content) {
+    // Find the position of "[f(" in the content
+    const bracketIndex = content.indexOf('[f(');
+    
+    if (bracketIndex === -1) return; // Safety check
+    
+    // Extract HTML before "[f(" and the beginning of the dynamic expression
+    const htmlBefore = content.substring(0, bracketIndex).trim();
+    const dynamicStart = content.substring(bracketIndex + 3); // Skip "[f("
+    
+    // Convert the section to dynamic type
+    sections = sections.map(section => {
+      if (section.id === sectionId && section.type === 'static') {
+        // Create the dynamic content
+        let dynamicContent = '';
+        
+        if (htmlBefore) {
+          // If there was HTML before [f(, include it as a return statement
+          dynamicContent = `// Converted from static HTML\nlet html = \`${htmlBefore}\`;\n\n// Your dynamic expression here\n${dynamicStart ? dynamicStart : '// Start typing your JavaScript expression...'}`;
+        } else {
+          // No HTML before, just start with the dynamic expression
+          dynamicContent = `// Your dynamic expression here\n${dynamicStart ? dynamicStart : '// Start typing your JavaScript expression...'}`;
+        }
+        
+        return {
+          ...section,
+          type: 'dynamic',
+          content: dynamicContent,
+          testCases: [
+            { name: 'Default', variables: {} }
+          ]
+        };
+      }
+      return section;
+    });
+    
+    checkForChanges();
+  }
+  
   // Check if content has changed from original
   function checkForChanges() {
     if (originalSections) {
@@ -715,68 +756,32 @@ return '<h3>BMI Calculator</h3>' +
   {/if}
   
   <main>
-    <div class="header-row">
-      <button 
-        class="sidebar-toggle"
-        onclick={() => showSidebar = !showSidebar}
-        title="{showSidebar ? 'Hide' : 'Show'} Sidebar"
-      >
-        {showSidebar ? '◀' : '▶'}
-      </button>
-      <h1>Dynamic Text Editor</h1>
-      <button 
-        class="new-button"
-        onclick={() => {
-          if (hasUnsavedChanges && !confirm('You have unsaved changes. Start new anyway?')) {
-            return;
-          }
-          clearEditor();
-        }}
-        title="Start new document"
-      >
-        ➕ New
-      </button>
-      <label class="tpn-toggle">
-        <input 
-          type="checkbox" 
-          bind:checked={tpnMode}
-          onchange={() => {
-            if (tpnMode && !showKeyReference) {
-              showKeyReference = true;
-            }
-          }}
-        />
-        <span>TPN Mode</span>
-      </label>
-    </div>
-    
-    <div class="status-bar">
-      <div class="status-item">
-        <span class="status-icon">📄</span>
-        <span class="status-text">
-          {currentReferenceName || 'Untitled'}
-        </span>
-      </div>
-      
-      <div class="status-item">
-        <span class="status-icon">🧪</span>
-        <span class="status-text">
-          {currentIngredient || 'No ingredient set'}
-        </span>
-      </div>
-      
-      <div class="status-item">
-        <span class="status-icon">{hasUnsavedChanges ? '🔴' : '🟢'}</span>
-        <span class="status-text">
-          {hasUnsavedChanges ? 'Unsaved changes' : 'All changes saved'}
-        </span>
-        {#if lastSavedTime && !hasUnsavedChanges}
-          <span class="status-time">
-            ({new Date(lastSavedTime).toLocaleTimeString()})
-          </span>
-        {/if}
-      </div>
-    </div>
+    <Navbar
+      bind:showSidebar
+      bind:tpnMode
+      bind:showOutput
+      bind:outputMode
+      bind:showKeyReference
+      currentReferenceName={currentReferenceName}
+      currentIngredient={currentIngredient}
+      hasUnsavedChanges={hasUnsavedChanges}
+      lastSavedTime={lastSavedTime}
+      onNewDocument={() => {
+        if (hasUnsavedChanges && !confirm('You have unsaved changes. Start new anyway?')) {
+          return;
+        }
+        clearEditor();
+      }}
+      onExport={() => {
+        // Switch to output view first if not already there
+        if (previewMode !== 'output') {
+          previewMode = 'output';
+          showOutput = true;
+        }
+        copyToClipboard();
+      }}
+      copied={copied}
+    />
     
     <div class="editor-container {previewCollapsed ? 'preview-collapsed' : ''}">
     <div class="editor-panel">
@@ -851,6 +856,7 @@ return '<h3>BMI Calculator</h3>' +
                   value={section.content}
                   language={section.type === 'static' ? 'html' : 'javascript'}
                   onChange={(content) => updateSectionContent(section.id, content)}
+                  on:convertToDynamic={(e) => handleConvertToDynamic(section.id, e.detail.content)}
                 />
                 <button 
                   class="done-editing-btn"
@@ -999,18 +1005,52 @@ return '<h3>BMI Calculator</h3>' +
     <div class="preview-panel">
       <div class="panel-header preview-header">
         {#if !previewCollapsed}
-          <h2>Live Preview (HTML Rendered)</h2>
+          <div class="preview-header-content">
+            <div class="view-tabs">
+              <button 
+                class="view-tab {previewMode === 'preview' ? 'active' : ''}"
+                onclick={() => previewMode = 'preview'}
+              >
+                👁️ Preview
+              </button>
+              <button 
+                class="view-tab {previewMode === 'output' ? 'active' : ''}"
+                onclick={() => {
+                  previewMode = 'output';
+                  showOutput = true;
+                }}
+              >
+                📊 Output
+              </button>
+            </div>
+            {#if previewMode === 'output'}
+              <div class="output-format-selector">
+                <button 
+                  class="format-btn {outputMode === 'json' ? 'active' : ''}"
+                  onclick={() => outputMode = 'json'}
+                >
+                  JSON
+                </button>
+                <button 
+                  class="format-btn {outputMode === 'configurator' ? 'active' : ''}"
+                  onclick={() => outputMode = 'configurator'}
+                >
+                  Configurator
+                </button>
+              </div>
+            {/if}
+          </div>
         {/if}
         <button 
           class="preview-toggle"
           onclick={() => previewCollapsed = !previewCollapsed}
-          title="{previewCollapsed ? 'Show' : 'Hide'} Preview"
+          title="{previewCollapsed ? 'Show' : 'Hide'} Panel"
         >
           {previewCollapsed ? '◀' : '▶'}
         </button>
       </div>
       
-      {#if referencedIngredients.length > 0 && !tpnMode}
+      {#if referencedIngredients.length > 0 && !tpnMode && previewMode === 'preview'}
         <IngredientInputPanel 
           ingredients={referencedIngredients}
           values={currentIngredientValues}
@@ -1018,27 +1058,33 @@ return '<h3>BMI Calculator</h3>' +
         />
       {/if}
       
-      <div class="preview">
-        {@html previewHTML}
-      </div>
+      {#if previewMode === 'preview'}
+        <div class="preview">
+          {@html previewHTML}
+        </div>
+      {:else if previewMode === 'output'}
+        <div class="output-view">
+          {#if outputMode === 'json'}
+            <div class="json-output">
+              <pre>{JSON.stringify(jsonOutput, null, 2)}</pre>
+            </div>
+          {:else}
+            <div class="configurator">
+              {#each lineObjects as item (item.id)}
+                <div class="config-line {!item.editable ? 'non-editable' : ''}">
+                  <input 
+                    type="text" 
+                    value={item.text}
+                    readonly={true}
+                    class="line-input"
+                  />
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
       
-      <div class="output-controls">
-        <button 
-          class="output-toggle-btn"
-          onclick={() => showOutput = !showOutput}
-        >
-          {showOutput ? 'Hide' : 'Show'} Output
-        </button>
-        
-        {#if showOutput}
-          <button 
-            class="export-button {copied ? 'copied' : ''}"
-            onclick={copyToClipboard}
-          >
-            {copied ? '✓ Copied!' : 'Export to Clipboard'}
-          </button>
-        {/if}
-      </div>
     </div>
   </div>
   
@@ -1051,46 +1097,6 @@ return '<h3>BMI Calculator</h3>' +
     />
   {/if}
   
-  {#if showOutput}
-    <div class="output-panel">
-      <div class="output-header">
-        <h2>Output</h2>
-        <div class="view-toggle">
-          <button 
-            class="toggle-btn {outputMode === 'json' ? 'active' : ''}"
-            onclick={() => outputMode = 'json'}
-          >
-            JSON View
-          </button>
-          <button 
-            class="toggle-btn {outputMode === 'configurator' ? 'active' : ''}"
-            onclick={() => outputMode = 'configurator'}
-          >
-            Configurator View
-          </button>
-        </div>
-      </div>
-      
-      {#if outputMode === 'json'}
-        <div class="json-output">
-          <pre>{JSON.stringify(jsonOutput, null, 2)}</pre>
-        </div>
-      {:else}
-        <div class="configurator">
-          {#each lineObjects as item (item.id)}
-            <div class="config-line {!item.editable ? 'non-editable' : ''}">
-              <input 
-                type="text" 
-                value={item.text}
-                readonly={true}
-                class="line-input"
-              />
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  {/if}
   </main>
   
   <!-- Test Generator Modal -->
@@ -1137,6 +1143,7 @@ return '<h3>BMI Calculator</h3>' +
     flex-direction: column;
     overflow: hidden;
   }
+  
   
   .header-row {
     display: flex;
@@ -1674,11 +1681,78 @@ return '<h3>BMI Calculator</h3>' +
 
   /* Rest of styles remain the same... */
   .preview-panel {
-    padding: 1rem;
+    display: flex;
+    flex-direction: column;
   }
 
   .preview-panel h2 {
     margin-bottom: 0;
+  }
+  
+  .preview-header-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+  
+  .view-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background-color: #e9ecef;
+    padding: 0.25rem;
+    border-radius: 6px;
+  }
+  
+  .view-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    background-color: transparent;
+    color: #495057;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .view-tab:hover {
+    background-color: #dee2e6;
+    color: #333;
+  }
+  
+  .view-tab.active {
+    background-color: #646cff;
+    color: white;
+  }
+  
+  .output-format-selector {
+    display: flex;
+    gap: 0.25rem;
+    background-color: #fff;
+    padding: 0.25rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+  }
+  
+  .format-btn {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    background-color: transparent;
+    color: #495057;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .format-btn:hover {
+    background-color: #f8f9fa;
+    color: #333;
+  }
+  
+  .format-btn.active {
+    background-color: #646cff;
+    color: white;
   }
   
   .preview-header {
@@ -1707,6 +1781,7 @@ return '<h3>BMI Calculator</h3>' +
   }
   
   .editor-container.preview-collapsed .preview,
+  .editor-container.preview-collapsed .output-view,
   .editor-container.preview-collapsed .ingredient-input-panel {
     display: none;
   }
@@ -1756,16 +1831,11 @@ return '<h3>BMI Calculator</h3>' +
     background-color: #5a6268;
   }
 
-  .output-panel {
-    margin-top: 1rem;
+  .output-view {
+    flex: 1;
+    overflow: auto;
     padding: 1rem;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    background-color: #f5f5f5;
-    max-height: 400px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    background-color: #f8f9fa;
   }
 
   .output-header {
@@ -1801,14 +1871,31 @@ return '<h3>BMI Calculator</h3>' +
     border-color: #646cff;
   }
 
-  .json-output, .configurator {
+  .json-output {
+    flex: 1;
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    overflow: auto;
+  }
+  
+  .json-output pre {
+    margin: 0;
+    color: #212529;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
+  .configurator {
     flex: 1;
     padding: 1rem;
     background-color: #fff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 6px;
     overflow: auto;
-    color: #333;
+    border: 1px solid #dee2e6;
   }
 
   .config-line {
@@ -1820,14 +1907,14 @@ return '<h3>BMI Calculator</h3>' +
     padding: 0.5rem;
     font-family: 'Courier New', Courier, monospace;
     font-size: 14px;
-    background-color: #f5f5f5;
-    border: 1px solid #ddd;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
     border-radius: 4px;
-    color: #333;
+    color: #212529;
   }
 
   .config-line.non-editable .line-input {
-    background-color: #e8e8e8;
+    background-color: #e9ecef;
     opacity: 0.7;
   }
 

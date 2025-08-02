@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
   import { javascript } from '@codemirror/lang-javascript';
   import { html } from '@codemirror/lang-html';
@@ -9,6 +9,8 @@
   export let value = '';
   export let language = 'javascript';
   export let onChange = () => {};
+  
+  const dispatch = createEventDispatcher();
   
   let element;
   let view;
@@ -79,6 +81,11 @@
           const newValue = v.state.doc.toString();
           value = newValue;
           onChange(newValue);
+          
+          // Check if "[f(" was typed in HTML mode
+          if (language === 'html' && newValue.includes('[f(')) {
+            dispatch('convertToDynamic', { content: newValue });
+          }
         }
       })
     ];
