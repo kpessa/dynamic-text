@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Ingredient Click Fix</title>
+</head>
+<body>
+    <h1>Test Instructions for Ingredient Click Fix</h1>
+    
+    <h2>Steps to Test:</h2>
+    <ol>
+        <li>Open the application at http://localhost:5174/</li>
+        <li>Click on "Ingredient Manager" in the navbar</li>
+        <li>Find any ingredient that has references (shown with population badges)</li>
+        <li>Click on the ingredient card</li>
+    </ol>
+    
+    <h2>Expected Behavior:</h2>
+    <ul>
+        <li>The Ingredient Manager should close</li>
+        <li>You should be taken back to the Dynamic Text Editor</li>
+        <li>The reference content should be loaded in the editor</li>
+        <li>The editor area should briefly flash blue to indicate content was loaded</li>
+        <li>The preview panel should be visible on the right</li>
+        <li>The editor should scroll to the top</li>
+    </ul>
+    
+    <h2>Console Logs to Check:</h2>
+    <p>Open DevTools console and look for these logs when clicking an ingredient:</p>
+    <ul>
+        <li>"IngredientManager: selectIngredient called"</li>
+        <li>"IngredientManager: Loading references for" (if first time)</li>
+        <li>"IngredientManager: Auto-loading reference"</li>
+        <li>"IngredientManager: editReference called"</li>
+        <li>"App: handleEditReference called"</li>
+        <li>"App: Reference loaded successfully"</li>
+    </ul>
+    
+    <h2>If Issue Persists:</h2>
+    <p>Check the console for any error messages or unexpected behavior in the log sequence.</p>
+</body>
+</html>

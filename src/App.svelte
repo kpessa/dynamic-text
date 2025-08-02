@@ -66,6 +66,11 @@
   let currentPopulationType = $state(POPULATION_TYPES.ADULT);
   let firebaseEnabled = $state(isFirebaseConfigured());
   
+  // Population type switching
+  let showPopulationDropdown = $state(false);
+  let availablePopulations = $state([]);
+  let loadingPopulations = $state(false);
+  
   // Extract all referenced ingredients from sections
   let referencedIngredients = $derived.by(() => {
     const allKeys = new Set();
@@ -778,6 +783,62 @@
     return names[populationType] || populationType;
   }
   
+  // Handle population type pill click
+  async function handlePopulationClick() {
+    if (!loadedIngredient || loadingPopulations) return;
+    
+    loadingPopulations = true;
+    try {
+      // Import the reference service
+      const { referenceService } = await import('./lib/firebaseDataService.js');
+      
+      // Get all references for the current ingredient
+      const allReferences = await referenceService.getReferencesForIngredient(loadedIngredient.id);
+      
+      // Group by population type and filter by health system if applicable
+      const populationMap = new Map();
+      
+      allReferences.forEach(ref => {
+        // If we have a current health system, only show references from that system
+        if (!currentHealthSystem || ref.healthSystem === currentHealthSystem) {
+          if (!populationMap.has(ref.populationType)) {
+            populationMap.set(ref.populationType, []);
+          }
+          populationMap.get(ref.populationType).push(ref);
+        }
+      });
+      
+      // Convert to array format for display
+      availablePopulations = Array.from(populationMap.entries()).map(([popType, refs]) => ({
+        populationType: popType,
+        references: refs,
+        isActive: popType === currentPopulationType
+      }));
+      
+      // Sort by population type order
+      const order = [POPULATION_TYPES.NEONATAL, POPULATION_TYPES.PEDIATRIC, POPULATION_TYPES.ADOLESCENT, POPULATION_TYPES.ADULT];
+      availablePopulations.sort((a, b) => order.indexOf(a.populationType) - order.indexOf(b.populationType));
+      
+      showPopulationDropdown = true;
+    } catch (error) {
+      console.error('Error loading population types:', error);
+    } finally {
+      loadingPopulations = false;
+    }
+  }
+  
+  // Switch to a different population type
+  function switchToPopulation(populationType, reference) {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Are you sure you want to switch to a different population type?')) {
+        return;
+      }
+    }
+    
+    showPopulationDropdown = false;
+    handleEditReference(loadedIngredient, reference);
+  }
+  
 </script>
 
 <div class="app-container {showSidebar ? 'sidebar-open' : ''}">
@@ -845,12 +906,56 @@
             📦 {loadedIngredient.name}
           </button>
           <span class="context-separator">→</span>
-          <span 
-            class="population-pill"
+          <button 
+            class="population-pill clickable"
             style="background-color: {getPopulationColor(currentPopulationType)}"
+            onclick={handlePopulationClick}
+            disabled={loadingPopulations}
+            title="Click to switch population type"
           >
             {getPopulationName(currentPopulationType)}
-          </span>
+            <span class="dropdown-indicator">▼</span>
+          </button>
+          
+          {#if showPopulationDropdown}
+            <div class="population-dropdown-backdrop" onclick={() => showPopulationDropdown = false}></div>
+            <div class="population-dropdown">
+              <div class="dropdown-header">Switch Population Type</div>
+              {#if availablePopulations.length === 0}
+                <div class="dropdown-empty">No other population types available</div>
+              {:else}
+                {#each availablePopulations as popOption}
+                  <div class="population-option {popOption.isActive ? 'active' : ''}">
+                    <div 
+                      class="population-option-header"
+                      style="border-left-color: {getPopulationColor(popOption.populationType)}"
+                    >
+                      <span class="population-name">{getPopulationName(popOption.populationType)}</span>
+                      {#if popOption.isActive}
+                        <span class="active-badge">Current</span>
+                      {/if}
+                    </div>
+                    {#if popOption.references.length > 0}
+                      <div class="reference-list">
+                        {#each popOption.references as ref}
+                          <button 
+                            class="reference-option"
+                            onclick={() => switchToPopulation(popOption.populationType, ref)}
+                            disabled={popOption.isActive && ref.id === loadedReferenceId}
+                          >
+                            <span class="ref-health-system">🏥 {ref.healthSystem}</span>
+                            {#if ref.version}
+                              <span class="ref-version">v{ref.version}</span>
+                            {/if}
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          {/if}
           {#if currentHealthSystem}
             <span class="context-separator">→</span>
             <span class="health-system-pill">
@@ -1420,6 +1525,7 @@
     background-color: #e8f4fd;
     border-bottom: 1px solid #b3d9f2;
     flex-wrap: wrap;
+    position: relative;
   }
   
   .context-label {
@@ -1452,6 +1558,153 @@
     border-radius: 16px;
     font-size: 0.875rem;
     font-weight: 500;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    position: relative;
+  }
+  
+  .population-pill.clickable {
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .population-pill.clickable:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    filter: brightness(1.1);
+  }
+  
+  .population-pill:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  .dropdown-indicator {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-left: 0.25rem;
+  }
+  
+  .population-dropdown-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999;
+  }
+  
+  .population-dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 280px;
+    max-width: 400px;
+    z-index: 1000;
+    overflow: hidden;
+  }
+  
+  .dropdown-header {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    color: #495057;
+  }
+  
+  .dropdown-empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+  }
+  
+  .population-option {
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .population-option:last-child {
+    border-bottom: none;
+  }
+  
+  .population-option.active {
+    background-color: #f8f9fa;
+  }
+  
+  .population-option-header {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-left: 4px solid transparent;
+  }
+  
+  .population-name {
+    font-weight: 500;
+    color: #212529;
+  }
+  
+  .active-badge {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border-radius: 12px;
+  }
+  
+  .reference-list {
+    padding: 0.5rem;
+    background-color: #fafbfc;
+  }
+  
+  .reference-option {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+    background: white;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  
+  .reference-option:last-child {
+    margin-bottom: 0;
+  }
+  
+  .reference-option:hover:not(:disabled) {
+    border-color: #0366d6;
+    background-color: #f6f8fa;
+  }
+  
+  .reference-option:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f1f3f5;
+  }
+  
+  .ref-health-system {
+    font-size: 0.875rem;
+    color: #586069;
+  }
+  
+  .ref-version {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    background-color: #e1e4e8;
+    color: #586069;
+    border-radius: 10px;
   }
   
   .health-system-pill {

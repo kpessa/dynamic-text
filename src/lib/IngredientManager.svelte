@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { ingredientService, referenceService, POPULATION_TYPES, configService } from './firebaseDataService.js';
+  import { ingredientService, referenceService, POPULATION_TYPES, configService, organizationService } from './firebaseDataService.js';
   import { getKeyCategory } from './tpnLegacy.js';
   import { isFirebaseConfigured } from './firebase.js';
   
@@ -25,6 +25,7 @@
   let unsubscribe = null;
   let migrating = $state(false);
   let migrationResult = $state(null);
+  let preloadedHealthSystems = $state([]);
   
   // Cache for loaded references to avoid refetching
   const referenceCache = new Map();
@@ -74,11 +75,23 @@
     
     try {
       // Subscribe to real-time updates
-      unsubscribe = ingredientService.subscribeToIngredients((updatedIngredients) => {
+      unsubscribe = ingredientService.subscribeToIngredients(async (updatedIngredients) => {
         console.log(`Received ${updatedIngredients.length} ingredients from Firebase:`, updatedIngredients);
         ingredients = updatedIngredients;
         
-        // Don't load references immediately - lazy load on demand
+        // Pre-load references for first few ingredients to populate health systems
+        if (updatedIngredients.length > 0 && Object.keys(ingredientReferences).length === 0) {
+          console.log('Pre-loading references for first ingredients to discover health systems...');
+          const ingredientsToPreload = updatedIngredients.slice(0, 5); // Load first 5
+          for (const ingredient of ingredientsToPreload) {
+            try {
+              await loadReferencesForIngredient(ingredient.id);
+            } catch (err) {
+              console.warn(`Failed to pre-load references for ${ingredient.name}:`, err);
+            }
+          }
+        }
+        
         applyFilters();
         loading = false;
       });
@@ -266,9 +279,16 @@
     onEditReference(ingredient, reference);
   }
   
-  // Get all unique health systems from loaded references only
+  // Get all unique health systems from both pre-loaded and loaded references
   let healthSystems = $derived.by(() => {
     const systems = new Set(['ALL']);
+    
+    // Add pre-loaded health systems
+    preloadedHealthSystems.forEach(system => {
+      if (system) systems.add(system);
+    });
+    
+    // Add health systems from loaded references
     Object.values(ingredientReferences).forEach(refs => {
       Object.values(refs).forEach(popRefs => {
         popRefs.forEach(ref => {
@@ -278,7 +298,10 @@
         });
       });
     });
-    return Array.from(systems);
+    
+    // Convert to array and sort (keep ALL first)
+    const systemsArray = Array.from(systems);
+    return ['ALL', ...systemsArray.filter(s => s !== 'ALL').sort()];
   });
   
   // Reactive filtering
@@ -359,63 +382,6 @@
       migrating = false;
     }
   }
-  
-  // Fix population types for already migrated references
-  async function fixPopulationTypes() {
-    migrating = true;
-    error = null;
-    
-    try {
-      const result = await configService.fixMigratedPopulationTypes();
-      console.log('Fix completed:', result);
-      
-      // Show success message
-      migrationResult = {
-        ...migrationResult,
-        fixedReferences: result.updatedCount
-      };
-      
-      // Refresh the ingredients list
-      if (unsubscribe) {
-        // The subscription will automatically pick up the updated references
-      }
-    } catch (err) {
-      console.error('Fix failed:', err);
-      error = `Fix failed: ${err.message}`;
-    } finally {
-      migrating = false;
-    }
-  }
-  
-  // Fix empty sections in references
-  async function fixEmptySections() {
-    migrating = true;
-    error = null;
-    
-    try {
-      const result = await configService.fixEmptySections();
-      console.log('Fix empty sections completed:', result);
-      
-      // Show success message
-      migrationResult = {
-        ...migrationResult,
-        fixedSections: result.fixedCount,
-        totalChecked: result.totalChecked
-      };
-      
-      // Clear reference cache to force reload
-      referenceCache.clear();
-      ingredientReferences = {};
-      
-      // Trigger re-render
-      ingredientReferences = { ...ingredientReferences };
-    } catch (err) {
-      console.error('Fix empty sections failed:', err);
-      error = `Fix failed: ${err.message}`;
-    } finally {
-      migrating = false;
-    }
-  }
 </script>
 
 <div class="ingredient-manager">
@@ -477,13 +443,7 @@
     {#if migrationResult}
       <div class="migration-success">
         <span class="success-icon">✅</span>
-        {#if migrationResult.fixedSections !== undefined}
-          Fix complete! Fixed {migrationResult.fixedSections} references with empty sections out of {migrationResult.totalChecked} checked.
-        {:else if migrationResult.fixedReferences !== undefined}
-          Fix complete! Updated {migrationResult.fixedReferences} references with correct population types.
-        {:else}
-          Migration complete! Created {migrationResult.totalIngredients} ingredients and {migrationResult.totalReferences} references from {migrationResult.totalConfigs} configs.
-        {/if}
+        Migration complete! Created {migrationResult.totalIngredients} ingredients and {migrationResult.totalReferences} references from {migrationResult.totalConfigs} configs.
       </div>
     {/if}
     
@@ -497,28 +457,6 @@
         >
           {migrating ? 'Migrating...' : '🔄 Migrate Imported Configs'}
         </button>
-      </div>
-    {:else if ingredients.length > 0 && !migrating}
-      <div class="fix-population-prompt">
-        <button 
-          class="fix-btn"
-          onclick={fixPopulationTypes}
-          disabled={migrating}
-        >
-          {migrating ? 'Fixing...' : '🔧 Fix Population Types'}
-        </button>
-        <span class="fix-help">Fix references showing incorrect population types (e.g., adolescent showing as adult)</span>
-      </div>
-      
-      <div class="fix-population-prompt">
-        <button 
-          class="fix-btn"
-          onclick={fixEmptySections}
-          disabled={migrating}
-        >
-          {migrating ? 'Fixing...' : '📝 Fix Empty Sections'}
-        </button>
-        <span class="fix-help">Populate empty reference sections from imported clinical notes</span>
       </div>
     {/if}
     
@@ -560,22 +498,26 @@
                 <div class="card-populations">
                   {#if ingredientReferences[ingredient.id]}
                     {#each Object.entries(POPULATION_TYPES) as [key, value]}
-                      {#if ingredientReferences[ingredient.id]?.[value]?.length > 0}
+                      {@const popRefs = ingredientReferences[ingredient.id]?.[value] || []}
+                      {@const filteredRefs = selectedHealthSystem === 'ALL' 
+                        ? popRefs 
+                        : popRefs.filter(ref => ref.healthSystem === selectedHealthSystem)}
+                      {#if filteredRefs.length > 0}
                         <button 
                           class="population-item"
                           style="--pop-color: {populationTypeColors[value]}"
                           onclick={async (e) => {
                             e.stopPropagation();
                             await selectIngredient(ingredient, false);
-                            const refs = ingredientReferences[ingredient.id][value];
-                            if (refs && refs.length > 0) {
-                              editReference(ingredient, refs[0]);
+                            // Load the first reference that matches the health system filter
+                            if (filteredRefs.length > 0) {
+                              editReference(ingredient, filteredRefs[0]);
                             }
                           }}
                           title="Click to load {populationTypeNames[value]} reference"
                         >
                           <span class="pop-name">{populationTypeNames[value]}</span>
-                          <span class="pop-count">{ingredientReferences[ingredient.id][value].length}</span>
+                          <span class="pop-count">{filteredRefs.length}</span>
                         </button>
                       {/if}
                     {/each}
@@ -625,10 +567,14 @@
                     {:else if ingredientReferences[ingredient.id]}
                       <div class="references-compact">
                         {#each Object.entries(POPULATION_TYPES) as [key, value]}
-                          {#if ingredientReferences[ingredient.id]?.[value]?.length > 0}
+                          {@const popRefs = ingredientReferences[ingredient.id]?.[value] || []}
+                          {@const filteredRefs = selectedHealthSystem === 'ALL' 
+                            ? popRefs 
+                            : popRefs.filter(ref => ref.healthSystem === selectedHealthSystem)}
+                          {#if filteredRefs.length > 0}
                             <div class="pop-references">
                               <h5 style="color: {populationTypeColors[value]}">{populationTypeNames[value]}</h5>
-                              {#each ingredientReferences[ingredient.id][value] as reference}
+                              {#each filteredRefs as reference}
                                 <button 
                                   class="ref-chip"
                                   onclick={(e) => {
@@ -640,7 +586,7 @@
                                 </button>
                               {/each}
                             </div>
-                          {:else}
+                          {:else if popRefs.length === 0}
                             <div class="pop-references empty">
                               <h5 style="color: {populationTypeColors[value]}">{populationTypeNames[value]}</h5>
                               <button 
