@@ -20,6 +20,11 @@
     edgeCases: [],
     qaBreaking: []
   });
+  let selectedTestTypes = $state({
+    basicFunctionality: true,
+    edgeCases: true,
+    qaBreaking: true
+  });
   
   const tabs = [
     { id: 'extraction', label: 'Extraction', emoji: '🔍' },
@@ -139,7 +144,9 @@
         documentContext: extractedData.documentContext,
         allDocumentVariables: extractedData.allDocumentKeys,
         documentStats: extractedData.documentStats,
-        targetSectionId: extractedData.sectionId
+        targetSectionId: extractedData.sectionId,
+        // Add selected test types
+        testTypes: selectedTestTypes
       };
       
       aiRequest = {
@@ -511,11 +518,38 @@
               <pre class="code-block">{extractedData?.code || ''}</pre>
             </div>
             
+            <div class="test-type-selection">
+              <h3>Test Types to Generate</h3>
+              <div class="test-type-options">
+                <label class="test-type-option">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={selectedTestTypes.basicFunctionality}
+                  />
+                  <span>✅ Basic Functionality</span>
+                </label>
+                <label class="test-type-option">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={selectedTestTypes.edgeCases}
+                  />
+                  <span>⚡ Edge Cases</span>
+                </label>
+                <label class="test-type-option">
+                  <input 
+                    type="checkbox" 
+                    bind:checked={selectedTestTypes.qaBreaking}
+                  />
+                  <span>🔨 QA/Breaking Tests</span>
+                </label>
+              </div>
+            </div>
+            
             <div class="action-row">
               <button 
                 class="generate-btn"
                 onclick={generateTests}
-                disabled={!extractedData || isGenerating}
+                disabled={!extractedData || isGenerating || (!selectedTestTypes.basicFunctionality && !selectedTestTypes.edgeCases && !selectedTestTypes.qaBreaking)}
               >
                 {#if isGenerating}
                   <span class="spinner"></span>
@@ -594,7 +628,8 @@
             {#if parsedTests}
               <div class="test-categories">
                 {#each Object.entries(parsedTests) as [category, tests]}
-                  <div class="category-section">
+                  {#if selectedTestTypes[category]}
+                    <div class="category-section">
                     <div class="category-header">
                       <h4>
                         {#if category === 'basicFunctionality'}✅ Basic Functionality
@@ -642,6 +677,7 @@
                       {/each}
                     </div>
                   </div>
+                  {/if}
                 {/each}
               </div>
             {:else}
@@ -694,15 +730,15 @@
   }
   
   .inspector-content {
-    background-color: #1a1a1a;
+    background-color: #fff;
     border-radius: 12px;
     max-width: 1200px;
     width: 100%;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    color: #fff;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    color: #212529;
   }
   
   .inspector-header {
@@ -710,19 +746,19 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #dee2e6;
   }
   
   .inspector-header h2 {
     margin: 0;
-    color: #fff;
+    color: #212529;
   }
   
   .close-btn {
     background: none;
     border: none;
     font-size: 2rem;
-    color: #999;
+    color: #6c757d;
     cursor: pointer;
     padding: 0;
     width: 40px;
@@ -735,22 +771,23 @@
   }
   
   .close-btn:hover {
-    background-color: #333;
-    color: #fff;
+    background-color: #f8f9fa;
+    color: #212529;
   }
   
   .tabs {
     display: flex;
     padding: 0 1.5rem;
     gap: 0.5rem;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #f8f9fa;
   }
   
   .tab {
     padding: 0.75rem 1rem;
     background: none;
     border: none;
-    color: #999;
+    color: #6c757d;
     cursor: pointer;
     font-size: 0.9rem;
     border-bottom: 2px solid transparent;
@@ -761,7 +798,7 @@
   }
   
   .tab:hover:not(:disabled) {
-    color: #fff;
+    color: #212529;
   }
   
   .tab:disabled {
@@ -770,8 +807,9 @@
   }
   
   .tab.active {
-    color: #fff;
-    border-bottom-color: #667eea;
+    color: #212529;
+    border-bottom-color: #646cff;
+    font-weight: 500;
   }
   
   .tab-emoji {
@@ -792,7 +830,7 @@
   
   .section-info h3 {
     margin: 0 0 1rem 0;
-    color: #67cdcc;
+    color: #0066cc;
   }
   
   .info-grid {
@@ -806,12 +844,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem;
-    background-color: #2a2a2a;
+    background-color: #f8f9fa;
     border-radius: 6px;
+    border: 1px solid #e9ecef;
   }
   
   .info-item label {
-    color: #999;
+    color: #6c757d;
     font-size: 0.9rem;
   }
   
@@ -829,7 +868,7 @@
   
   .variables-section h3 {
     margin: 0 0 1rem 0;
-    color: #67cdcc;
+    color: #0066cc;
   }
   
   .variable-group {
@@ -838,7 +877,7 @@
   
   .variable-group h4 {
     margin: 0 0 0.5rem 0;
-    color: #999;
+    color: #6c757d;
     font-size: 0.9rem;
   }
   
@@ -879,7 +918,7 @@
     display: flex;
     justify-content: space-between;
     padding: 0.25rem 0;
-    color: #ccc;
+    color: #495057;
     font-size: 0.85rem;
   }
   
@@ -888,16 +927,16 @@
   }
   
   .category-count {
-    color: #666;
+    color: #6c757d;
   }
   
   .code-preview h3, .document-context h3 {
     margin: 0 0 1rem 0;
-    color: #67cdcc;
+    color: #0066cc;
   }
   
   .context-description {
-    color: #999;
+    color: #6c757d;
     font-size: 0.9rem;
     margin-bottom: 1rem;
     font-style: italic;
@@ -909,16 +948,16 @@
     gap: 0.75rem;
     max-height: 400px;
     overflow-y: auto;
-    border: 1px solid #333;
+    border: 1px solid #dee2e6;
     border-radius: 6px;
     padding: 1rem;
-    background-color: #0d1117;
+    background-color: #f8f9fa;
   }
   
   .context-section {
-    border: 1px solid #333;
+    border: 1px solid #dee2e6;
     border-radius: 4px;
-    background-color: #1a1a1a;
+    background-color: #fff;
     overflow: hidden;
   }
   
@@ -932,8 +971,8 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    background-color: #2a2a2a;
-    border-bottom: 1px solid #333;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
   }
   
   .section-type-badge {
@@ -963,7 +1002,7 @@
   }
   
   .content-length {
-    color: #666;
+    color: #6c757d;
     font-size: 0.75rem;
     margin-left: auto;
   }
@@ -973,13 +1012,13 @@
   }
   
   .context-code {
-    background-color: #0d1117;
-    border: 1px solid #333;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
     border-radius: 4px;
     padding: 0.5rem;
     font-family: 'Courier New', monospace;
     font-size: 0.8rem;
-    color: #e6edf3;
+    color: #212529;
     overflow-x: auto;
     white-space: pre;
     max-height: 150px;
@@ -993,7 +1032,7 @@
   }
   
   .context-test-cases strong {
-    color: #999;
+    color: #6c757d;
   }
   
   .context-test-case {
@@ -1002,16 +1041,16 @@
     align-items: center;
     padding: 0.25rem 0.5rem;
     margin: 0.25rem 0;
-    background-color: #2a2a2a;
+    background-color: #e9ecef;
     border-radius: 4px;
   }
   
   .test-name {
-    color: #ccc;
+    color: #495057;
   }
   
   .test-vars {
-    color: #666;
+    color: #6c757d;
     font-size: 0.8rem;
   }
   
@@ -1021,24 +1060,69 @@
   }
   
   .code-block, .json-block, .response-block {
-    background-color: #0d1117;
-    border: 1px solid #333;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
     border-radius: 6px;
     padding: 1rem;
     font-family: 'Courier New', monospace;
     font-size: 0.85rem;
-    color: #e6edf3;
+    color: #212529;
     overflow-x: auto;
     white-space: pre;
     max-height: 300px;
     overflow-y: auto;
   }
   
+  .test-type-selection {
+    margin-top: 1.5rem;
+    border-top: 1px solid #dee2e6;
+    padding-top: 1rem;
+  }
+  
+  .test-type-selection h3 {
+    margin: 0 0 1rem 0;
+    color: #0066cc;
+  }
+  
+  .test-type-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .test-type-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+    border: 1px solid #e9ecef;
+  }
+  
+  .test-type-option:hover {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+  }
+  
+  .test-type-option input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+  
+  .test-type-option span {
+    font-size: 0.95rem;
+    color: #212529;
+  }
+  
   .action-row {
     display: flex;
     justify-content: center;
     padding-top: 1rem;
-    border-top: 1px solid #333;
+    border-top: 1px solid #dee2e6;
   }
   
   .generate-btn {
@@ -1082,7 +1166,7 @@
   
   .placeholder {
     text-align: center;
-    color: #666;
+    color: #6c757d;
     padding: 2rem;
     font-style: italic;
   }
@@ -1134,12 +1218,12 @@
   
   .category-header h4 {
     margin: 0;
-    color: #fff;
+    color: #212529;
   }
   
   .select-all-btn {
     padding: 0.25rem 0.75rem;
-    background-color: #333;
+    background-color: #6c757d;
     color: #fff;
     border: none;
     border-radius: 4px;
@@ -1148,7 +1232,7 @@
   }
   
   .select-all-btn:hover {
-    background-color: #444;
+    background-color: #5a6268;
   }
   
   .test-list {
@@ -1161,15 +1245,15 @@
     display: flex;
     gap: 1rem;
     padding: 1rem;
-    background-color: #2a2a2a;
+    background-color: #f8f9fa;
     border-radius: 8px;
-    border: 2px solid transparent;
+    border: 2px solid #e9ecef;
     transition: all 0.2s;
   }
   
   .test-item.selected {
-    border-color: #667eea;
-    background-color: #2a2a3a;
+    border-color: #646cff;
+    background-color: #e7f3ff;
   }
   
   .test-checkbox {
@@ -1191,7 +1275,7 @@
   
   .test-header h5 {
     margin: 0;
-    color: #fff;
+    color: #212529;
     font-size: 1rem;
   }
   
@@ -1217,7 +1301,7 @@
   }
   
   .test-description {
-    color: #ccc;
+    color: #495057;
     margin: 0.5rem 0;
     font-size: 0.9rem;
   }
@@ -1228,19 +1312,20 @@
   }
   
   .test-variables strong {
-    color: #999;
+    color: #6c757d;
   }
   
   .test-variables code {
     display: block;
     margin-top: 0.25rem;
     padding: 0.5rem;
-    background-color: #1a1a1a;
+    background-color: #f8f9fa;
     border-radius: 4px;
-    color: #67cdcc;
+    color: #0066cc;
     font-family: 'Courier New', monospace;
     white-space: pre;
     overflow-x: auto;
+    border: 1px solid #e9ecef;
   }
   
   .expected-behavior {
@@ -1249,14 +1334,15 @@
   }
   
   .expected-behavior strong {
-    color: #999;
+    color: #6c757d;
   }
   
   .error-banner {
     padding: 1rem 1.5rem;
-    background-color: #dc3545;
-    color: white;
-    border-top: 1px solid #333;
+    background-color: #f8d7da;
+    color: #721c24;
+    border-top: 1px solid #f5c6cb;
+    border-left: 4px solid #dc3545;
   }
   
   .inspector-footer {
@@ -1264,11 +1350,12 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem;
-    border-top: 1px solid #333;
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
   }
   
   .selection-info {
-    color: #999;
+    color: #6c757d;
     font-size: 0.9rem;
   }
   
@@ -1287,12 +1374,12 @@
   }
   
   .cancel-btn {
-    background-color: #333;
+    background-color: #6c757d;
     color: #fff;
   }
   
   .cancel-btn:hover {
-    background-color: #444;
+    background-color: #5a6268;
   }
   
   .import-btn {

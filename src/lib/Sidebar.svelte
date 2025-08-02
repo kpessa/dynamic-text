@@ -1,5 +1,7 @@
 <script>
   import { onMount } from 'svelte';
+  import { isFirebaseConfigured } from './firebase.js';
+  import { configService } from './firebaseDataService.js';
   
   let { 
     onLoadReference = () => {}, 
@@ -835,7 +837,7 @@
     return sections;
   }
   
-  function handleImportJSON() {
+  async function handleImportJSON() {
     importData.parseError = '';
     importData.parsedIngredients = [];
     
@@ -856,16 +858,58 @@
     // Save the config if parsing was successful
     if (result.config) {
       const configId = `${importData.healthSystem}-${importData.domain}-${importData.subdomain}-${importData.version}`.toLowerCase();
-      tpnConfigs[configId] = {
-        ...result.config,
-        metadata: {
-          healthSystem: importData.healthSystem,
-          domain: importData.domain,
-          subdomain: importData.subdomain,
-          version: importData.version,
-          importedAt: Date.now()
+      
+      // Save to Firebase if configured
+      if (isFirebaseConfigured()) {
+        try {
+          const metadata = {
+            name: configId,
+            healthSystem: importData.healthSystem,
+            domain: importData.domain,
+            subdomain: importData.subdomain,
+            version: importData.version
+          };
+          
+          const firebaseConfigId = await configService.saveImportedConfig(result.config, metadata);
+          console.log('Config saved to Firebase with ID:', firebaseConfigId);
+          
+          // Store Firebase ID reference in local config
+          tpnConfigs[configId] = {
+            ...result.config,
+            metadata: {
+              ...metadata,
+              importedAt: Date.now(),
+              firebaseId: firebaseConfigId
+            }
+          };
+        } catch (error) {
+          console.error('Failed to save config to Firebase:', error);
+          // Still save to localStorage even if Firebase fails
+          tpnConfigs[configId] = {
+            ...result.config,
+            metadata: {
+              healthSystem: importData.healthSystem,
+              domain: importData.domain,
+              subdomain: importData.subdomain,
+              version: importData.version,
+              importedAt: Date.now()
+            }
+          };
         }
-      };
+      } else {
+        // Save to localStorage only if Firebase is not configured
+        tpnConfigs[configId] = {
+          ...result.config,
+          metadata: {
+            healthSystem: importData.healthSystem,
+            domain: importData.domain,
+            subdomain: importData.subdomain,
+            version: importData.version,
+            importedAt: Date.now()
+          }
+        };
+      }
+      
       tpnConfigs = { ...tpnConfigs };
       // Set as active config if no config is active
       if (!activeConfigId) {

@@ -10,7 +10,12 @@
   import TestGeneratorModal from './lib/TestGeneratorModal.svelte';
   import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
   import Navbar from './lib/Navbar.svelte';
+  import IngredientManager from './lib/IngredientManager.svelte';
+  import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
+  import DataMigrationTool from './lib/DataMigrationTool.svelte';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, isValidKey, getKeyCategory } from './lib/tpnLegacy.js';
+  import { isFirebaseConfigured } from './lib/firebase.js';
+  import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
   let showSidebar = $state(true);
   let sections = $state([
@@ -160,6 +165,14 @@ return '<h3>BMI Calculator</h3>' +
   // AI Workflow Inspector state
   let showAIWorkflowInspector = $state(false);
   let inspectorCurrentSection = $state(null);
+  
+  // Firebase and new component states
+  let showIngredientManager = $state(false);
+  let showDiffViewer = $state(false);
+  let showMigrationTool = $state(false);
+  let selectedIngredientForDiff = $state(null);
+  let currentPopulationType = $state(POPULATION_TYPES.ADULT);
+  let firebaseEnabled = $state(isFirebaseConfigured());
   
   // Extract all referenced ingredients from sections
   let referencedIngredients = $derived.by(() => {
@@ -744,6 +757,45 @@ return '<h3>BMI Calculator</h3>' +
     });
   });
   
+  // Handlers for new components
+  function handleIngredientSelection(ingredient) {
+    selectedIngredientForDiff = ingredient;
+    showDiffViewer = true;
+  }
+  
+  function handleCreateReference(ingredient, populationType) {
+    // Set up for creating a new reference
+    currentIngredient = ingredient.name;
+    currentPopulationType = populationType;
+    currentReferenceName = `${ingredient.name} - ${populationType}`;
+    sections = [];
+    addSection('static');
+    showIngredientManager = false;
+  }
+  
+  function handleEditReference(ingredient, reference) {
+    // Load the reference for editing
+    if (reference && reference.sections) {
+      sections = reference.sections;
+      currentIngredient = ingredient.name;
+      currentReferenceName = reference.name;
+      currentPopulationType = reference.populationType;
+      loadedReferenceId = reference.id;
+      hasUnsavedChanges = false;
+      lastSavedTime = reference.updatedAt;
+      originalSections = JSON.stringify(reference.sections);
+      showIngredientManager = false;
+    }
+  }
+  
+  function handleMigrationComplete(result) {
+    showMigrationTool = false;
+    // Optionally refresh the ingredient manager
+    if (showIngredientManager) {
+      // The manager will auto-refresh due to Firebase listeners
+    }
+  }
+  
 </script>
 
 <div class="app-container {showSidebar ? 'sidebar-open' : ''}">
@@ -766,6 +818,7 @@ return '<h3>BMI Calculator</h3>' +
       currentIngredient={currentIngredient}
       hasUnsavedChanges={hasUnsavedChanges}
       lastSavedTime={lastSavedTime}
+      firebaseEnabled={firebaseEnabled}
       onNewDocument={() => {
         if (hasUnsavedChanges && !confirm('You have unsaved changes. Start new anyway?')) {
           return;
@@ -780,6 +833,8 @@ return '<h3>BMI Calculator</h3>' +
         }
         copyToClipboard();
       }}
+      onOpenIngredientManager={() => showIngredientManager = true}
+      onOpenMigrationTool={() => showMigrationTool = true}
       copied={copied}
     />
     
@@ -1121,6 +1176,44 @@ return '<h3>BMI Calculator</h3>' +
       onKeySelect={handleKeyInsert}
     />
   {/if}
+  
+  <!-- Firebase components -->
+  {#if showIngredientManager}
+    <div class="modal-overlay" onclick={() => showIngredientManager = false}>
+      <div class="modal-content large-modal" onclick={(e) => e.stopPropagation()}>
+        <button 
+          class="modal-close"
+          onclick={() => showIngredientManager = false}
+        >
+          ×
+        </button>
+        <IngredientManager
+          bind:currentIngredient
+          onSelectIngredient={handleIngredientSelection}
+          onCreateReference={handleCreateReference}
+          onEditReference={handleEditReference}
+        />
+      </div>
+    </div>
+  {/if}
+  
+  <!-- Ingredient Diff Viewer -->
+  {#if showDiffViewer && selectedIngredientForDiff}
+    <IngredientDiffViewer
+      ingredient={selectedIngredientForDiff}
+      healthSystem={null}
+      onClose={() => {
+        showDiffViewer = false;
+        selectedIngredientForDiff = null;
+      }}
+    />
+  {/if}
+  
+  <!-- Data Migration Tool -->
+  <DataMigrationTool
+    bind:isOpen={showMigrationTool}
+    onMigrationComplete={handleMigrationComplete}
+  />
 </div>
 
 <style>
@@ -1942,6 +2035,61 @@ return '<h3>BMI Calculator</h3>' +
     .editor-container {
       grid-template-columns: 1fr;
     }
+  }
+  
+  /* Modal styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background-color: #fff;
+    border-radius: 12px;
+    max-width: 90%;
+    max-height: 90%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
+  
+  .modal-content.large-modal {
+    width: 1200px;
+    height: 800px;
+  }
+  
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background-color: #f8f9fa;
+    color: #333;
+    font-size: 1.5rem;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.2s;
+  }
+  
+  .modal-close:hover {
+    background-color: #e9ecef;
+    color: #000;
   }
 
   .tpn-toggle {
