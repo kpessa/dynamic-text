@@ -8,6 +8,7 @@
   import IngredientInputPanel from './lib/IngredientInputPanel.svelte';
   import TestGeneratorButton from './lib/TestGeneratorButton.svelte';
   import TestGeneratorModal from './lib/TestGeneratorModal.svelte';
+  import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, isValidKey, getKeyCategory } from './lib/tpnLegacy.js';
   
   let showSidebar = $state(true);
@@ -153,6 +154,10 @@ return '<h3>BMI Calculator</h3>' +
   let showTestGeneratorModal = $state(false);
   let currentGeneratedTests = $state(null);
   let targetSectionId = $state(null);
+  
+  // AI Workflow Inspector state
+  let showAIWorkflowInspector = $state(false);
+  let inspectorCurrentSection = $state(null);
   
   // Extract all referenced ingredients from sections
   let referencedIngredients = $derived.by(() => {
@@ -641,6 +646,20 @@ return '<h3>BMI Calculator</h3>' +
     showTestGeneratorModal = true;
   }
   
+  // Handle AI workflow inspector
+  function openAIWorkflowInspector(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (section && section.type === 'dynamic') {
+      inspectorCurrentSection = section;
+      showAIWorkflowInspector = true;
+    }
+  }
+  
+  function handleAITestsGenerated(sectionId, testsToImport) {
+    // Use the same import logic as the existing test generator
+    handleImportTests(sectionId, testsToImport);
+  }
+  
   function handleImportTests(sectionId, testsToImport) {
     sections = sections.map(section => {
       if (section.id === sectionId && section.testCases) {
@@ -879,8 +898,16 @@ return '<h3>BMI Calculator</h3>' +
                     </button>
                     <TestGeneratorButton 
                       section={section}
+                      tpnMode={tpnMode}
                       onTestsGenerated={(tests) => handleTestsGenerated(section.id, tests)}
                     />
+                    <button 
+                      class="ai-inspector-btn"
+                      onclick={() => openAIWorkflowInspector(section.id)}
+                      title="Open AI Workflow Inspector"
+                    >
+                      🔍 AI Inspector
+                    </button>
                   </div>
                 </div>
                 
@@ -1072,6 +1099,14 @@ return '<h3>BMI Calculator</h3>' +
     generatedTests={currentGeneratedTests}
     onImportTests={handleImportTests}
     sectionId={targetSectionId}
+  />
+  
+  <!-- AI Workflow Inspector -->
+  <AIWorkflowInspector
+    bind:isOpen={showAIWorkflowInspector}
+    currentSection={inspectorCurrentSection}
+    allSections={sections}
+    onTestsGenerated={handleAITestsGenerated}
   />
   
   {#if tpnMode}
@@ -1494,6 +1529,26 @@ return '<h3>BMI Calculator</h3>' +
 
   .add-test-btn:hover {
     background-color: #5a6268;
+  }
+  
+  .ai-inspector-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+  }
+  
+  .ai-inspector-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
   }
 
   .test-case-list {

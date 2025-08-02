@@ -9,9 +9,18 @@ Dynamic Text Editor - A specialized web application for creating and testing dyn
 ## Commands
 
 ### Development
-- `pnpm dev` - Start development server with hot module replacement (HMR)
+- `pnpm dev` - Start Vercel development server with both frontend and AI API functions (**Recommended**)
+- `pnpm run dev:frontend` - Start Vite development server (frontend only, AI features disabled)
 - `pnpm build` - Build for production
 - `pnpm preview` - Preview production build locally
+
+### AI Test Generation API
+This project includes Vercel serverless functions for AI-powered test generation:
+- **Local Development**: Use `pnpm dev` (default) to enable API functions during development
+- **Production API**: Available at `https://dynamic-text-beta.vercel.app/api/generate-tests`
+- **Dependencies**: Requires Google Gemini API key set in environment variables (`GEMINI_API_KEY`)
+- **Configuration**: API settings in `api/generate-tests.js` and `vercel.json`
+- **Error Handling**: Frontend components provide helpful messages when API is unavailable
 
 ### Package Management
 This project uses pnpm. If pnpm is not available, npm can be used as a fallback.
