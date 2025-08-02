@@ -306,8 +306,23 @@
 </script>
 
 {#if isOpen}
-  <div class="inspector-overlay" onclick={() => isOpen = false}>
-    <div class="inspector-content" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="inspector-overlay" 
+    onclick={() => isOpen = false}
+    onkeydown={(e) => e.key === 'Escape' && (isOpen = false)}
+    role="button"
+    tabindex="-1"
+    aria-label="Close inspector overlay"
+  >
+    <div 
+      class="inspector-content" 
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="AI Workflow Inspector"
+      tabindex="-1"
+    >
       <div class="inspector-header">
         <h2>🤖 AI Workflow Inspector</h2>
         <button class="close-btn" onclick={() => isOpen = false}>×</button>
@@ -335,27 +350,27 @@
               <h3>Document Overview</h3>
               <div class="info-grid">
                 <div class="info-item">
-                  <label>Target Section:</label>
+                  <span>Target Section:</span>
                   <span>Section {extractedData?.sectionId || 'N/A'}</span>
                 </div>
                 <div class="info-item">
-                  <label>Total Sections:</label>
+                  <span>Total Sections:</span>
                   <span>{extractedData?.documentStats.totalSections || 0}</span>
                 </div>
                 <div class="info-item">
-                  <label>Static / Dynamic:</label>
+                  <span>Static / Dynamic:</span>
                   <span>{extractedData?.documentStats.staticSections || 0} / {extractedData?.documentStats.dynamicSections || 0}</span>
                 </div>
                 <div class="info-item">
-                  <label>Total Test Cases:</label>
+                  <span>Total Test Cases:</span>
                   <span>{extractedData?.documentStats.totalTestCases || 0}</span>
                 </div>
                 <div class="info-item">
-                  <label>Document Variables:</label>
+                  <span>Document Variables:</span>
                   <span>{extractedData?.documentStats.totalVariables || 0}</span>
                 </div>
                 <div class="info-item">
-                  <label>Context Size:</label>
+                  <span>Context Size:</span>
                   <span>{extractedData?.documentContext?.reduce((sum, s) => sum + s.content.length, 0) || 0} chars</span>
                 </div>
               </div>
@@ -365,33 +380,33 @@
               <h3>Target Section Details</h3>
               <div class="info-grid">
                 <div class="info-item">
-                  <label>Lines of Code:</label>
+                  <span>Lines of Code:</span>
                   <span>{extractedData?.codeStats.lines || 0}</span>
                 </div>
                 <div class="info-item">
-                  <label>Characters:</label>
+                  <span>Characters:</span>
                   <span>{extractedData?.codeStats.characters || 0}</span>
                 </div>
                 <div class="info-item">
-                  <label>Has Return:</label>
+                  <span>Has Return:</span>
                   <span class="boolean {extractedData?.codeStats.hasReturn ? 'true' : 'false'}">
                     {extractedData?.codeStats.hasReturn ? '✓' : '✗'}
                   </span>
                 </div>
                 <div class="info-item">
-                  <label>Uses me.getValue:</label>
+                  <span>Uses me.getValue:</span>
                   <span class="boolean {extractedData?.codeStats.hasGetValue ? 'true' : 'false'}">
                     {extractedData?.codeStats.hasGetValue ? '✓' : '✗'}
                   </span>
                 </div>
                 <div class="info-item">
-                  <label>Generates HTML:</label>
+                  <span>Generates HTML:</span>
                   <span class="boolean {extractedData?.codeStats.hasHtml ? 'true' : 'false'}">
                     {extractedData?.codeStats.hasHtml ? '✓' : '✗'}
                   </span>
                 </div>
                 <div class="info-item">
-                  <label>Section Variables:</label>
+                  <span>Section Variables:</span>
                   <span>{extractedData?.allVariables.length || 0}</span>
                 </div>
               </div>
@@ -567,15 +582,15 @@
             {#if aiRequest}
               <div class="request-info">
                 <div class="info-item">
-                  <label>Endpoint:</label>
+                  <span>Endpoint:</span>
                   <code>{aiRequest.endpoint}</code>
                 </div>
                 <div class="info-item">
-                  <label>Method:</label>
+                  <span>Method:</span>
                   <code>{aiRequest.method}</code>
                 </div>
                 <div class="info-item">
-                  <label>Timestamp:</label>
+                  <span>Timestamp:</span>
                   <code>{new Date(aiRequest.timestamp).toLocaleString()}</code>
                 </div>
               </div>
@@ -593,13 +608,13 @@
             {#if aiResponse}
               <div class="response-info">
                 <div class="info-item">
-                  <label>Status:</label>
+                  <span>Status:</span>
                   <span class="status-code {aiResponse.status >= 200 && aiResponse.status < 300 ? 'success' : 'error'}">
                     {aiResponse.status} {aiResponse.statusText}
                   </span>
                 </div>
                 <div class="info-item">
-                  <label>Timestamp:</label>
+                  <span>Timestamp:</span>
                   <code>{new Date(aiResponse.timestamp).toLocaleString()}</code>
                 </div>
               </div>
@@ -849,7 +864,7 @@
     border: 1px solid #e9ecef;
   }
   
-  .info-item label {
+  .info-item span:first-child {
     color: #6c757d;
     font-size: 0.9rem;
   }

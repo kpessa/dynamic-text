@@ -28,6 +28,161 @@ export const POPULATION_TYPES = {
   ADULT: 'adult'
 };
 
+// Helper functions for ID normalization
+export function normalizeIngredientId(name) {
+  if (!name) {
+    console.warn('normalizeIngredientId called with empty name');
+    return '';
+  }
+  const normalized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+    .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+  
+  return normalized;
+}
+
+export function normalizeConfigId(healthSystem, domain, subdomain, version) {
+  const parts = [healthSystem, domain, subdomain, version]
+    .filter(Boolean) // Remove empty values
+    .map(part => part.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+  return parts.join('-');
+}
+
+export function generateReferenceId(referenceData) {
+  // Generate a meaningful reference ID based on health system and population type
+  const parts = [
+    referenceData.healthSystem,
+    referenceData.domain,
+    referenceData.subdomain,
+    referenceData.populationType || referenceData.version
+  ].filter(Boolean).map(part => part.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+  
+  return parts.join('-');
+}
+
+// Helper function to map version names to population types
+export function versionToPopulationType(version) {
+  const mapping = {
+    'neonatal': POPULATION_TYPES.NEONATAL,
+    'child': POPULATION_TYPES.PEDIATRIC,
+    'pediatric': POPULATION_TYPES.PEDIATRIC,
+    'adolescent': POPULATION_TYPES.ADOLESCENT,
+    'adult': POPULATION_TYPES.ADULT
+  };
+  
+  return mapping[version?.toLowerCase()] || POPULATION_TYPES.ADULT;
+}
+
+// Convert clinical notes TEXT to sections format
+function convertNotesToSections(notes) {
+  if (!notes || !Array.isArray(notes)) {
+    return [];
+  }
+  
+  const sections = [];
+  let currentStaticContent = '';
+  let inDynamicBlock = false;
+  let dynamicContent = '';
+  let dynamicStarted = false;
+  
+  notes.forEach(note => {
+    if (!note.TEXT) return;
+    
+    const text = note.TEXT;
+    
+    // Check if this is the start of a dynamic block
+    if (text.includes('[f(')) {
+      // First, save any accumulated static content as a single section
+      if (currentStaticContent.trim() && !dynamicStarted) {
+        sections.push({ 
+          id: sections.length + 1,
+          type: 'static', 
+          content: currentStaticContent.trim() 
+        });
+        currentStaticContent = '';
+      }
+      
+      dynamicStarted = true;
+      inDynamicBlock = true;
+      dynamicContent = text;
+    } else if (inDynamicBlock) {
+      // Continue accumulating dynamic content until we find the end marker
+      dynamicContent += '\n' + text;
+      
+      // Check if this line contains the end of dynamic block
+      if (text.includes(')]')) {
+        // Process the complete dynamic block
+        let remainingText = dynamicContent;
+        
+        while (remainingText.includes('[f(')) {
+          const startIdx = remainingText.indexOf('[f(');
+          
+          // Add any text before [f( as static
+          if (startIdx > 0) {
+            const beforeText = remainingText.substring(0, startIdx);
+            if (beforeText.trim()) {
+              sections.push({ 
+                id: sections.length + 1,
+                type: 'static', 
+                content: beforeText.trim() 
+              });
+            }
+          }
+          
+          // Find the matching )]
+          let endIdx = remainingText.indexOf(')]', startIdx);
+          
+          if (endIdx !== -1) {
+            // Extract the dynamic code between [f( and )]
+            const dynamicText = remainingText.substring(startIdx + 3, endIdx);
+            sections.push({ 
+              id: sections.length + 1,
+              type: 'dynamic', 
+              content: dynamicText.trim(),
+              testCases: [{ name: 'Default', variables: {} }]
+            });
+            remainingText = remainingText.substring(endIdx + 2);
+          } else {
+            // Unmatched [f(, treat rest as static
+            if (remainingText.trim()) {
+              sections.push({ 
+                id: sections.length + 1,
+                type: 'static', 
+                content: remainingText.trim() 
+              });
+            }
+            break;
+          }
+        }
+        
+        // Add any remaining text as static
+        if (remainingText.trim()) {
+          currentStaticContent = remainingText;
+        }
+        
+        inDynamicBlock = false;
+        dynamicContent = '';
+      }
+    } else {
+      // Regular static text - accumulate it
+      currentStaticContent += (currentStaticContent ? '\n' : '') + text;
+    }
+  });
+  
+  // Don't forget any remaining static content
+  if (currentStaticContent.trim()) {
+    sections.push({ 
+      id: sections.length + 1,
+      type: 'static', 
+      content: currentStaticContent.trim() 
+    });
+  }
+  
+  return sections;
+}
+
 // Ingredient service
 export const ingredientService = {
   // Create or update an ingredient
@@ -35,12 +190,13 @@ export const ingredientService = {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
-      const ingredientRef = ingredientData.id 
-        ? doc(db, COLLECTIONS.INGREDIENTS, ingredientData.id)
-        : doc(collection(db, COLLECTIONS.INGREDIENTS));
+      // Use normalized ingredient name as ID
+      const ingredientId = ingredientData.id || normalizeIngredientId(ingredientData.name);
+      const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
       
       const data = {
         ...ingredientData,
+        id: ingredientId, // Ensure ID is stored in the document
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
       };
@@ -51,7 +207,7 @@ export const ingredientService = {
       }
       
       await setDoc(ingredientRef, data);
-      return ingredientRef.id;
+      return ingredientId;
     } catch (error) {
       console.error('Error saving ingredient:', error);
       throw error;
@@ -121,12 +277,13 @@ export const referenceService = {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
-      const referenceRef = referenceData.id
-        ? doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceData.id)
-        : doc(collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'));
+      // Generate meaningful reference ID if not provided
+      const referenceId = referenceData.id || generateReferenceId(referenceData);
+      const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId);
       
       const data = {
         ...referenceData,
+        id: referenceId,
         ingredientId,
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
@@ -145,7 +302,7 @@ export const referenceService = {
         referenceCount: increment(referenceData.id ? 0 : 1)
       });
       
-      return referenceRef.id;
+      return referenceId;
     } catch (error) {
       console.error('Error saving reference:', error);
       throw error;
@@ -265,10 +422,11 @@ export const migrationService = {
       // First pass: Create ingredients from all references
       Object.values(localStorageData.referenceTexts || {}).forEach(reference => {
         if (reference.ingredient && !ingredientMap.has(reference.ingredient)) {
-          const ingredientId = doc(collection(db, COLLECTIONS.INGREDIENTS)).id;
+          const ingredientId = normalizeIngredientId(reference.ingredient);
           ingredientMap.set(reference.ingredient, ingredientId);
           
           batch.set(doc(db, COLLECTIONS.INGREDIENTS, ingredientId), {
+            id: ingredientId,
             name: reference.ingredient,
             category: 'OTHER', // Default category, can be updated later
             description: '',
@@ -283,9 +441,15 @@ export const migrationService = {
       Object.values(localStorageData.referenceTexts || {}).forEach(reference => {
         if (reference.ingredient) {
           const ingredientId = ingredientMap.get(reference.ingredient);
-          const referenceId = doc(collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references')).id;
+          // Generate meaningful reference ID
+          const refId = generateReferenceId({
+            healthSystem: reference.healthSystem || 'unknown',
+            domain: reference.domain || 'main',
+            subdomain: reference.subdomain || '',
+            version: reference.version || 'adult'
+          });
           
-          batch.set(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId), {
+          batch.set(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', refId), {
             ...reference,
             ingredientId,
             populationType: POPULATION_TYPES.ADULT, // Default, can be updated
@@ -368,9 +532,18 @@ export const configService = {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
-      // Create the main config document
-      const configRef = await addDoc(collection(db, 'importedConfigs'), {
-        name: metadata.name || 'Unnamed Config',
+      // Generate meaningful config ID
+      const configId = normalizeConfigId(
+        metadata.healthSystem,
+        metadata.domain,
+        metadata.subdomain,
+        metadata.version
+      );
+      
+      // Create the main config document with custom ID
+      const configRef = doc(db, 'importedConfigs', configId);
+      await setDoc(configRef, {
+        name: metadata.name || configId,
         healthSystem: metadata.healthSystem,
         domain: metadata.domain,
         subdomain: metadata.subdomain,
@@ -388,49 +561,57 @@ export const configService = {
         
         // First, identify unique ingredients and their data
         configData.INGREDIENT.forEach((ingredientData) => {
-          const name = ingredientData.KEYNAME || ingredientData.Ingredient || ingredientData.name;
+          // Handle both uppercase and lowercase property names
+          const name = ingredientData.KEYNAME || ingredientData.keyname || 
+                      ingredientData.Ingredient || ingredientData.ingredient || 
+                      ingredientData.name;
+          
           if (name && !processedIngredients.has(name)) {
             processedIngredients.set(name, {
               name: name,
               category: getKeyCategory(name) || 'OTHER',
-              description: ingredientData.DISPLAY || ingredientData.Description || '',
-              unit: ingredientData.Unit || '',
-              type: ingredientData.TYPE || '',
-              configSources: [configRef.id]
+              description: ingredientData.DISPLAY || ingredientData.display || 
+                          ingredientData.Description || ingredientData.description || '',
+              unit: ingredientData.Unit || ingredientData.unit || '',
+              type: ingredientData.TYPE || ingredientData.type || '',
+              configSources: [configId]
             });
           }
         });
         
         console.log(`Processing ${processedIngredients.size} unique ingredients from config ${metadata.name}`);
+        console.log('DEBUG: Firebase project:', db.app.options.projectId);
         
         // Create or update ingredients in the main collection
         for (const [name, ingredientInfo] of processedIngredients) {
-          // Check if ingredient already exists
-          const ingredientQuery = query(
-            collection(db, COLLECTIONS.INGREDIENTS),
-            where('name', '==', name)
-          );
-          const existingIngredients = await getDocs(ingredientQuery);
+          // Use normalized name as ingredient ID
+          const ingredientId = normalizeIngredientId(name);
+          console.log(`DEBUG: Processing "${name}" -> normalized ID: "${ingredientId}"`);
           
-          let ingredientId;
-          if (existingIngredients.empty) {
+          const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
+          console.log(`DEBUG: Document reference path: ${ingredientRef.path}, ID: ${ingredientRef.id}`);
+          
+          // Check if ingredient already exists
+          const existingIngredient = await getDoc(ingredientRef);
+          
+          if (!existingIngredient.exists()) {
             // Create new ingredient
-            const newIngredientRef = doc(collection(db, COLLECTIONS.INGREDIENTS));
-            ingredientId = newIngredientRef.id;
-            batch.set(newIngredientRef, {
+            const ingredientData = {
               ...ingredientInfo,
+              id: ingredientId,
               createdAt: serverTimestamp(),
               createdBy: user.uid,
               updatedAt: serverTimestamp(),
               updatedBy: user.uid
-            });
-            console.log(`Creating new ingredient: ${name} (${ingredientInfo.category})`);
+            };
+            console.log(`DEBUG: Creating new ingredient with ID "${ingredientId}" at path "${ingredientRef.path}"`);
+            batch.set(ingredientRef, ingredientData);
           } else {
             // Update existing ingredient
-            ingredientId = existingIngredients.docs[0].id;
-            const existingData = existingIngredients.docs[0].data();
-            batch.update(doc(db, COLLECTIONS.INGREDIENTS, ingredientId), {
-              configSources: arrayUnion(configRef.id),
+            console.log(`DEBUG: Updating existing ingredient "${ingredientId}"`);
+            const existingData = existingIngredient.data();
+            batch.update(ingredientRef, {
+              configSources: arrayUnion(configId),
               updatedAt: serverTimestamp(),
               updatedBy: user.uid,
               // Update description if it was empty
@@ -438,17 +619,33 @@ export const configService = {
             });
           }
           
+          // Find the matching ingredient data to get its notes
+          const matchingIngredientData = configData.INGREDIENT.find(ing => {
+            const ingName = ing.KEYNAME || ing.keyname || 
+                           ing.Ingredient || ing.ingredient || 
+                           ing.name;
+            return ingName === name;
+          });
+          
+          // Convert notes to sections if available
+          let sections = [];
+          const notes = matchingIngredientData?.NOTE || matchingIngredientData?.notes;
+          if (notes) {
+            sections = convertNotesToSections(notes);
+          }
+          
           // Create a reference under the ingredient for this config
-          const referenceRef = doc(collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'));
+          // Use config ID as reference ID for uniqueness
+          const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', configId);
           batch.set(referenceRef, {
             name: metadata.name,
             healthSystem: metadata.healthSystem,
             domain: metadata.domain,
             subdomain: metadata.subdomain,
             version: metadata.version,
-            populationType: POPULATION_TYPES.ADULT, // Default, can be updated later
-            configId: configRef.id,
-            sections: [], // Will be populated from the imported data
+            populationType: versionToPopulationType(metadata.version),
+            configId: configId,
+            sections: sections, // Populated from the imported data
             createdAt: serverTimestamp(),
             createdBy: user.uid,
             updatedAt: serverTimestamp(),
@@ -458,26 +655,42 @@ export const configService = {
         
         // Also store in the importedConfigs subcollection for reference
         configData.INGREDIENT.forEach((ingredient, index) => {
-          const ingredientRef = doc(collection(db, 'importedConfigs', configRef.id, 'ingredients'));
+          const ingredientRef = doc(collection(db, 'importedConfigs', configId, 'ingredients'));
           batch.set(ingredientRef, {
             ...ingredient,
             index: index, // Preserve original order
-            configId: configRef.id
+            configId: configId
           });
         });
         
+        console.log('DEBUG: About to commit batch...');
         await batch.commit();
+        console.log('DEBUG: Batch committed successfully');
+        
+        // Verify what was actually written
+        console.log('DEBUG: Verifying ingredients after batch commit...');
+        const verifySnapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
+        const ingredientIds = verifySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+        console.log('DEBUG: Current ingredients in database:', ingredientIds);
+        
+        // Check specifically for some of the ingredients we just processed
+        console.log('DEBUG: Checking specific ingredients...');
+        const testIngredients = ['heparin', 'sodium', 'potassium', 'calcium'];
+        for (const testId of testIngredients) {
+          const testDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, testId));
+          console.log(`DEBUG: Ingredient "${testId}" exists: ${testDoc.exists()}, data:`, testDoc.exists() ? testDoc.data() : 'N/A');
+        }
       }
       
       // Log the import action
       await auditService.logAction('CONFIG_IMPORTED', {
-        configId: configRef.id,
+        configId: configId,
         name: metadata.name,
         healthSystem: metadata.healthSystem,
         ingredientCount: configData.INGREDIENT?.length || 0
       });
       
-      return configRef.id;
+      return configId;
     } catch (error) {
       console.error('Error saving imported config:', error);
       throw error;
@@ -568,6 +781,119 @@ export const configService = {
     }
   },
   
+  // Fix population types for already migrated references
+  async fixMigratedPopulationTypes() {
+    try {
+      const user = getCurrentUser() || await signInAnonymouslyUser();
+      const configs = await this.getAllConfigs();
+      let updatedCount = 0;
+      
+      for (const config of configs) {
+        // Get all ingredients
+        const ingredientsSnapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
+        
+        for (const ingredientDoc of ingredientsSnapshot.docs) {
+          // Check references under this ingredient for this config
+          const refQuery = query(
+            collection(db, COLLECTIONS.INGREDIENTS, ingredientDoc.id, 'references'),
+            where('configId', '==', config.id)
+          );
+          const refsSnapshot = await getDocs(refQuery);
+          
+          for (const refDoc of refsSnapshot.docs) {
+            const refData = refDoc.data();
+            const correctPopulationType = versionToPopulationType(config.version);
+            
+            // Update if population type is incorrect
+            if (refData.populationType !== correctPopulationType) {
+              await updateDoc(refDoc.ref, {
+                populationType: correctPopulationType,
+                updatedAt: serverTimestamp(),
+                updatedBy: user.uid
+              });
+              updatedCount++;
+              console.log(`Updated reference ${refDoc.id} from ${refData.populationType} to ${correctPopulationType}`);
+            }
+          }
+        }
+      }
+      
+      console.log(`Fixed ${updatedCount} references with incorrect population types`);
+      return { updatedCount };
+    } catch (error) {
+      console.error('Error fixing population types:', error);
+      throw error;
+    }
+  },
+  
+  // Fix empty sections by getting clinical notes from config ingredients
+  async fixEmptySections() {
+    try {
+      const user = getCurrentUser() || await signInAnonymouslyUser();
+      let fixedCount = 0;
+      let totalChecked = 0;
+      
+      // Get all ingredients
+      const ingredientsSnapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
+      
+      for (const ingredientDoc of ingredientsSnapshot.docs) {
+        const ingredientId = ingredientDoc.id;
+        const ingredientData = ingredientDoc.data();
+        
+        // Get all references for this ingredient
+        const referencesSnapshot = await getDocs(
+          collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references')
+        );
+        
+        for (const refDoc of referencesSnapshot.docs) {
+          totalChecked++;
+          const refData = refDoc.data();
+          
+          // Check if sections are empty or missing
+          if (!refData.sections || refData.sections.length === 0) {
+            console.log(`Found empty sections for ${ingredientData.name} - ${refData.name}`);
+            
+            // Try to find the original config and ingredient data
+            if (refData.configId) {
+              const configIngredients = await this.getConfigIngredients(refData.configId);
+              
+              // Find the matching ingredient by name
+              const matchingIngredient = configIngredients.find(ing => {
+                const ingName = ing.KEYNAME || ing.Ingredient || ing.name;
+                return ingName === ingredientData.name;
+              });
+              
+              if (matchingIngredient && matchingIngredient.notes) {
+                // Convert notes to sections
+                const sections = convertNotesToSections(matchingIngredient.notes);
+                
+                if (sections.length > 0) {
+                  // Update the reference with the converted sections
+                  await updateDoc(
+                    doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', refDoc.id),
+                    {
+                      sections: sections,
+                      updatedAt: serverTimestamp()
+                    }
+                  );
+                  
+                  console.log(`Fixed sections for ${ingredientData.name} - ${refData.name} (${sections.length} sections)`);
+                  fixedCount++;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      console.log(`Fixed ${fixedCount} references with empty sections out of ${totalChecked} checked`);
+      return { fixedCount, totalChecked };
+    } catch (error) {
+      console.error('Error fixing empty sections:', error);
+      throw error;
+    }
+  },
+  
   // Migrate existing imported configs to ingredients collection
   async migrateExistingConfigs() {
     try {
@@ -598,20 +924,18 @@ export const configService = {
         
         // Create or update ingredients in the main collection
         for (const [name, ingredientInfo] of processedIngredients) {
-          // Check if ingredient already exists
-          const ingredientQuery = query(
-            collection(db, COLLECTIONS.INGREDIENTS),
-            where('name', '==', name)
-          );
-          const existingIngredients = await getDocs(ingredientQuery);
+          // Use normalized name as ingredient ID
+          const ingredientId = normalizeIngredientId(name);
+          const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
           
-          let ingredientId;
-          if (existingIngredients.empty) {
+          // Check if ingredient already exists
+          const existingIngredient = await getDoc(ingredientRef);
+          
+          if (!existingIngredient.exists()) {
             // Create new ingredient
-            const newIngredientRef = doc(collection(db, COLLECTIONS.INGREDIENTS));
-            ingredientId = newIngredientRef.id;
-            batch.set(newIngredientRef, {
+            batch.set(ingredientRef, {
               ...ingredientInfo,
+              id: ingredientId,
               createdAt: serverTimestamp(),
               createdBy: user.uid,
               updatedAt: serverTimestamp(),
@@ -620,9 +944,8 @@ export const configService = {
             totalIngredients++;
           } else {
             // Update existing ingredient
-            ingredientId = existingIngredients.docs[0].id;
-            const existingData = existingIngredients.docs[0].data();
-            batch.update(doc(db, COLLECTIONS.INGREDIENTS, ingredientId), {
+            const existingData = existingIngredient.data();
+            batch.update(ingredientRef, {
               configSources: arrayUnion(config.id),
               updatedAt: serverTimestamp(),
               updatedBy: user.uid,
@@ -638,17 +961,30 @@ export const configService = {
           const existingRefs = await getDocs(refQuery);
           
           if (existingRefs.empty) {
+            // Find the matching ingredient data to get its notes
+            const matchingIngredientData = configIngredients.find(ing => {
+              const ingName = ing.KEYNAME || ing.Ingredient || ing.name;
+              return ingName === name;
+            });
+            
+            // Convert notes to sections if available
+            let sections = [];
+            if (matchingIngredientData && matchingIngredientData.notes) {
+              sections = convertNotesToSections(matchingIngredientData.notes);
+            }
+            
             // Create a reference under the ingredient for this config
-            const referenceRef = doc(collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'));
+            // Use config ID as reference ID for uniqueness and readability
+            const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', config.id);
             batch.set(referenceRef, {
               name: config.name,
               healthSystem: config.healthSystem,
               domain: config.domain,
               subdomain: config.subdomain,
               version: config.version,
-              populationType: POPULATION_TYPES.ADULT,
+              populationType: versionToPopulationType(config.version),
               configId: config.id,
-              sections: [],
+              sections: sections, // Populated from the imported data
               createdAt: serverTimestamp(),
               createdBy: user.uid,
               updatedAt: serverTimestamp(),

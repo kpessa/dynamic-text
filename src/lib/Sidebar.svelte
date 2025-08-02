@@ -73,6 +73,7 @@
     version: 'adult',
     parseError: '',
     parsedIngredients: [],
+    parsedConfig: null,
     isImporting: false,
     importProgress: 0
   });
@@ -855,67 +856,9 @@
       addHealthSystem(importData.healthSystem);
     }
     
-    // Save the config if parsing was successful
+    // Store the parsed config for later use when importing
     if (result.config) {
-      const configId = `${importData.healthSystem}-${importData.domain}-${importData.subdomain}-${importData.version}`.toLowerCase();
-      
-      // Save to Firebase if configured
-      if (isFirebaseConfigured()) {
-        try {
-          const metadata = {
-            name: configId,
-            healthSystem: importData.healthSystem,
-            domain: importData.domain,
-            subdomain: importData.subdomain,
-            version: importData.version
-          };
-          
-          const firebaseConfigId = await configService.saveImportedConfig(result.config, metadata);
-          console.log('Config saved to Firebase with ID:', firebaseConfigId);
-          
-          // Store Firebase ID reference in local config
-          tpnConfigs[configId] = {
-            ...result.config,
-            metadata: {
-              ...metadata,
-              importedAt: Date.now(),
-              firebaseId: firebaseConfigId
-            }
-          };
-        } catch (error) {
-          console.error('Failed to save config to Firebase:', error);
-          // Still save to localStorage even if Firebase fails
-          tpnConfigs[configId] = {
-            ...result.config,
-            metadata: {
-              healthSystem: importData.healthSystem,
-              domain: importData.domain,
-              subdomain: importData.subdomain,
-              version: importData.version,
-              importedAt: Date.now()
-            }
-          };
-        }
-      } else {
-        // Save to localStorage only if Firebase is not configured
-        tpnConfigs[configId] = {
-          ...result.config,
-          metadata: {
-            healthSystem: importData.healthSystem,
-            domain: importData.domain,
-            subdomain: importData.subdomain,
-            version: importData.version,
-            importedAt: Date.now()
-          }
-        };
-      }
-      
-      tpnConfigs = { ...tpnConfigs };
-      // Set as active config if no config is active
-      if (!activeConfigId) {
-        activeConfigId = configId;
-      }
-      saveToLocalStorage();
+      importData.parsedConfig = result.config;
     }
   }
   
@@ -969,12 +912,13 @@
       version: 'adult',
       parseError: '',
       parsedIngredients: [],
+      parsedConfig: null,
       isImporting: false,
       importProgress: 0
     };
   }
   
-  function importAllIngredients() {
+  async function importAllIngredients() {
     const total = importData.parsedIngredients.length;
     if (!confirm(`Import all ${total} ingredients to ${importData.healthSystem} > ${importData.domain} > ${importData.subdomain} > ${importData.version}?`)) {
       return;
@@ -984,6 +928,69 @@
     importData.importProgress = 0;
     let firstReference = null;
     let skippedCount = 0;
+    
+    // Save the config to Firebase first if configured
+    if (importData.parsedConfig) {
+      const configId = `${importData.healthSystem}-${importData.domain}-${importData.subdomain}-${importData.version}`.toLowerCase();
+      
+      // Save to Firebase if configured
+      if (isFirebaseConfigured()) {
+        try {
+          const metadata = {
+            name: configId,
+            healthSystem: importData.healthSystem,
+            domain: importData.domain,
+            subdomain: importData.subdomain,
+            version: importData.version
+          };
+          
+          const firebaseConfigId = await configService.saveImportedConfig(importData.parsedConfig, metadata);
+          console.log('Config saved to Firebase with ID:', firebaseConfigId);
+          
+          // Store Firebase ID reference in local config
+          tpnConfigs[configId] = {
+            ...importData.parsedConfig,
+            metadata: {
+              ...metadata,
+              importedAt: Date.now(),
+              firebaseId: firebaseConfigId
+            }
+          };
+        } catch (error) {
+          console.error('Failed to save config to Firebase:', error);
+          // Still save to localStorage even if Firebase fails
+          tpnConfigs[configId] = {
+            ...importData.parsedConfig,
+            metadata: {
+              healthSystem: importData.healthSystem,
+              domain: importData.domain,
+              subdomain: importData.subdomain,
+              version: importData.version,
+              importedAt: Date.now()
+            }
+          };
+        }
+      } else {
+        // Save to localStorage only if Firebase is not configured
+        tpnConfigs[configId] = {
+          ...importData.parsedConfig,
+          metadata: {
+            healthSystem: importData.healthSystem,
+            domain: importData.domain,
+            subdomain: importData.subdomain,
+            version: importData.version,
+            importedAt: Date.now()
+          }
+        };
+      }
+      
+      tpnConfigs = { ...tpnConfigs };
+      // Set as active config if no config is active
+      if (!activeConfigId) {
+        activeConfigId = configId;
+      }
+      saveToLocalStorage();
+    }
     
     // Process all ingredients with a small delay between each
     importData.parsedIngredients.forEach((ingredient, index) => {
@@ -1020,6 +1027,7 @@
                 version: 'adult',
                 parseError: '',
                 parsedIngredients: [],
+                parsedConfig: null,
                 isImporting: false,
                 importProgress: 0
               };
@@ -1280,6 +1288,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
 <div class="sidebar" style="width: {sidebarWidth}px" onclick={handleGlobalClick}>
   <div class="sidebar-header">
     <div class="header-top">
@@ -1606,8 +1615,23 @@
   </div>
   
   {#if showSaveDialog}
-    <div class="save-dialog-overlay" onclick={() => showSaveDialog = false}>
-      <div class="save-dialog" onclick={(e) => e.stopPropagation()}>
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showSaveDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showSaveDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close save dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Save Reference Text"
+        tabindex="-1"
+      >
         <h3>Save Reference Text</h3>
         
         <label>
@@ -1696,8 +1720,23 @@
   {/if}
   
   {#if showHealthSystemDialog}
-    <div class="save-dialog-overlay" onclick={() => showHealthSystemDialog = false}>
-      <div class="save-dialog" onclick={(e) => e.stopPropagation()}>
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showHealthSystemDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showHealthSystemDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close health system dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select Health System"
+        tabindex="-1"
+      >
         <h3>Manage Health Systems</h3>
         
         <div class="list-management">
@@ -1738,8 +1777,23 @@
   {/if}
   
   {#if showDomainDialog}
-    <div class="save-dialog-overlay" onclick={() => showDomainDialog = false}>
-      <div class="save-dialog" onclick={(e) => e.stopPropagation()}>
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showDomainDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showDomainDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close domain dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select Domain"
+        tabindex="-1"
+      >
         <h3>Manage Domains</h3>
         
         <div class="list-management">
@@ -1778,8 +1832,23 @@
   {/if}
   
   {#if showSubdomainDialog}
-    <div class="save-dialog-overlay" onclick={() => showSubdomainDialog = false}>
-      <div class="save-dialog" onclick={(e) => e.stopPropagation()}>
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showSubdomainDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showSubdomainDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close subdomain dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select Subdomain"
+        tabindex="-1"
+      >
         <h3>Manage Subdomains</h3>
         
         <div class="list-management">
@@ -1818,8 +1887,23 @@
   {/if}
   
   {#if showImportDialog}
-    <div class="save-dialog-overlay" onclick={() => showImportDialog = false}>
-      <div class="save-dialog import-dialog" onclick={(e) => e.stopPropagation()}>
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showImportDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showImportDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close import dialog overlay"
+    >
+      <div 
+        class="save-dialog import-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Import Data"
+        tabindex="-1"
+      >
         <h3>Import Ingredient JSON</h3>
         
         <div class="import-options">
@@ -1830,7 +1914,7 @@
               placeholder={'{"INGREDIENT": [...]}'}
               class="json-input"
               rows="10"
-            />
+            ></textarea>
           </label>
           
           <div class="file-upload">
@@ -1962,12 +2046,22 @@
   {/if}
   
   <!-- Resize handle -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div 
     class="resize-handle"
     onmousedown={handleResizeStart}
+    onkeydown={(e) => {
+      if (e.key === 'ArrowLeft') {
+        sidebarWidth = Math.max(300, sidebarWidth - 10);
+      } else if (e.key === 'ArrowRight') {
+        sidebarWidth = Math.min(800, sidebarWidth + 10);
+      }
+    }}
     role="separator"
     aria-orientation="vertical"
     aria-label="Resize sidebar"
+    tabindex="0"
   ></div>
   
   <!-- Context menu -->
@@ -1976,6 +2070,9 @@
       class="context-menu"
       style="left: {contextMenu.x}px; top: {contextMenu.y}px"
       onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.key === 'Escape' && hideContextMenu()}
+      role="menu"
+      tabindex="-1"
     >
       {#if contextMenu.type === 'folder'}
         <button onclick={() => { startEditingFolder(contextMenu.data); hideContextMenu(); }}>
@@ -2013,8 +2110,23 @@
   
   <!-- Config Manager Dialog -->
   {#if showConfigDialog}
-    <div class="save-dialog-overlay" onclick={() => showConfigDialog = false}>
-      <div class="save-dialog config-dialog" onclick={(e) => e.stopPropagation()}>
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showConfigDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showConfigDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close config dialog overlay"
+    >
+      <div 
+        class="save-dialog config-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="TPN Config Manager"
+        tabindex="-1"
+      >
         <h3>TPN Config Manager</h3>
         
         {#if activeConfigId}

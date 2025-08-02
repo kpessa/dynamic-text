@@ -192,8 +192,23 @@
   }
 </script>
 
-<div class="diff-viewer-overlay" onclick={onClose}>
-  <div class="diff-viewer" onclick={(e) => e.stopPropagation()}>
+<div 
+  class="diff-viewer-overlay" 
+  onclick={onClose}
+  onkeydown={(e) => e.key === 'Escape' && onClose()}
+  role="button"
+  tabindex="-1"
+  aria-label="Close comparison overlay"
+>
+  <div 
+    class="diff-viewer" 
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={(e) => e.stopPropagation()}
+    role="dialog"
+    aria-modal="true"
+    aria-label="Reference Comparison"
+    tabindex="-1"
+  >
     <div class="viewer-header">
       <h2>📊 Reference Comparison: {ingredient?.name || 'Unknown'}</h2>
       <button class="close-btn" onclick={onClose}>×</button>
@@ -571,6 +586,8 @@
     font-weight: 500;
   }
   
+  /* Used in dynamically generated HTML */
+  /* svelte-ignore css-unused-selector */
   .dynamic-section pre {
     margin: 0;
     padding: 0.5rem;

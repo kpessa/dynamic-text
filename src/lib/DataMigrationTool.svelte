@@ -128,8 +128,23 @@
 </script>
 
 {#if isOpen}
-  <div class="migration-overlay" onclick={closeMigration}>
-    <div class="migration-dialog" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="migration-overlay" 
+    onclick={closeMigration}
+    onkeydown={(e) => e.key === 'Escape' && closeMigration()}
+    role="button"
+    tabindex="-1"
+    aria-label="Close migration overlay"
+  >
+    <div 
+      class="migration-dialog" 
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Migrate to Firebase"
+      tabindex="-1"
+    >
       <div class="dialog-header">
         <h2>🚀 Migrate to Firebase</h2>
         <button class="close-btn" onclick={closeMigration}>×</button>

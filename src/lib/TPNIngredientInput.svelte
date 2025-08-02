@@ -167,7 +167,7 @@
           onchange={() => onchange(value)}
           class="ingredient-input"
           rows="2"
-        />
+        ></textarea>
       {:else}
         <input
           type="number"

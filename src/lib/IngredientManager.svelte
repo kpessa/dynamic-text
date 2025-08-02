@@ -14,6 +14,7 @@
   let ingredients = $state([]);
   let filteredIngredients = $state([]);
   let ingredientReferences = $state({});
+  let referenceLoadingStates = $state({});
   let searchQuery = $state('');
   let selectedCategory = $state('ALL');
   let selectedHealthSystem = $state('ALL');
@@ -24,6 +25,9 @@
   let unsubscribe = null;
   let migrating = $state(false);
   let migrationResult = $state(null);
+  
+  // Cache for loaded references to avoid refetching
+  const referenceCache = new Map();
   
   // Categories for filtering
   const categories = [
@@ -70,22 +74,11 @@
     
     try {
       // Subscribe to real-time updates
-      unsubscribe = ingredientService.subscribeToIngredients(async (updatedIngredients) => {
+      unsubscribe = ingredientService.subscribeToIngredients((updatedIngredients) => {
         console.log(`Received ${updatedIngredients.length} ingredients from Firebase:`, updatedIngredients);
         ingredients = updatedIngredients;
         
-        // Load references for each ingredient
-        for (const ingredient of updatedIngredients) {
-          try {
-            const refs = await referenceService.getReferencesForIngredient(ingredient.id);
-            console.log(`Loaded ${refs.length} references for ingredient ${ingredient.name}`);
-            ingredientReferences[ingredient.id] = groupReferencesByPopulation(refs);
-          } catch (err) {
-            console.error(`Error loading references for ${ingredient.name}:`, err);
-            ingredientReferences[ingredient.id] = {};
-          }
-        }
-        
+        // Don't load references immediately - lazy load on demand
         applyFilters();
         loading = false;
       });
@@ -100,7 +93,40 @@
     if (unsubscribe) {
       unsubscribe();
     }
+    // Clear cache on unmount
+    referenceCache.clear();
   });
+  
+  // Lazy load references for a specific ingredient
+  async function loadReferencesForIngredient(ingredientId) {
+    // Check cache first
+    if (referenceCache.has(ingredientId)) {
+      ingredientReferences[ingredientId] = referenceCache.get(ingredientId);
+      return;
+    }
+    
+    // Check if already loading
+    if (referenceLoadingStates[ingredientId]) {
+      return;
+    }
+    
+    referenceLoadingStates[ingredientId] = true;
+    
+    try {
+      const refs = await referenceService.getReferencesForIngredient(ingredientId);
+      console.log(`Loaded ${refs.length} references for ingredient ${ingredientId}`);
+      const grouped = groupReferencesByPopulation(refs);
+      
+      // Update state and cache
+      ingredientReferences[ingredientId] = grouped;
+      referenceCache.set(ingredientId, grouped);
+    } catch (err) {
+      console.error(`Error loading references for ingredient ${ingredientId}:`, err);
+      ingredientReferences[ingredientId] = {};
+    } finally {
+      referenceLoadingStates[ingredientId] = false;
+    }
+  }
   
   // Group references by population type
   function groupReferencesByPopulation(references) {
@@ -117,7 +143,8 @@
   // Check if ingredient has differences across populations
   function hasDifferences(ingredientId) {
     const refs = ingredientReferences[ingredientId];
-    if (!refs) return false;
+    // Can't determine differences if references not loaded yet
+    if (!refs) return null;
     
     const populations = Object.keys(refs);
     if (populations.length < 2) return false;
@@ -150,20 +177,25 @@
         }
       }
       
-      // Health system filter
+      // Health system filter - skip if references not loaded
       if (selectedHealthSystem !== 'ALL') {
-        const refs = ingredientReferences[ingredient.id] || {};
-        const hasHealthSystem = Object.values(refs).some(popRefs => 
-          popRefs.some(ref => ref.healthSystem === selectedHealthSystem)
-        );
-        if (!hasHealthSystem) {
-          return false;
+        const refs = ingredientReferences[ingredient.id];
+        if (refs) {
+          const hasHealthSystem = Object.values(refs).some(popRefs => 
+            popRefs.some(ref => ref.healthSystem === selectedHealthSystem)
+          );
+          if (!hasHealthSystem) {
+            return false;
+          }
         }
       }
       
-      // Differences filter
-      if (showOnlyWithDiffs && !hasDifferences(ingredient.id)) {
-        return false;
+      // Differences filter - skip ingredients with unloaded references when filter is on
+      if (showOnlyWithDiffs) {
+        const hasDiff = hasDifferences(ingredient.id);
+        if (hasDiff === null || !hasDiff) {
+          return false;
+        }
       }
       
       return true;
@@ -171,14 +203,51 @@
   }
   
   // Toggle ingredient expansion
-  function toggleIngredient(ingredientId) {
+  async function toggleIngredient(ingredientId) {
     expandedIngredients[ingredientId] = !expandedIngredients[ingredientId];
     expandedIngredients = { ...expandedIngredients };
+    
+    // Load references when expanding if not already loaded
+    if (expandedIngredients[ingredientId] && !ingredientReferences[ingredientId]) {
+      await loadReferencesForIngredient(ingredientId);
+    }
   }
   
   // Handle ingredient selection
-  function selectIngredient(ingredient) {
+  async function selectIngredient(ingredient, autoLoadReference = true) {
+    console.log('IngredientManager: selectIngredient called', { 
+      ingredient: ingredient.name, 
+      autoLoadReference,
+      hasReferences: !!ingredientReferences[ingredient.id]
+    });
+    
     currentIngredient = ingredient;
+    
+    // Load references if not already loaded
+    if (!ingredientReferences[ingredient.id]) {
+      console.log('IngredientManager: Loading references for', ingredient.name);
+      await loadReferencesForIngredient(ingredient.id);
+    }
+    
+    // If autoLoadReference is true, try to load the first available reference
+    if (autoLoadReference && ingredientReferences[ingredient.id]) {
+      const populations = Object.values(POPULATION_TYPES);
+      for (const pop of populations) {
+        const refs = ingredientReferences[ingredient.id][pop];
+        if (refs && refs.length > 0) {
+          // Load the first reference found
+          console.log('IngredientManager: Auto-loading reference', {
+            ingredient: ingredient.name,
+            population: pop,
+            reference: refs[0].name
+          });
+          editReference(ingredient, refs[0]);
+          return;
+        }
+      }
+    }
+    
+    console.log('IngredientManager: No reference to auto-load, calling onSelectIngredient');
     onSelectIngredient(ingredient);
   }
   
@@ -189,10 +258,15 @@
   
   // Edit an existing reference
   function editReference(ingredient, reference) {
+    console.log('IngredientManager: editReference called', {
+      ingredient: ingredient.name,
+      reference: reference.name,
+      hasOnEditReference: !!onEditReference
+    });
     onEditReference(ingredient, reference);
   }
   
-  // Get all unique health systems from references
+  // Get all unique health systems from loaded references only
   let healthSystems = $derived.by(() => {
     const systems = new Set(['ALL']);
     Object.values(ingredientReferences).forEach(refs => {
@@ -285,6 +359,63 @@
       migrating = false;
     }
   }
+  
+  // Fix population types for already migrated references
+  async function fixPopulationTypes() {
+    migrating = true;
+    error = null;
+    
+    try {
+      const result = await configService.fixMigratedPopulationTypes();
+      console.log('Fix completed:', result);
+      
+      // Show success message
+      migrationResult = {
+        ...migrationResult,
+        fixedReferences: result.updatedCount
+      };
+      
+      // Refresh the ingredients list
+      if (unsubscribe) {
+        // The subscription will automatically pick up the updated references
+      }
+    } catch (err) {
+      console.error('Fix failed:', err);
+      error = `Fix failed: ${err.message}`;
+    } finally {
+      migrating = false;
+    }
+  }
+  
+  // Fix empty sections in references
+  async function fixEmptySections() {
+    migrating = true;
+    error = null;
+    
+    try {
+      const result = await configService.fixEmptySections();
+      console.log('Fix empty sections completed:', result);
+      
+      // Show success message
+      migrationResult = {
+        ...migrationResult,
+        fixedSections: result.fixedCount,
+        totalChecked: result.totalChecked
+      };
+      
+      // Clear reference cache to force reload
+      referenceCache.clear();
+      ingredientReferences = {};
+      
+      // Trigger re-render
+      ingredientReferences = { ...ingredientReferences };
+    } catch (err) {
+      console.error('Fix empty sections failed:', err);
+      error = `Fix failed: ${err.message}`;
+    } finally {
+      migrating = false;
+    }
+  }
 </script>
 
 <div class="ingredient-manager">
@@ -346,7 +477,13 @@
     {#if migrationResult}
       <div class="migration-success">
         <span class="success-icon">✅</span>
-        Migration complete! Created {migrationResult.totalIngredients} ingredients and {migrationResult.totalReferences} references from {migrationResult.totalConfigs} configs.
+        {#if migrationResult.fixedSections !== undefined}
+          Fix complete! Fixed {migrationResult.fixedSections} references with empty sections out of {migrationResult.totalChecked} checked.
+        {:else if migrationResult.fixedReferences !== undefined}
+          Fix complete! Updated {migrationResult.fixedReferences} references with correct population types.
+        {:else}
+          Migration complete! Created {migrationResult.totalIngredients} ingredients and {migrationResult.totalReferences} references from {migrationResult.totalConfigs} configs.
+        {/if}
       </div>
     {/if}
     
@@ -360,6 +497,28 @@
         >
           {migrating ? 'Migrating...' : '🔄 Migrate Imported Configs'}
         </button>
+      </div>
+    {:else if ingredients.length > 0 && !migrating}
+      <div class="fix-population-prompt">
+        <button 
+          class="fix-btn"
+          onclick={fixPopulationTypes}
+          disabled={migrating}
+        >
+          {migrating ? 'Fixing...' : '🔧 Fix Population Types'}
+        </button>
+        <span class="fix-help">Fix references showing incorrect population types (e.g., adolescent showing as adult)</span>
+      </div>
+      
+      <div class="fix-population-prompt">
+        <button 
+          class="fix-btn"
+          onclick={fixEmptySections}
+          disabled={migrating}
+        >
+          {migrating ? 'Fixing...' : '📝 Fix Empty Sections'}
+        </button>
+        <span class="fix-help">Populate empty reference sections from imported clinical notes</span>
       </div>
     {/if}
     
@@ -378,12 +537,19 @@
             {#each categoryIngredients as ingredient (ingredient.id)}
               <div 
                 class="ingredient-card {currentIngredient?.id === ingredient.id ? 'selected' : ''} {hasDifferences(ingredient.id) ? 'has-diffs' : ''}"
-                onclick={() => selectIngredient(ingredient)}
+                onclick={() => selectIngredient(ingredient, true)}
+                onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && selectIngredient(ingredient, true)}
+                role="button"
+                tabindex="0"
+                title="Click to load clinical notes"
               >
                 <div class="card-header">
                   <h4 class="card-title">{ingredient.name}</h4>
                   {#if hasDifferences(ingredient.id)}
                     <span class="diff-badge" title="Has differences across populations">⚡</span>
+                  {/if}
+                  {#if referenceLoadingStates[ingredient.id]}
+                    <span class="loading-spinner" title="Loading references..."></span>
                   {/if}
                 </div>
                 
@@ -392,17 +558,38 @@
                 {/if}
                 
                 <div class="card-populations">
-                  {#each Object.entries(POPULATION_TYPES) as [key, value]}
-                    {#if ingredientReferences[ingredient.id]?.[value]?.length > 0}
-                      <div 
-                        class="population-item"
-                        style="--pop-color: {populationTypeColors[value]}"
-                      >
-                        <span class="pop-name">{populationTypeNames[value]}</span>
-                        <span class="pop-count">{ingredientReferences[ingredient.id][value].length}</span>
-                      </div>
-                    {/if}
-                  {/each}
+                  {#if ingredientReferences[ingredient.id]}
+                    {#each Object.entries(POPULATION_TYPES) as [key, value]}
+                      {#if ingredientReferences[ingredient.id]?.[value]?.length > 0}
+                        <button 
+                          class="population-item"
+                          style="--pop-color: {populationTypeColors[value]}"
+                          onclick={async (e) => {
+                            e.stopPropagation();
+                            await selectIngredient(ingredient, false);
+                            const refs = ingredientReferences[ingredient.id][value];
+                            if (refs && refs.length > 0) {
+                              editReference(ingredient, refs[0]);
+                            }
+                          }}
+                          title="Click to load {populationTypeNames[value]} reference"
+                        >
+                          <span class="pop-name">{populationTypeNames[value]}</span>
+                          <span class="pop-count">{ingredientReferences[ingredient.id][value].length}</span>
+                        </button>
+                      {/if}
+                    {/each}
+                  {:else if !referenceLoadingStates[ingredient.id]}
+                    <button 
+                      class="load-refs-btn"
+                      onclick={async (e) => {
+                        e.stopPropagation();
+                        await loadReferencesForIngredient(ingredient.id);
+                      }}
+                    >
+                      Load References
+                    </button>
+                  {/if}
                 </div>
                 
                 <div class="card-footer">
@@ -415,7 +602,7 @@
                   >
                     {expandedIngredients[ingredient.id] ? 'Hide Details' : 'View Details'}
                   </button>
-                  {#if Object.keys(ingredientReferences[ingredient.id] || {}).length === 0}
+                  {#if ingredientReferences[ingredient.id] && Object.keys(ingredientReferences[ingredient.id] || {}).length === 0}
                     <button 
                       class="card-action-btn add-btn"
                       onclick={(e) => {
@@ -430,39 +617,50 @@
                 
                 {#if expandedIngredients[ingredient.id]}
                   <div class="expanded-details">
-                    <div class="references-compact">
-                      {#each Object.entries(POPULATION_TYPES) as [key, value]}
-                        {#if ingredientReferences[ingredient.id]?.[value]?.length > 0}
-                          <div class="pop-references">
-                            <h5 style="color: {populationTypeColors[value]}">{populationTypeNames[value]}</h5>
-                            {#each ingredientReferences[ingredient.id][value] as reference}
+                    {#if referenceLoadingStates[ingredient.id]}
+                      <div class="loading-references">
+                        <div class="spinner small"></div>
+                        <span>Loading references...</span>
+                      </div>
+                    {:else if ingredientReferences[ingredient.id]}
+                      <div class="references-compact">
+                        {#each Object.entries(POPULATION_TYPES) as [key, value]}
+                          {#if ingredientReferences[ingredient.id]?.[value]?.length > 0}
+                            <div class="pop-references">
+                              <h5 style="color: {populationTypeColors[value]}">{populationTypeNames[value]}</h5>
+                              {#each ingredientReferences[ingredient.id][value] as reference}
+                                <button 
+                                  class="ref-chip"
+                                  onclick={(e) => {
+                                    e.stopPropagation();
+                                    editReference(ingredient, reference);
+                                  }}
+                                >
+                                  {reference.healthSystem} {reference.version ? `v${reference.version}` : ''}
+                                </button>
+                              {/each}
+                            </div>
+                          {:else}
+                            <div class="pop-references empty">
+                              <h5 style="color: {populationTypeColors[value]}">{populationTypeNames[value]}</h5>
                               <button 
-                                class="ref-chip"
+                                class="add-ref-btn"
                                 onclick={(e) => {
                                   e.stopPropagation();
-                                  editReference(ingredient, reference);
+                                  createReference(ingredient, value);
                                 }}
                               >
-                                {reference.healthSystem} {reference.version ? `v${reference.version}` : ''}
+                                + Add
                               </button>
-                            {/each}
-                          </div>
-                        {:else}
-                          <div class="pop-references empty">
-                            <h5 style="color: {populationTypeColors[value]}">{populationTypeNames[value]}</h5>
-                            <button 
-                              class="add-ref-btn"
-                              onclick={(e) => {
-                                e.stopPropagation();
-                                createReference(ingredient, value);
-                              }}
-                            >
-                              + Add
-                            </button>
-                          </div>
-                        {/if}
-                      {/each}
-                    </div>
+                            </div>
+                          {/if}
+                        {/each}
+                      </div>
+                    {:else}
+                      <div class="no-references">
+                        <p>No reference data loaded</p>
+                      </div>
+                    {/if}
                   </div>
                 {/if}
               </div>
@@ -735,6 +933,22 @@
     border-radius: 6px;
     font-size: 0.75rem;
     border-left: 3px solid var(--pop-color);
+    border: none;
+    border-right: none;
+    border-top: none;
+    border-bottom: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .population-item:hover {
+    background-color: var(--pop-color);
+    color: white;
+  }
+  
+  .population-item:hover .pop-name,
+  .population-item:hover .pop-count {
+    color: white;
   }
   
   .pop-name {
@@ -936,6 +1150,91 @@
   
   .success-icon {
     font-size: 1.5rem;
+  }
+  
+  .fix-population-prompt {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background-color: #e8f4fd;
+    border: 1px dashed #2196f3;
+    border-radius: 8px;
+    margin: 1rem 1.5rem;
+  }
+  
+  .fix-btn {
+    padding: 0.5rem 1.25rem;
+    background-color: #2196f3;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .fix-btn:hover:not(:disabled) {
+    background-color: #1976d2;
+    transform: translateY(-1px);
+  }
+  
+  .fix-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .fix-help {
+    font-size: 0.9rem;
+    color: #555;
+  }
+  
+  .loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #646cff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .spinner.small {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+  }
+  
+  .loading-references {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    color: #666;
+  }
+  
+  .load-refs-btn {
+    padding: 0.25rem 0.5rem;
+    background-color: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: #2196f3;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .load-refs-btn:hover {
+    background-color: #bbdefb;
+  }
+  
+  .no-references {
+    text-align: center;
+    padding: 1rem;
+    color: #999;
+    font-size: 0.875rem;
   }
   
 </style>

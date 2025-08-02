@@ -84,8 +84,23 @@
 </script>
 
 {#if isOpen}
-  <div class="modal-overlay" onclick={() => isOpen = false}>
-    <div class="modal-content" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="modal-overlay" 
+    onclick={() => isOpen = false}
+    onkeydown={(e) => e.key === 'Escape' && (isOpen = false)}
+    role="button"
+    tabindex="-1"
+    aria-label="Close modal overlay"
+  >
+    <div 
+      class="modal-content" 
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="AI Generated Test Cases"
+      tabindex="-1"
+    >
       <div class="modal-header">
         <h2>🤖 AI Generated Test Cases</h2>
         <button class="close-btn" onclick={() => isOpen = false}>×</button>

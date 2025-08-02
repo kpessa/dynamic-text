@@ -241,7 +241,7 @@
       
       {#if validKeys.length > 0}
         <div class="test-scenarios">
-          <label>Quick Load:</label>
+          <span>Quick Load:</span>
           <button onclick={() => loadTestScenario('adult')}>Adult Standard</button>
           <button onclick={() => loadTestScenario('pediatric')}>Pediatric</button>
           <button onclick={() => loadTestScenario('peripheral')}>Peripheral</button>
@@ -421,7 +421,7 @@
     border-radius: 4px;
   }
   
-  .test-scenarios label {
+  .test-scenarios span {
     font-size: 0.9rem;
     color: #666;
   }
@@ -461,49 +461,6 @@
     gap: 0;
   }
   
-  .input-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  
-  .input-field label {
-    font-size: 0.85rem;
-    color: #d4d4d4;
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-  }
-  
-  .unit {
-    font-size: 0.75rem;
-    color: #999;
-  }
-  
-  .input-field input[type="number"],
-  .input-field input[type="text"],
-  .input-field select,
-  .input-field textarea {
-    padding: 0.5rem;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    color: #333;
-    font-size: 0.9rem;
-    width: 100%;
-  }
-  
-  .input-field input[type="checkbox"] {
-    width: auto;
-    margin-top: 0.25rem;
-  }
-  
-  .input-field input:focus,
-  .input-field select:focus,
-  .input-field textarea:focus {
-    outline: none;
-    border-color: #646cff;
-  }
   
   .calculated-values {
     margin-top: 1.5rem;

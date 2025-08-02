@@ -142,7 +142,7 @@
                     value={values[key] || ''}
                     oninput={(e) => onChange(key, e.target.value)}
                     rows="2"
-                  />
+                  ></textarea>
                 {:else if getInputType(key) === 'checkbox'}
                   <input
                     type="checkbox"
@@ -274,7 +274,6 @@
   }
   
   .ingredient-input-field input[type="number"],
-  .ingredient-input-field input[type="text"],
   .ingredient-input-field select,
   .ingredient-input-field textarea {
     padding: 0.375rem 0.5rem;

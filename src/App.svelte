@@ -17,123 +17,10 @@
   import { isFirebaseConfigured } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
-  let showSidebar = $state(true);
-  let sections = $state([
-    { id: 1, type: 'static', content: '<h2>Welcome to the Dynamic Text Editor!</h2>\n<p>This editor supports <strong>HTML rendering</strong> and modern JavaScript. Enable <strong>TPN Mode</strong> to test TPN Advisor functions!</p>' },
-    { 
-      id: 2, 
-      type: 'dynamic', 
-      content: `// TPN Multivitamin Recommendation Example
-const MVI = me.getValue('MultiVitamin');
-const dw = me.getValue('DoseWeightKG');
-
-let rv = '';
-
-// Check if multivitamin is missing
-if (MVI === 0) {
-  rv = '<u><b><span style="color: red;">Consider Adding Multivitamin to TPN</span></b></u>';
-} else {
-  // Calculate recommended amount
-  const max = 5.004;
-  let amt = 5 / dw;
-  amt = amt > 2 ? 2 : amt;
+  let showSidebar = $state(false);
+  let sections = $state([]);
   
-  rv = me.maxP(amt, 3) + ' mL/kg/day (max: 5 mL/day)';
-  
-  // Check if exceeds maximum
-  if (MVI > max) {
-    rv += '<br><br><strong style="color: red;">*** Exceeds recommended maximum ***</strong>';
-  }
-}
-
-return rv;`,
-      testCases: [
-        { name: 'No Multivitamin', variables: { MultiVitamin: 0, DoseWeightKG: 10 } },
-        { name: 'Normal Dose', variables: { MultiVitamin: 3, DoseWeightKG: 10 } },
-        { name: 'Exceeds Max', variables: { MultiVitamin: 6, DoseWeightKG: 10 } },
-        { name: 'Low Weight', variables: { MultiVitamin: 3, DoseWeightKG: 2 } },
-        { name: 'Adult TPN', variables: { 
-          MultiVitamin: 5, DoseWeightKG: 70, VolumePerKG: 30,
-          Protein: 1.5, Carbohydrates: 4, Fat: 1
-        }},
-        { name: 'Pediatric TPN', variables: { 
-          MultiVitamin: 5, DoseWeightKG: 10, VolumePerKG: 120,
-          Protein: 2.5, Carbohydrates: 12, Fat: 3
-        }}
-      ]
-    },
-    {
-      id: 3,
-      type: 'dynamic',
-      content: `// TPN Osmolarity Warning
-const osmo = me.getValue('OsmoValue');
-const route = me.getValue('IVAdminSite');
-const maxPeripheral = me.getValue('PeripheralOsmoMax');
-
-if (route === 'Peripheral' && osmo > maxPeripheral) {
-  return '<div style="background-color: #ffe6e6; border: 2px solid red; padding: 10px; border-radius: 5px;">' +
-    '<strong>⚠️ WARNING:</strong> Osmolarity (' + me.maxP(osmo, 0) + ' mOsm/L) exceeds peripheral limit (' + 
-    maxPeripheral + ' mOsm/L)<br>' +
-    'Consider central line or adjust formulation.' +
-    '</div>';
-} else if (route === 'Peripheral' && osmo > maxPeripheral * 0.9) {
-  return '<div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px;">' +
-    '<strong>⚡ CAUTION:</strong> Osmolarity (' + me.maxP(osmo, 0) + ' mOsm/L) approaching peripheral limit' +
-    '</div>';
-} else {
-  return '<div style="color: green;">✓ Osmolarity: ' + me.maxP(osmo, 0) + ' mOsm/L - Within safe range for ' + route + ' administration</div>';
-}`,
-      testCases: [
-        { name: 'Central Line', variables: { IVAdminSite: 'Central', OsmoValue: 1200, PeripheralOsmoMax: 800 } },
-        { name: 'Peripheral OK', variables: { IVAdminSite: 'Peripheral', OsmoValue: 600, PeripheralOsmoMax: 800 } },
-        { name: 'Peripheral Warning', variables: { IVAdminSite: 'Peripheral', OsmoValue: 750, PeripheralOsmoMax: 800 } },
-        { name: 'Peripheral Exceeded', variables: { IVAdminSite: 'Peripheral', OsmoValue: 900, PeripheralOsmoMax: 800 } },
-        { name: 'Full Adult TPN', variables: {
-          IVAdminSite: 'Central', DoseWeightKG: 70, VolumePerKG: 30,
-          Protein: 1.5, Carbohydrates: 4, Fat: 1,
-          Sodium: 1, Potassium: 1, Calcium: 0.2, Magnesium: 0.2, Phosphate: 0.5
-        }},
-        { name: 'Peripheral Limit Test', variables: {
-          IVAdminSite: 'Peripheral', DoseWeightKG: 70, VolumePerKG: 35,
-          Protein: 1.0, Carbohydrates: 3, Fat: 0.5,
-          Sodium: 1, Potassium: 1, Calcium: 0.1, Magnesium: 0.1, Phosphate: 0.3
-        }}
-      ]
-    },
-    { id: 4, type: 'static', content: '<p style="color: #646cff;">Enable TPN Mode above to see automatic input generation and calculations!</p>' },
-    {
-      id: 5,
-      type: 'dynamic',
-      content: `// Example using both TPN and custom variables
-const weight = me.getValue('Weight') || 70;
-const height = me.getValue('Height') || 170;
-const name = me.getValue('PatientName') || 'Patient';
-const bmi = weight / Math.pow(height/100, 2);
-
-// Store and retrieve values using getObject
-me.getObject('#bmiResult').val(me.maxP(bmi, 1));
-const storedBMI = me.getObject('#bmiResult').val();
-
-// Determine BMI category
-let category = '';
-if (bmi < 18.5) category = 'Underweight';
-else if (bmi < 25) category = 'Normal weight';
-else if (bmi < 30) category = 'Overweight';
-else category = 'Obese';
-
-return '<h3>BMI Calculator</h3>' +
-  '<p><strong>Patient:</strong> ' + name + '</p>' +
-  '<p><strong>Weight:</strong> ' + weight + ' kg</p>' +
-  '<p><strong>Height:</strong> ' + height + ' cm</p>' +
-  '<p><strong>BMI:</strong> ' + storedBMI + ' kg/m² (' + category + ')</p>' +
-  '<p><em>This example uses both TPN variables (Weight, Height) and custom variables (PatientName)!</em></p>';`,
-      testCases: [
-        { name: 'Default', variables: {} }
-      ]
-    }
-  ]);
-  
-  let nextSectionId = $state(6);
+  let nextSectionId = $state(1);
   let copied = $state(false);
   let showOutput = $state(false);
   let outputMode = $state('json'); // 'json' or 'configurator'
@@ -156,6 +43,11 @@ return '<h3>BMI Calculator</h3>' +
   let previewCollapsed = $state(false); // Track preview panel collapse state
   let currentIngredientValues = $state({}); // Track ingredient values for quick input
   let editingSection = $state(null); // Track which section is being edited
+  
+  // Track loaded ingredient and reference details
+  let loadedIngredient = $state(null);
+  let loadedReference = $state(null);
+  let currentHealthSystem = $state(null);
   
   // Test generation state
   let showTestGeneratorModal = $state(false);
@@ -456,8 +348,8 @@ return '<h3>BMI Calculator</h3>' +
       id: nextSectionId++,
       type: type,
       content: type === 'static' 
-        ? '<h3>New Section</h3>\n<p>Enter your HTML content here...</p>' 
-        : '// Write JavaScript that returns HTML\nconst message = me.getValue("CustomVariable") || "Hello!";\nreturn `<p>${message}</p>`;'
+        ? '' 
+        : '// Write JavaScript that returns HTML\nreturn ""'
     };
     
     if (type === 'dynamic') {
@@ -759,6 +651,10 @@ return '<h3>BMI Calculator</h3>' +
   
   // Handlers for new components
   function handleIngredientSelection(ingredient) {
+    console.log('App: handleIngredientSelection called', {
+      ingredient: ingredient.name,
+      action: 'Opening diff viewer'
+    });
     selectedIngredientForDiff = ingredient;
     showDiffViewer = true;
   }
@@ -771,11 +667,39 @@ return '<h3>BMI Calculator</h3>' +
     sections = [];
     addSection('static');
     showIngredientManager = false;
+    
+    // Store ingredient details for context display
+    loadedIngredient = ingredient;
+    loadedReference = {
+      name: currentReferenceName,
+      populationType: populationType,
+      healthSystem: null, // Will be set when saving
+      version: null
+    };
+    currentHealthSystem = null;
+    loadedReferenceId = null;
+    hasUnsavedChanges = false;
+    originalSections = '[]';
   }
   
   function handleEditReference(ingredient, reference) {
+    console.log('App: handleEditReference called', {
+      ingredient: ingredient.name,
+      reference: reference?.name,
+      hasSections: !!(reference?.sections),
+      fullReference: reference
+    });
+    
     // Load the reference for editing
-    if (reference && reference.sections) {
+    if (reference) {
+      // Check if sections exist and have content
+      if (!reference.sections || reference.sections.length === 0) {
+        console.warn('Reference has empty sections! User needs to run "Fix Empty Sections" in Ingredient Manager.');
+        // Show a warning to the user
+        alert(`This reference has no content sections. Please run "Fix Empty Sections" in the Ingredient Manager to populate the clinical notes.`);
+        return;
+      }
+      
       sections = reference.sections;
       currentIngredient = ingredient.name;
       currentReferenceName = reference.name;
@@ -784,7 +708,44 @@ return '<h3>BMI Calculator</h3>' +
       hasUnsavedChanges = false;
       lastSavedTime = reference.updatedAt;
       originalSections = JSON.stringify(reference.sections);
+      
+      // Close all other views to ensure Dynamic Text Editor is visible
       showIngredientManager = false;
+      showDiffViewer = false;
+      showMigrationTool = false;
+      showAIWorkflowInspector = false;
+      showTestGeneratorModal = false;
+      showSidebar = false;
+      
+      // Ensure preview panel is visible
+      previewCollapsed = false;
+      previewMode = 'preview';
+      
+      // Store full ingredient and reference details
+      loadedIngredient = ingredient;
+      loadedReference = reference;
+      currentHealthSystem = reference.healthSystem;
+      
+      console.log('App: Reference loaded successfully', {
+        sectionsCount: sections.length,
+        viewsClosed: true,
+        previewVisible: !previewCollapsed
+      });
+      
+      // Scroll to top of the editor to show the loaded content
+      // Also flash a visual indicator
+      setTimeout(() => {
+        const editorElement = document.querySelector('.editor');
+        if (editorElement) {
+          editorElement.scrollTop = 0;
+          // Add a brief highlight animation
+          editorElement.style.transition = 'background-color 0.3s ease';
+          editorElement.style.backgroundColor = '#e8f4fd';
+          setTimeout(() => {
+            editorElement.style.backgroundColor = '';
+          }, 300);
+        }
+      }, 100);
     }
   }
   
@@ -794,6 +755,27 @@ return '<h3>BMI Calculator</h3>' +
     if (showIngredientManager) {
       // The manager will auto-refresh due to Firebase listeners
     }
+  }
+  
+  // Helper functions for population types
+  function getPopulationColor(populationType) {
+    const colors = {
+      [POPULATION_TYPES.NEONATAL]: '#ff6b6b',
+      [POPULATION_TYPES.PEDIATRIC]: '#4ecdc4',
+      [POPULATION_TYPES.ADOLESCENT]: '#45b7d1',
+      [POPULATION_TYPES.ADULT]: '#5f27cd'
+    };
+    return colors[populationType] || '#666';
+  }
+  
+  function getPopulationName(populationType) {
+    const names = {
+      [POPULATION_TYPES.NEONATAL]: 'Neonatal',
+      [POPULATION_TYPES.PEDIATRIC]: 'Pediatric',
+      [POPULATION_TYPES.ADOLESCENT]: 'Adolescent',
+      [POPULATION_TYPES.ADULT]: 'Adult'
+    };
+    return names[populationType] || populationType;
   }
   
 </script>
@@ -852,17 +834,67 @@ return '<h3>BMI Calculator</h3>' +
         </div>
       </div>
       
-      <div class="sections" role="list">
-        {#each sections as section (section.id)}
-          <div 
-            class="section {draggedSection?.id === section.id ? 'dragging' : ''}"
-            role="listitem"
-            draggable="true"
-            ondragstart={(e) => handleSectionDragStart(e, section)}
-            ondragover={handleSectionDragOver}
-            ondrop={(e) => handleSectionDrop(e, section)}
-            ondragend={handleSectionDragEnd}
+      {#if loadedIngredient && loadedReference}
+        <div class="ingredient-context-bar">
+          <span class="context-label">Editing:</span>
+          <button 
+            class="ingredient-pill"
+            onclick={() => showIngredientManager = true}
+            title="Click to open ingredient manager"
           >
+            📦 {loadedIngredient.name}
+          </button>
+          <span class="context-separator">→</span>
+          <span 
+            class="population-pill"
+            style="background-color: {getPopulationColor(currentPopulationType)}"
+          >
+            {getPopulationName(currentPopulationType)}
+          </span>
+          {#if currentHealthSystem}
+            <span class="context-separator">→</span>
+            <span class="health-system-pill">
+              🏥 {currentHealthSystem}
+            </span>
+          {/if}
+          {#if loadedReference.version}
+            <span class="version-badge">v{loadedReference.version}</span>
+          {/if}
+        </div>
+      {/if}
+      
+      <div class="sections" role="list">
+        {#if sections.length === 0}
+          <div class="empty-state">
+            <div class="empty-state-icon">📄</div>
+            <h3 class="empty-state-title">Start Creating Your Reference Text</h3>
+            <p class="empty-state-description">
+              Add sections to build your dynamic text content
+            </p>
+            <div class="empty-state-actions">
+              <button class="empty-state-btn static" onclick={() => addSection('static')}>
+                <span class="btn-icon">📝</span>
+                <span class="btn-label">Add Static HTML</span>
+                <span class="btn-hint">For fixed content and formatting</span>
+              </button>
+              <button class="empty-state-btn dynamic" onclick={() => addSection('dynamic')}>
+                <span class="btn-icon">⚡</span>
+                <span class="btn-label">Add Dynamic JavaScript</span>
+                <span class="btn-hint">For calculations and logic</span>
+              </button>
+            </div>
+          </div>
+        {:else}
+          {#each sections as section (section.id)}
+            <div 
+              class="section {draggedSection?.id === section.id ? 'dragging' : ''}"
+              role="listitem"
+              draggable="true"
+              ondragstart={(e) => handleSectionDragStart(e, section)}
+              ondragover={handleSectionDragOver}
+              ondrop={(e) => handleSectionDrop(e, section)}
+              ondragend={handleSectionDragEnd}
+            >
             <div class="section-header">
               <span class="drag-handle">≡</span>
               <span class="section-type {section.type}">
@@ -924,6 +956,9 @@ return '<h3>BMI Calculator</h3>' +
               <div 
                 class="content-preview"
                 ondblclick={() => editingSection = section.id}
+                onkeydown={(e) => e.key === 'Enter' && (editingSection = section.id)}
+                role="button"
+                tabindex="0"
                 title="Double-click to edit"
               >
                 <pre>{section.content}</pre>
@@ -1054,6 +1089,7 @@ return '<h3>BMI Calculator</h3>' +
             {/if}
           </div>
         {/each}
+        {/if}
       </div>
     </div>
     
@@ -1179,8 +1215,23 @@ return '<h3>BMI Calculator</h3>' +
   
   <!-- Firebase components -->
   {#if showIngredientManager}
-    <div class="modal-overlay" onclick={() => showIngredientManager = false}>
-      <div class="modal-content large-modal" onclick={(e) => e.stopPropagation()}>
+    <div 
+      class="modal-overlay" 
+      onclick={() => showIngredientManager = false}
+      onkeydown={(e) => e.key === 'Escape' && (showIngredientManager = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close modal overlay"
+    >
+      <div 
+        class="modal-content large-modal" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ingredient Manager"
+        tabindex="-1"
+      >
         <button 
           class="modal-close"
           onclick={() => showIngredientManager = false}
@@ -1275,12 +1326,6 @@ return '<h3>BMI Calculator</h3>' +
     background-color: #138496;
   }
 
-  h1 {
-    flex: 1;
-    text-align: center;
-    margin: 0;
-    font-size: 2rem;
-  }
   
   .status-bar {
     display: flex;
@@ -1365,6 +1410,71 @@ return '<h3>BMI Calculator</h3>' +
     align-items: center;
     padding: 1rem;
     border-bottom: 1px solid #444;
+  }
+  
+  .ingredient-context-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background-color: #e8f4fd;
+    border-bottom: 1px solid #b3d9f2;
+    flex-wrap: wrap;
+  }
+  
+  .context-label {
+    font-size: 0.875rem;
+    color: #666;
+    font-weight: 500;
+  }
+  
+  .ingredient-pill {
+    padding: 0.375rem 0.75rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+  
+  .ingredient-pill:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .population-pill {
+    padding: 0.375rem 0.75rem;
+    color: white;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .health-system-pill {
+    padding: 0.375rem 0.75rem;
+    background-color: #6c757d;
+    color: white;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .context-separator {
+    color: #999;
+    font-size: 0.875rem;
+  }
+  
+  .version-badge {
+    padding: 0.25rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
   }
 
   h2 {
@@ -1778,9 +1888,6 @@ return '<h3>BMI Calculator</h3>' +
     flex-direction: column;
   }
 
-  .preview-panel h2 {
-    margin-bottom: 0;
-  }
   
   .preview-header-content {
     display: flex;
@@ -2100,11 +2207,94 @@ return '<h3>BMI Calculator</h3>' +
     cursor: pointer;
   }
   
-  .tpn-toggle input {
-    margin-right: 0.5rem;
+  
+  /* Empty state styles */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    min-height: 400px;
   }
   
-  .tpn-toggle span {
+  .empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  
+  .empty-state-title {
+    font-size: 1.5rem;
     color: #333;
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+  }
+  
+  .empty-state-description {
+    font-size: 1rem;
+    color: #666;
+    margin: 0 0 2rem 0;
+  }
+  
+  .empty-state-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .empty-state-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 200px;
+  }
+  
+  .empty-state-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .empty-state-btn.static {
+    border-color: #17a2b8;
+  }
+  
+  .empty-state-btn.static:hover {
+    background-color: #e6f7ff;
+    border-color: #0d7a8c;
+  }
+  
+  .empty-state-btn.dynamic {
+    border-color: #ffc107;
+  }
+  
+  .empty-state-btn.dynamic:hover {
+    background-color: #fff8e1;
+    border-color: #dda000;
+  }
+  
+  .empty-state-btn .btn-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .empty-state-btn .btn-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.25rem;
+  }
+  
+  .empty-state-btn .btn-hint {
+    font-size: 0.85rem;
+    color: #666;
   }
 </style>

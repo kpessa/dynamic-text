@@ -43,38 +43,42 @@
       
       <h1 class="app-title">Dynamic Text Editor</h1>
       
-      <div class="document-info">
-        <span class="doc-name">{currentReferenceName || 'Untitled'}</span>
-        <span class="save-status {hasUnsavedChanges ? 'unsaved' : 'saved'}">
-          {hasUnsavedChanges ? '●' : '✓'}
-        </span>
-      </div>
-    </div>
-    
-    <div class="navbar-center">
-      <div class="mode-selector">
-        <label class="mode-toggle">
-          <input 
-            type="checkbox" 
-            bind:checked={tpnMode}
-            onchange={() => {
-              if (tpnMode && !showKeyReference) {
-                showKeyReference = true;
-              }
-            }}
-          />
-          <span class="toggle-slider"></span>
-          <span class="mode-label">{tpnMode ? 'TPN Mode' : 'Normal Mode'}</span>
-        </label>
-      </div>
-      
-      {#if tpnMode && currentIngredient}
-        <div class="current-ingredient">
-          <span class="ingredient-icon">🧪</span>
-          <span class="ingredient-name">{currentIngredient}</span>
+      {#if currentReferenceName}
+        <div class="document-info">
+          <span class="doc-name">{currentReferenceName}</span>
+          <span class="save-status {hasUnsavedChanges ? 'unsaved' : 'saved'}">
+            {hasUnsavedChanges ? '●' : '✓'}
+          </span>
         </div>
       {/if}
     </div>
+    
+    {#if currentReferenceName}
+      <div class="navbar-center">
+        <div class="mode-selector">
+          <label class="mode-toggle">
+            <input 
+              type="checkbox" 
+              bind:checked={tpnMode}
+              onchange={() => {
+                if (tpnMode && !showKeyReference) {
+                  showKeyReference = true;
+                }
+              }}
+            />
+            <span class="toggle-slider"></span>
+            <span class="mode-label">{tpnMode ? 'TPN Mode' : 'Normal Mode'}</span>
+          </label>
+        </div>
+        
+        {#if tpnMode && currentIngredient}
+          <div class="current-ingredient">
+            <span class="ingredient-icon">🧪</span>
+            <span class="ingredient-name">{currentIngredient}</span>
+          </div>
+        {/if}
+      </div>
+    {/if}
     
     <div class="navbar-right">
       <div class="view-toggles">
@@ -387,50 +391,6 @@
     font-size: 0.9rem;
   }
   
-  .navbar-bottom {
-    padding: 0.5rem 1rem;
-    background-color: #e9ecef;
-    border-top: 1px solid #dee2e6;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  .output-mode-selector {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  
-  .output-modes {
-    display: flex;
-    gap: 0.25rem;
-    background-color: #fff;
-    border-radius: 6px;
-    padding: 0.25rem;
-    border: 1px solid #dee2e6;
-  }
-  
-  .output-mode-btn {
-    padding: 0.25rem 0.75rem;
-    font-size: 0.85rem;
-    background-color: transparent;
-    color: #495057;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .output-mode-btn:hover {
-    background-color: #f8f9fa;
-    color: #333;
-  }
-  
-  .output-mode-btn.active {
-    background-color: #646cff;
-    color: white;
-  }
   
   @media (max-width: 1024px) {
     .navbar-top {
