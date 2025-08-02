@@ -98,8 +98,45 @@
   let navigationPath = $state([]);
   let expandedTypeGroups = $state({});
   
+  // Config management state
+  let tpnConfigs = $state({});
+  let activeConfigId = $state(null);
+  let showConfigDialog = $state(false);
+  
   onMount(() => {
     loadFromLocalStorage();
+  });
+  
+  // Auto-set domain to 'main' for non-UHS health systems
+  $effect(() => {
+    if (importData.healthSystem && importData.healthSystem !== 'UHS') {
+      importData.domain = 'main';
+    }
+  });
+  
+  // Auto-set domain for save dialog
+  $effect(() => {
+    if (saveData.healthSystem && saveData.healthSystem !== 'UHS') {
+      saveData.domain = 'main';
+    }
+  });
+  
+  // Auto-expand folders when searching
+  let previousSearchQuery = '';
+  
+  $effect(() => {
+    if (searchQuery !== previousSearchQuery) {
+      previousSearchQuery = searchQuery;
+      
+      if (searchQuery) {
+        // Expand all folders that contain matches
+        const newExpandedFolders = { ...expandedFolders };
+        foldersWithMatches.forEach(folderId => {
+          newExpandedFolders[folderId] = true;
+        });
+        expandedFolders = newExpandedFolders;
+      }
+    }
   });
   
   function loadFromLocalStorage() {
@@ -116,6 +153,16 @@
         if (data.versions) versions = data.versions;
         // Load sidebar width
         if (data.sidebarWidth) sidebarWidth = data.sidebarWidth;
+        // Load TPN configs
+        if (data.tpnConfigs) tpnConfigs = data.tpnConfigs;
+        if (data.activeConfigId) activeConfigId = data.activeConfigId;
+        
+        // Discover any missing health systems from existing references
+        Object.values(referenceTexts).forEach(ref => {
+          if (ref.healthSystem && !healthSystems.includes(ref.healthSystem)) {
+            addHealthSystem(ref.healthSystem);
+          }
+        });
       } else {
         folders = initializeFolders();
       }
@@ -134,7 +181,9 @@
         domains,
         subdomains,
         versions,
-        sidebarWidth
+        sidebarWidth,
+        tpnConfigs,
+        activeConfigId
       }));
     } catch (e) {
       console.error('Failed to save to localStorage:', e);
@@ -198,6 +247,39 @@
       type: 'healthSystem',
       value: 'Other'
     };
+    
+    // Create main domain for Other
+    rootFolders['other-main'] = {
+      id: 'other-main',
+      name: 'Main',
+      parentId: 'other-root',
+      type: 'domain',
+      value: 'main'
+    };
+    
+    // Create subdomain folders under Other/main
+    subdomains.forEach(subdomain => {
+      const subdomainId = `other-main-${subdomain}`;
+      rootFolders[subdomainId] = {
+        id: subdomainId,
+        name: subdomain.charAt(0).toUpperCase() + subdomain.slice(1),
+        parentId: 'other-main',
+        type: 'subdomain',
+        value: subdomain
+      };
+      
+      // Create version folders
+      versions.forEach(version => {
+        const versionId = `other-main-${subdomain}-${version}`;
+        rootFolders[versionId] = {
+          id: versionId,
+          name: version.charAt(0).toUpperCase() + version.slice(1),
+          parentId: subdomainId,
+          type: 'version',
+          value: version
+        };
+      });
+    });
     
     return rootFolders;
   }
@@ -299,7 +381,11 @@
       domain: saveData.domain,
       subdomain: saveData.subdomain,
       version: saveData.version,
-      sections: currentSections,
+      sections: currentSections.map(section => ({
+        ...section,
+        // Include testCases for dynamic sections
+        ...(section.type === 'dynamic' && section.testCases ? { testCases: section.testCases } : {})
+      })),
       tags: saveData.tags.split(',').map(t => t.trim()).filter(t => t),
       createdAt: Date.now(),
       updatedAt: Date.now()
@@ -408,18 +494,44 @@
     [...new Set(Object.values(referenceTexts).map(r => r.ingredient))].sort()
   );
   
+  // Track folders that contain search matches
+  let foldersWithMatches = $derived((() => {
+    if (!searchQuery) return new Set();
+    
+    const matchingFolders = new Set();
+    const filteredRefs = getFilteredReferences();
+    
+    filteredRefs.forEach(ref => {
+      // Find all parent folders for this reference
+      Object.values(folders).forEach(folder => {
+        const refs = getReferencesForFolder(folder);
+        if (refs.some(r => r.id === ref.id)) {
+          // Add this folder and all its parents
+          let currentFolder = folder;
+          while (currentFolder) {
+            matchingFolders.add(currentFolder.id);
+            currentFolder = currentFolder.parentId ? folders[currentFolder.parentId] : null;
+          }
+        }
+      });
+    });
+    
+    return matchingFolders;
+  })());
+  
   // List management functions
-  function addHealthSystem() {
-    if (newItemName && !healthSystems.includes(newItemName)) {
-      healthSystems = [...healthSystems, newItemName];
+  function addHealthSystem(systemName = null) {
+    const nameToAdd = systemName || newItemName;
+    if (nameToAdd && !healthSystems.includes(nameToAdd)) {
+      healthSystems = [...healthSystems, nameToAdd];
       // Create folder structure for new health system
-      const rootId = `${newItemName.toLowerCase().replace(/\s+/g, '-')}-root`;
+      const rootId = `${nameToAdd.toLowerCase().replace(/\s+/g, '-')}-root`;
       folders[rootId] = {
         id: rootId,
-        name: newItemName,
+        name: nameToAdd,
         parentId: null,
         type: 'healthSystem',
-        value: newItemName
+        value: nameToAdd
       };
       folders = { ...folders };
       saveToLocalStorage();
@@ -562,6 +674,40 @@
             });
           });
         });
+      } else {
+        // For non-UHS health systems, create a single 'main' domain
+        const domainId = `${value.toLowerCase().replace(/\s+/g, '-')}-main`;
+        folders[domainId] = {
+          id: domainId,
+          name: 'Main',
+          parentId: id,
+          type: 'domain',
+          value: 'main'
+        };
+        
+        // Create subdomain folders under main
+        subdomains.forEach(subdomain => {
+          const subdomainId = `${value.toLowerCase().replace(/\s+/g, '-')}-main-${subdomain}`;
+          folders[subdomainId] = {
+            id: subdomainId,
+            name: subdomain.charAt(0).toUpperCase() + subdomain.slice(1),
+            parentId: domainId,
+            type: 'subdomain',
+            value: subdomain
+          };
+          
+          // Create version folders
+          versions.forEach(version => {
+            const versionId = `${value.toLowerCase().replace(/\s+/g, '-')}-main-${subdomain}-${version}`;
+            folders[versionId] = {
+              id: versionId,
+              name: version.charAt(0).toUpperCase() + version.slice(1),
+              parentId: subdomainId,
+              type: 'version',
+              value: version
+            };
+          });
+        });
       }
     });
     
@@ -595,9 +741,10 @@
         });
       });
       
-      return { success: true, ingredients, error: null };
+      // Return both ingredients and the full config data
+      return { success: true, ingredients, config: data, error: null };
     } catch (error) {
-      return { success: false, ingredients: [], error: error.message };
+      return { success: false, ingredients: [], config: null, error: error.message };
     }
   }
   
@@ -700,6 +847,32 @@
     }
     
     importData.parsedIngredients = result.ingredients;
+    
+    // Auto-add new health system if it doesn't exist
+    if (importData.healthSystem && !healthSystems.includes(importData.healthSystem)) {
+      addHealthSystem(importData.healthSystem);
+    }
+    
+    // Save the config if parsing was successful
+    if (result.config) {
+      const configId = `${importData.healthSystem}-${importData.domain}-${importData.subdomain}-${importData.version}`.toLowerCase();
+      tpnConfigs[configId] = {
+        ...result.config,
+        metadata: {
+          healthSystem: importData.healthSystem,
+          domain: importData.domain,
+          subdomain: importData.subdomain,
+          version: importData.version,
+          importedAt: Date.now()
+        }
+      };
+      tpnConfigs = { ...tpnConfigs };
+      // Set as active config if no config is active
+      if (!activeConfigId) {
+        activeConfigId = configId;
+      }
+      saveToLocalStorage();
+    }
   }
   
   function importIngredient(ingredient) {
@@ -1065,13 +1238,23 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="sidebar" style="width: {sidebarWidth}px" onclick={handleGlobalClick}>
   <div class="sidebar-header">
-    <h2>Reference Texts</h2>
+    <div class="header-top">
+      <h2>Reference Texts</h2>
+      {#if activeConfigId}
+        <div class="active-config-badge" title="Active TPN Config">
+          ⚙️ {activeConfigId}
+        </div>
+      {/if}
+    </div>
     <div class="header-buttons">
       <button class="save-btn" onclick={() => showSaveDialog = true}>
         💾 Save Current
       </button>
       <button class="import-btn" onclick={() => showImportDialog = true}>
         📥 Import
+      </button>
+      <button class="config-btn" onclick={() => showConfigDialog = true} title="Manage TPN Configs">
+        🔧 Configs
       </button>
       <div class="manage-dropdown">
         <button class="manage-btn">⚙️</button>
@@ -1305,7 +1488,7 @@
                                                   <div class="type-group-content">
                                                   {#each group.refs as ref}
                                                     <div 
-                                                      class="reference-item {selectedReference?.id === ref.id ? 'selected' : ''}"
+                                                      class="reference-item {selectedReference?.id === ref.id ? 'selected' : ''} {searchQuery && (ref.name.toLowerCase().includes(searchQuery.toLowerCase()) || ref.ingredient.toLowerCase().includes(searchQuery.toLowerCase())) ? 'search-match' : ''}"
                                                       draggable="true"
                                                       ondragstart={(e) => handleReferenceDragStart(e, ref, greatGrandchild.folder)}
                                                       ondragend={handleReferenceDragEnd}
@@ -1412,11 +1595,17 @@
         
         <label>
           Domain:
-          <select bind:value={saveData.domain}>
-            {#each domains as domain}
-              <option value={domain}>{domain.charAt(0).toUpperCase() + domain.slice(1)}</option>
-            {/each}
-          </select>
+          {#if saveData.healthSystem === 'UHS'}
+            <select bind:value={saveData.domain}>
+              {#each domains as domain}
+                <option value={domain}>{domain.charAt(0).toUpperCase() + domain.slice(1)}</option>
+              {/each}
+            </select>
+          {:else}
+            <select disabled value="main">
+              <option value="main">Main (default)</option>
+            </select>
+          {/if}
         </label>
         
         <label>
@@ -1632,11 +1821,17 @@
           
           <label>
             Domain:
-            <select bind:value={importData.domain}>
-              {#each domains as domain}
-                <option value={domain}>{domain.charAt(0).toUpperCase() + domain.slice(1)}</option>
-              {/each}
-            </select>
+            {#if importData.healthSystem === 'UHS'}
+              <select bind:value={importData.domain}>
+                {#each domains as domain}
+                  <option value={domain}>{domain.charAt(0).toUpperCase() + domain.slice(1)}</option>
+                {/each}
+              </select>
+            {:else}
+              <select disabled value="main">
+                <option value="main">Main (default)</option>
+              </select>
+            {/if}
           </label>
           
           <label>
@@ -1771,6 +1966,77 @@
       {/if}
     </div>
   {/if}
+  
+  <!-- Config Manager Dialog -->
+  {#if showConfigDialog}
+    <div class="save-dialog-overlay" onclick={() => showConfigDialog = false}>
+      <div class="save-dialog config-dialog" onclick={(e) => e.stopPropagation()}>
+        <h3>TPN Config Manager</h3>
+        
+        {#if activeConfigId}
+          <div class="active-config-info">
+            <strong>Active Config:</strong> {activeConfigId}
+          </div>
+        {/if}
+        
+        <div class="config-list">
+          <h4>Loaded Configs:</h4>
+          {#if Object.keys(tpnConfigs).length === 0}
+            <p class="no-configs">No configs loaded. Import a TPN JSON file to get started.</p>
+          {:else}
+            <div class="config-items">
+              {#each Object.entries(tpnConfigs) as [configId, config]}
+                <div class="config-item {activeConfigId === configId ? 'active' : ''}">
+                  <div class="config-info">
+                    <strong>{configId}</strong>
+                    {#if config.metadata}
+                      <div class="config-metadata">
+                        {config.metadata.healthSystem} / {config.metadata.domain} / {config.metadata.subdomain} / {config.metadata.version}
+                      </div>
+                      <div class="config-date">
+                        Imported: {new Date(config.metadata.importedAt).toLocaleDateString()}
+                      </div>
+                    {/if}
+                  </div>
+                  <div class="config-actions">
+                    {#if activeConfigId !== configId}
+                      <button 
+                        class="activate-btn"
+                        onclick={() => { activeConfigId = configId; saveToLocalStorage(); }}
+                      >
+                        Activate
+                      </button>
+                    {/if}
+                    <button 
+                      class="delete-btn"
+                      onclick={() => {
+                        if (confirm(`Delete config "${configId}"?`)) {
+                          delete tpnConfigs[configId];
+                          if (activeConfigId === configId) {
+                            activeConfigId = null;
+                          }
+                          tpnConfigs = { ...tpnConfigs };
+                          saveToLocalStorage();
+                        }
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+        
+        <div class="dialog-actions">
+          <button onclick={() => showConfigDialog = false}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -1787,15 +2053,28 @@
   .sidebar-header {
     padding: 1rem;
     border-bottom: 1px solid #444;
+  }
+  
+  .header-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 0.5rem;
   }
   
   .sidebar-header h2 {
     margin: 0;
     font-size: 1.25rem;
     color: #646cff;
+  }
+  
+  .active-config-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(23, 162, 184, 0.2);
+    border: 1px solid #17a2b8;
+    border-radius: 4px;
+    color: #17a2b8;
   }
   
   .header-buttons {
@@ -1830,6 +2109,20 @@
   
   .import-btn:hover {
     background-color: #5a6268;
+  }
+  
+  .config-btn {
+    padding: 0.5rem 1rem;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .config-btn:hover {
+    background-color: #138496;
   }
   
   .manage-dropdown {
@@ -2014,6 +2307,15 @@
   
   .reference-item.selected {
     background-color: #3a3a3a;
+  }
+  
+  .reference-item.search-match {
+    background-color: rgba(100, 108, 255, 0.1);
+    border-left-color: #646cff;
+  }
+  
+  .reference-item.search-match:hover {
+    background-color: rgba(100, 108, 255, 0.2);
   }
   
   .reference-name {
@@ -2487,6 +2789,114 @@
     margin: 0.25rem 0;
     border: none;
     border-top: 1px solid #444;
+  }
+  
+  /* Config dialog styles */
+  .config-dialog {
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .active-config-info {
+    padding: 0.75rem;
+    background-color: #17a2b8;
+    color: white;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+  
+  .config-list {
+    margin: 1rem 0;
+  }
+  
+  .config-list h4 {
+    margin: 0 0 0.5rem 0;
+    color: #646cff;
+  }
+  
+  .no-configs {
+    text-align: center;
+    color: #999;
+    padding: 2rem;
+  }
+  
+  .config-items {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.5rem;
+  }
+  
+  .config-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    background-color: #2a2a2a;
+  }
+  
+  .config-item:hover {
+    background-color: #3a3a3a;
+  }
+  
+  .config-item.active {
+    background-color: rgba(23, 162, 184, 0.2);
+    border: 1px solid #17a2b8;
+  }
+  
+  .config-info strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #d4d4d4;
+  }
+  
+  .config-metadata {
+    font-size: 0.85rem;
+    color: #999;
+  }
+  
+  .config-date {
+    font-size: 0.8rem;
+    color: #777;
+    margin-top: 0.25rem;
+  }
+  
+  .config-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  
+  .activate-btn {
+    padding: 0.25rem 0.75rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  
+  .activate-btn:hover {
+    background-color: #218838;
+  }
+  
+  .delete-btn {
+    padding: 0.25rem 0.5rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .delete-btn:hover {
+    background-color: #c82333;
   }
   
   @media (prefers-color-scheme: light) {
