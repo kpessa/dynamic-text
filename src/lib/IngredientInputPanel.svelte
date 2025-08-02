@@ -1,13 +1,35 @@
 <script>
-  import { getKeyCategory, getKeyUnit } from './tpnLegacy.js';
+  import { getKeyCategory, getKeyUnit, isCalculatedValue } from './tpnLegacy.js';
   
   let { 
     ingredients = [],
     values = {},
-    onChange = () => {}
+    onChange = () => {},
+    tpnInstance = null
   } = $props();
   
   let isExpanded = $state(true);
+  
+  // Get calculated values from TPN instance
+  let calculatedValues = $derived.by(() => {
+    if (!tpnInstance) {
+      return {};
+    }
+    
+    // Update the TPN instance with current values
+    tpnInstance.setValues({ ...values });
+    
+    // Then get the calculated values
+    const calcVals = {};
+    ingredients.forEach(key => {
+      if (isCalculatedValue(key)) {
+        const value = tpnInstance.getValue(key);
+        calcVals[key] = value;
+      }
+    });
+    
+    return calcVals;
+  });
   
   // Group ingredients by category
   let groupedIngredients = $derived.by(() => {
@@ -28,6 +50,9 @@
       'ELECTROLYTES',
       'ADDITIVES',
       'PREFERENCES',
+      'CALCULATED_VOLUMES',
+      'CLINICAL_CALCULATIONS',
+      'ROUTE',
       'OTHER'
     ];
     
@@ -48,6 +73,8 @@
       'ELECTROLYTES': 'Electrolytes',
       'ADDITIVES': 'Additives',
       'PREFERENCES': 'Preferences',
+      'CALCULATED_VOLUMES': 'Calculated Volumes',
+      'CLINICAL_CALCULATIONS': 'Clinical Calculations',
       'ORDER_COMMENTS': 'Comments',
       'ROUTE': 'Administration Route',
       'OTHER': 'Other'
@@ -106,7 +133,24 @@
                   {/if}
                 </label>
                 
-                {#if getInputType(key) === 'select'}
+                {#if isCalculatedValue(key)}
+                  <input
+                    type="text"
+                    id="ingredient-{key}"
+                    value={(() => {
+                      const val = calculatedValues[key];
+                      if (val === undefined || val === null) return 'N/A';
+                      if (typeof val === 'number') {
+                        // Don't use toFixed for whole numbers to avoid confusion
+                        return val % 1 === 0 ? val.toString() : val.toFixed(2);
+                      }
+                      return String(val);
+                    })()}
+                    readonly
+                    class="calculated-value"
+                    title={`Calculated value: ${key}`}
+                  />
+                {:else if getInputType(key) === 'select'}
                   {#if key === 'IVAdminSite'}
                     <select 
                       id="ingredient-{key}"
@@ -295,6 +339,13 @@
   .ingredient-input-field textarea:focus {
     outline: none;
     border-color: #535bf2;
+  }
+  
+  .ingredient-input-field input.calculated-value {
+    background-color: #f0f0f0;
+    color: #666;
+    cursor: not-allowed;
+    font-style: italic;
   }
   
   /* Scrollbar styling */

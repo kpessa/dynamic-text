@@ -13,7 +13,7 @@
   import IngredientManager from './lib/IngredientManager.svelte';
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
   import DataMigrationTool from './lib/DataMigrationTool.svelte';
-  import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, isValidKey, getKeyCategory } from './lib/tpnLegacy.js';
+  import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
@@ -100,7 +100,8 @@
       }
     });
     
-    return Array.from(allKeys).sort();
+    const result = Array.from(allKeys).sort();
+    return result;
   });
   
   // Extract ingredients per section for badge display
@@ -110,12 +111,14 @@
     sections.forEach(section => {
       if (section.type === 'dynamic') {
         const keys = extractKeysFromCode(section.content);
-        const validKeys = keys.filter(key => isValidKey(key));
+        const validKeys = keys.filter(key => isValidKey(key) && !isCalculatedValue(key));
+        const calculatedKeys = keys.filter(key => isCalculatedValue(key));
         const nonTpnKeys = keys.filter(key => !isValidKey(key));
         
-        if (validKeys.length > 0 || nonTpnKeys.length > 0) {
+        if (validKeys.length > 0 || nonTpnKeys.length > 0 || calculatedKeys.length > 0) {
           result[section.id] = {
             tpnKeys: validKeys,
+            calculatedKeys: calculatedKeys,
             customKeys: nonTpnKeys,
             allKeys: keys
           };
@@ -316,6 +319,9 @@
   
   // Generate preview HTML combining all sections
   let previewHTML = $derived.by(() => {
+    // Access currentIngredientValues to create a dependency
+    const ingredientVals = { ...currentIngredientValues };
+    
     return sections.map(section => {
       if (section.type === 'static') {
         // Replace newlines with <br> for proper line break rendering
@@ -569,8 +575,8 @@
   
   // Handle ingredient value changes from input panel
   function handleIngredientChange(key, value) {
-    currentIngredientValues[key] = value;
-    currentIngredientValues = { ...currentIngredientValues }; // Trigger reactivity
+    // Create a new object to ensure reactivity in Svelte 5
+    currentIngredientValues = { ...currentIngredientValues, [key]: value };
   }
   
   // Get badge color for ingredient category
@@ -623,6 +629,9 @@
     checkForChanges();
   }
   
+  // Create calculation TPN instance once
+  let calculationTPNInstance = new TPNLegacySupport();
+
   // Auto-populate test cases with extracted ingredients
   $effect(() => {
     Object.entries(ingredientsBySection).forEach(([sectionId, { allKeys }]) => {
@@ -631,6 +640,11 @@
         section.testCases.forEach(testCase => {
           // Add any new keys that aren't already in the test case
           allKeys.forEach(key => {
+            // Skip calculated values - they don't need to be in test variables
+            if (isCalculatedValue(key)) {
+              return;
+            }
+            
             if (testCase.variables[key] === undefined) {
               // Set default value based on whether it's a TPN key or custom
               if (isValidKey(key)) {
@@ -644,8 +658,9 @@
           });
           
           // Remove variables that are no longer referenced in the code
+          // But keep calculated values out of the variables
           Object.keys(testCase.variables).forEach(key => {
-            if (!allKeys.includes(key)) {
+            if (!allKeys.includes(key) || isCalculatedValue(key)) {
               delete testCase.variables[key];
             }
           });
@@ -1017,6 +1032,15 @@
                       {key}
                     </span>
                   {/each}
+                  {#each ingredientsBySection[section.id].calculatedKeys as key}
+                    <span 
+                      class="ingredient-badge calculated-badge" 
+                      style="background-color: {getIngredientBadgeColor(key)}"
+                      title="Calculated: {key}"
+                    >
+                      {key} 📊
+                    </span>
+                  {/each}
                   {#each ingredientsBySection[section.id].customKeys as key}
                     <span 
                       class="ingredient-badge custom-badge"
@@ -1251,6 +1275,7 @@
           ingredients={referencedIngredients}
           values={currentIngredientValues}
           onChange={handleIngredientChange}
+          tpnInstance={calculationTPNInstance}
         />
       {/if}
       
@@ -1823,6 +1848,12 @@
 
   .ingredient-badge.tpn-badge {
     color: white;
+  }
+
+  .ingredient-badge.calculated-badge {
+    color: white;
+    opacity: 0.85;
+    border: 1px dashed rgba(255, 255, 255, 0.5);
   }
 
   .ingredient-badge.custom-badge {
