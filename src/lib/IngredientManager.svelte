@@ -3,6 +3,7 @@
   import { ingredientService, referenceService, POPULATION_TYPES, configService, organizationService } from './firebaseDataService.js';
   import { getKeyCategory } from './tpnLegacy.js';
   import { isFirebaseConfigured } from './firebase.js';
+  import VersionHistory from './VersionHistory.svelte';
   
   let {
     onSelectIngredient = () => {},
@@ -28,6 +29,8 @@
   let migrating = $state(false);
   let migrationResult = $state(null);
   let preloadedHealthSystems = $state([]);
+  let showVersionHistory = $state(false);
+  let versionHistoryIngredientId = $state(null);
   
   // Cache for loaded references to avoid refetching
   const referenceCache = new Map();
@@ -306,6 +309,26 @@
     onEditReference(ingredient, reference);
   }
   
+  // Open version history for an ingredient
+  function openVersionHistory(ingredient) {
+    versionHistoryIngredientId = ingredient.id;
+    showVersionHistory = true;
+  }
+  
+  // Handle restoring a version from history
+  async function handleRestoreVersion(version) {
+    // Restore the version
+    await ingredientService.saveIngredient({
+      ...version,
+      id: versionHistoryIngredientId
+    });
+    
+    // Reload ingredients
+    const updatedIngredients = await ingredientService.getAllIngredients();
+    ingredients = updatedIngredients;
+    applyFilters();
+  }
+  
   // Get all unique health systems from both pre-loaded and loaded references
   let healthSystems = $derived.by(() => {
     const systems = new Set(['ALL']);
@@ -515,16 +538,38 @@
               >
                 <div class="card-header">
                   <h4 class="card-title">{ingredient.name}</h4>
-                  {#if hasDifferences(ingredient.id)}
-                    <span class="diff-badge" title="Has differences across populations">⚡</span>
-                  {/if}
-                  {#if referenceLoadingStates[ingredient.id]}
-                    <span class="loading-spinner" title="Loading references..."></span>
-                  {/if}
+                  <div class="card-badges">
+                    {#if ingredient.version}
+                      <button 
+                        class="version-badge clickable" 
+                        title="Click to view version history"
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          openVersionHistory(ingredient);
+                        }}
+                      >
+                        v{ingredient.version}
+                      </button>
+                    {/if}
+                    {#if hasDifferences(ingredient.id)}
+                      <span class="diff-badge" title="Has differences across populations">⚡</span>
+                    {/if}
+                    {#if referenceLoadingStates[ingredient.id]}
+                      <span class="loading-spinner" title="Loading references..."></span>
+                    {/if}
+                  </div>
                 </div>
                 
                 {#if ingredient.description}
                   <p class="card-description">{ingredient.description}</p>
+                {/if}
+                
+                {#if ingredient.lastModified}
+                  <div class="card-metadata">
+                    <span class="last-modified">
+                      Updated: {new Date(ingredient.lastModified?.seconds * 1000 || ingredient.lastModified).toLocaleDateString()}
+                    </span>
+                  </div>
                 {/if}
                 
                 <div class="card-populations">
@@ -882,6 +927,12 @@
     margin-bottom: 0.75rem;
   }
   
+  .card-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
   .card-title {
     margin: 0;
     font-size: 1rem;
@@ -890,10 +941,43 @@
     line-height: 1.4;
   }
   
+  .version-badge {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.75rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  
+  .version-badge.clickable {
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .version-badge.clickable:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  }
+  
   .diff-badge {
     font-size: 1.2rem;
     color: #ffc107;
     filter: drop-shadow(0 2px 4px rgba(255, 193, 7, 0.3));
+  }
+  
+  .card-metadata {
+    margin: 0.5rem 0;
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+  
+  .last-modified {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    background-color: rgba(156, 163, 175, 0.1);
+    border-radius: 4px;
   }
   
   .card-description {
@@ -1228,3 +1312,9 @@
   }
   
 </style>
+
+<VersionHistory 
+  bind:isOpen={showVersionHistory}
+  ingredientId={versionHistoryIngredientId}
+  onRestore={handleRestoreVersion}
+/>

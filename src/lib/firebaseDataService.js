@@ -222,7 +222,7 @@ function convertNotesToSections(notes) {
 
 // Ingredient service
 export const ingredientService = {
-  // Create or update an ingredient
+  // Create or update an ingredient with version tracking
   async saveIngredient(ingredientData) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
@@ -231,16 +231,30 @@ export const ingredientService = {
       const ingredientId = ingredientData.id || normalizeIngredientId(ingredientData.name);
       const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
       
+      // Get current document to check version
+      const currentDoc = await getDoc(ingredientRef);
+      const currentVersion = currentDoc.exists() ? (currentDoc.data().version || 0) : 0;
+      
       const data = {
         ...ingredientData,
         id: ingredientId, // Ensure ID is stored in the document
+        version: currentVersion + 1,
+        lastModified: serverTimestamp(),
+        modifiedBy: user.uid,
+        // Keep legacy fields for compatibility
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
       };
       
-      if (!ingredientData.id) {
+      if (!ingredientData.id || !currentDoc.exists()) {
         data.createdAt = serverTimestamp();
         data.createdBy = user.uid;
+        data.version = 1;
+      }
+      
+      // Save current version to history before updating
+      if (currentDoc.exists() && currentDoc.data()) {
+        await this.saveVersionHistory(ingredientId, currentDoc.data());
       }
       
       await setDoc(ingredientRef, data);
@@ -248,6 +262,43 @@ export const ingredientService = {
     } catch (error) {
       console.error('Error saving ingredient:', error);
       throw error;
+    }
+  },
+  
+  // Save version history
+  async saveVersionHistory(ingredientId, versionData) {
+    try {
+      const versionRef = doc(
+        collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions')
+      );
+      
+      await setDoc(versionRef, {
+        ...versionData,
+        versionNumber: versionData.version || 1,
+        archivedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error saving version history:', error);
+      // Don't throw - version history is not critical
+    }
+  },
+  
+  // Get version history for an ingredient
+  async getVersionHistory(ingredientId) {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions'),
+        orderBy('versionNumber', 'desc')
+      );
+      
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error fetching version history:', error);
+      return [];
     }
   },
   
@@ -309,7 +360,7 @@ export const ingredientService = {
 
 // Reference service (nested under ingredients)
 export const referenceService = {
-  // Save a reference under an ingredient
+  // Save a reference under an ingredient with version tracking
   async saveReference(ingredientId, referenceData) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
@@ -318,31 +369,89 @@ export const referenceService = {
       const referenceId = referenceData.id || generateReferenceId(referenceData);
       const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId);
       
+      // Get current document to check version
+      const currentDoc = await getDoc(referenceRef);
+      const currentVersion = currentDoc.exists() ? (currentDoc.data().version || 0) : 0;
+      
       const data = {
         ...referenceData,
         id: referenceId,
         ingredientId,
+        version: currentVersion + 1,
+        lastModified: serverTimestamp(),
+        modifiedBy: user.uid,
+        // Keep legacy fields for compatibility
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
       };
       
-      if (!referenceData.id) {
+      if (!referenceData.id || !currentDoc.exists()) {
         data.createdAt = serverTimestamp();
         data.createdBy = user.uid;
+        data.version = 1;
+      }
+      
+      // Save current version to history before updating
+      if (currentDoc.exists() && currentDoc.data()) {
+        await this.saveReferenceVersionHistory(ingredientId, referenceId, currentDoc.data());
       }
       
       await setDoc(referenceRef, data);
       
-      // Update ingredient's lastModified
-      await updateDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId), {
+      // Update ingredient's lastModified and increment its version
+      const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
+      const ingredientDoc = await getDoc(ingredientRef);
+      const ingredientVersion = ingredientDoc.exists() ? (ingredientDoc.data().version || 0) : 0;
+      
+      await updateDoc(ingredientRef, {
         lastReferenceUpdate: serverTimestamp(),
-        referenceCount: increment(referenceData.id ? 0 : 1)
+        referenceCount: increment(referenceData.id ? 0 : 1),
+        version: ingredientVersion + 1,
+        lastModified: serverTimestamp(),
+        modifiedBy: user.uid
       });
       
       return referenceId;
     } catch (error) {
       console.error('Error saving reference:', error);
       throw error;
+    }
+  },
+  
+  // Save reference version history
+  async saveReferenceVersionHistory(ingredientId, referenceId, versionData) {
+    try {
+      const versionRef = doc(
+        collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions')
+      );
+      
+      await setDoc(versionRef, {
+        ...versionData,
+        versionNumber: versionData.version || 1,
+        archivedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error saving reference version history:', error);
+      // Don't throw - version history is not critical
+    }
+  },
+  
+  // Get version history for a reference
+  async getReferenceVersionHistory(ingredientId, referenceId) {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions'),
+        orderBy('versionNumber', 'desc')
+      );
+      
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error fetching reference version history:', error);
+      return [];
     }
   },
   
