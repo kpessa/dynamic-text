@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { isFirebaseConfigured } from './firebase.js';
   import { configService, normalizeConfigId } from './firebaseDataService.js';
+  import DuplicateReportModal from './DuplicateReportModal.svelte';
   
   let { 
     onLoadReference = () => {}, 
@@ -19,6 +20,8 @@
   let showSaveDialog = $state(false);
   let searchQuery = $state('');
   let configSearchQuery = $state('');
+  let lastImportReport = $state(null);
+  let showDuplicateReport = $state(false);
   
   // Filter states
   let filters = $state({
@@ -1054,8 +1057,19 @@
             version: importData.version
           };
           
-          const firebaseConfigId = await configService.saveImportedConfig(importData.parsedConfig, metadata);
-          console.log('Config saved to Firebase with ID:', firebaseConfigId);
+          const result = await configService.saveImportedConfig(importData.parsedConfig, metadata);
+          console.log('Config saved to Firebase:', result);
+          
+          // Show duplicate report if there were duplicates
+          if (result.duplicateReport) {
+            console.log('Duplicate Report:', result.duplicateReport);
+            // Store for potential UI display
+            lastImportReport = result.duplicateReport;
+            lastImportReport.importStats = result.importStats;
+            showDuplicateReport = true;
+          }
+          
+          const firebaseConfigId = result.configId;
           
           // Store Firebase ID reference in local config
           tpnConfigs[configId] = {
@@ -1063,7 +1077,8 @@
             metadata: {
               ...metadata,
               importedAt: Date.now(),
-              firebaseId: firebaseConfigId
+              firebaseId: firebaseConfigId,
+              importReport: result.duplicateReport
             }
           };
         } catch (error) {
@@ -2603,6 +2618,13 @@
     </div>
   {/if}
 </div>
+
+<!-- Duplicate Report Modal -->
+<DuplicateReportModal 
+  report={showDuplicateReport ? lastImportReport : null}
+  onClose={() => showDuplicateReport = false}
+  onProceed={() => showDuplicateReport = false}
+/>
 
 <style>
   .sidebar {

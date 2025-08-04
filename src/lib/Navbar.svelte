@@ -13,6 +13,8 @@
     onExport = () => {},
     onOpenIngredientManager = () => {},
     onOpenMigrationTool = () => {},
+    onOpenPreferences = () => {},
+    onSave = () => {},
     copied = false,
     firebaseEnabled = false
   } = $props();
@@ -123,6 +125,17 @@
           <span class="btn-text">New</span>
         </button>
         
+        {#if hasUnsavedChanges && firebaseEnabled}
+          <button 
+            class="action-btn save-btn"
+            onclick={onSave}
+            title="Save changes (Ctrl+S)"
+          >
+            <span class="btn-icon">💾</span>
+            <span class="btn-text">Save</span>
+          </button>
+        {/if}
+        
         <button 
           class="action-btn export-btn {copied ? 'copied' : ''}"
           onclick={onExport}
@@ -130,6 +143,15 @@
         >
           <span class="btn-icon">{copied ? '✓' : '📋'}</span>
           <span class="btn-text">{copied ? 'Copied!' : 'Export'}</span>
+        </button>
+        
+        <button 
+          class="action-btn preferences-btn"
+          onclick={onOpenPreferences}
+          title="Preferences"
+        >
+          <span class="btn-icon">⚙️</span>
+          <span class="btn-text">Preferences</span>
         </button>
       </div>
     </div>
@@ -350,6 +372,15 @@
   
   .new-btn:hover {
     background-color: #218838;
+  }
+  
+  .save-btn {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  .save-btn:hover {
+    background-color: #0056b3;
   }
   
   .export-btn {

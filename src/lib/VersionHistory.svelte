@@ -156,6 +156,11 @@
                 {#if version.description}
                   <span class="meta-item">Note: {version.description}</span>
                 {/if}
+                {#if version.commitMessage}
+                  <span class="meta-item commit-message">
+                    💬 {version.commitMessage}
+                  </span>
+                {/if}
               </div>
               
               <div class="version-actions">
@@ -388,6 +393,17 @@
     margin-bottom: 0.75rem;
     font-size: 0.875rem;
     color: #6b7280;
+    flex-wrap: wrap;
+  }
+  
+  .meta-item.commit-message {
+    display: block;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #f3f4f6;
+    border-radius: 4px;
+    font-style: italic;
   }
   
   .version-actions {

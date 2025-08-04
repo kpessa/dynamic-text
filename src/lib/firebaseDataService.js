@@ -19,6 +19,9 @@ import {
 } from 'firebase/firestore';
 import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from './firebase.js';
 import { getKeyCategory } from './tpnLegacy.js';
+import { generateIngredientHash, findDuplicates, areIngredientsIdentical } from './contentHashing.js';
+import { getPreferences } from './preferencesService.js';
+import { createSharedIngredient, addToSharedIngredient, getSharedIngredientByHash } from './sharedIngredientService.js';
 
 // Population types
 export const POPULATION_TYPES = {
@@ -29,6 +32,77 @@ export const POPULATION_TYPES = {
 };
 
 // Helper functions for ID normalization
+// Convert camelCase or PascalCase to proper spaced name
+export function formatIngredientName(name) {
+  if (!name) return '';
+  
+  // First, check if it contains known patterns that need special handling
+  const namePatterns = [
+    // Pediatric variations
+    { pattern: /^Pediatric(.+)$/i, replacement: 'Pediatric $1' },
+    { pattern: /^Ped(.+)$/i, replacement: 'Ped $1' },
+    { pattern: /^Adult(.+)$/i, replacement: 'Adult $1' },
+    { pattern: /^Neonatal(.+)$/i, replacement: 'Neonatal $1' },
+    
+    // Common compound patterns
+    { pattern: /(.+)Chloride$/i, replacement: '$1 Chloride' },
+    { pattern: /(.+)Acetate$/i, replacement: '$1 Acetate' },
+    { pattern: /(.+)Phosphate$/i, replacement: '$1 Phosphate' },
+    { pattern: /(.+)Gluconate$/i, replacement: '$1 Gluconate' },
+    { pattern: /(.+)Sulfate$/i, replacement: '$1 Sulfate' },
+    
+    // Vitamin patterns
+    { pattern: /^Multi[-]?Vitamin$/i, replacement: 'Multi Vitamin' },
+    { pattern: /^Vitamin(.+)$/i, replacement: 'Vitamin $1' },
+    
+    // Trace patterns
+    { pattern: /^Trace[-]?Elements?$/i, replacement: 'Trace Elements' },
+    { pattern: /^Trace[-]?(\d+[A-Z]?)$/i, replacement: 'Trace $1' },
+  ];
+  
+  // Apply patterns
+  let formatted = name;
+  for (const { pattern, replacement } of namePatterns) {
+    if (pattern.test(name)) {
+      formatted = name.replace(pattern, replacement);
+      break; // Use first matching pattern
+    }
+  }
+  
+  // Handle specific patterns that weren't caught by regex
+  const specialCases = {
+    // Brand names and special items
+    'Multrys': 'Multrys',
+    'Tralement': 'Tralement',
+    'PedTE': 'PedTE',
+    'MVI': 'MVI',
+    'TPN': 'TPN',
+    
+    // Common abbreviations
+    'AscorbicAcid': 'Ascorbic Acid',
+    'AminoAcids': 'Amino Acids',
+    'FolicAcid': 'Folic Acid',
+    
+    // Already handled by patterns but kept for backward compatibility
+    'PotassiumChloride': 'Potassium Chloride',
+    'CalciumGluconate': 'Calcium Gluconate',
+    'MagnesiumSulfate': 'Magnesium Sulfate',
+  };
+  
+  // Check if it's a special case (check original name)
+  if (specialCases[name]) {
+    return specialCases[name];
+  }
+  
+  // If no pattern matched, try camelCase conversion
+  if (formatted === name) {
+    // Convert camelCase/PascalCase to spaced format
+    formatted = name.replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+  
+  return formatted;
+}
+
 // Validate if a string is a valid Firestore document ID
 function isValidFirestoreId(id) {
   if (!id || typeof id !== 'string') return false;
@@ -223,7 +297,7 @@ function convertNotesToSections(notes) {
 // Ingredient service
 export const ingredientService = {
   // Create or update an ingredient with version tracking
-  async saveIngredient(ingredientData) {
+  async saveIngredient(ingredientData, commitMessage = null) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
@@ -237,10 +311,13 @@ export const ingredientService = {
       
       const data = {
         ...ingredientData,
+        name: ingredientData.name, // IMPORTANT: Explicitly preserve original name with parentheses
         id: ingredientId, // Ensure ID is stored in the document
         version: currentVersion + 1,
         lastModified: serverTimestamp(),
         modifiedBy: user.uid,
+        contentHash: generateIngredientHash(ingredientData), // Add content hash
+        commitMessage: commitMessage || null, // Store commit message if provided
         // Keep legacy fields for compatibility
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
@@ -254,7 +331,10 @@ export const ingredientService = {
       
       // Save current version to history before updating
       if (currentDoc.exists() && currentDoc.data()) {
-        await this.saveVersionHistory(ingredientId, currentDoc.data());
+        await this.saveVersionHistory(ingredientId, {
+          ...currentDoc.data(),
+          commitMessage: currentDoc.data().commitMessage || null
+        });
       }
       
       await setDoc(ingredientRef, data);
@@ -355,13 +435,121 @@ export const ingredientService = {
       }));
       callback(ingredients);
     });
+  },
+
+  // Clear all ingredients (use with caution!)
+  async clearAllIngredients() {
+    try {
+      const snapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      await batch.commit();
+      console.log(`Deleted ${snapshot.docs.length} ingredients`);
+      return snapshot.docs.length;
+    } catch (error) {
+      console.error('Error clearing ingredients:', error);
+      throw error;
+    }
+  },
+
+  // Fix ingredient categories
+  async fixIngredientCategories() {
+    try {
+      const user = getCurrentUser() || await signInAnonymouslyUser();
+      const ingredients = await this.getAllIngredients();
+      const batch = writeBatch(db);
+      let fixedCount = 0;
+      
+      for (const ingredient of ingredients) {
+        const correctCategory = getKeyCategory(ingredient.name);
+        if (correctCategory && ingredient.category !== correctCategory) {
+          const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredient.id);
+          batch.update(ingredientRef, {
+            category: correctCategory,
+            lastModified: serverTimestamp(),
+            modifiedBy: user.uid
+          });
+          fixedCount++;
+          console.log(`Fixed category for ${ingredient.name}: ${ingredient.category} -> ${correctCategory}`);
+        }
+      }
+      
+      if (fixedCount > 0) {
+        await batch.commit();
+        console.log(`Fixed categories for ${fixedCount} ingredients`);
+      }
+      
+      return fixedCount;
+    } catch (error) {
+      console.error('Error fixing ingredient categories:', error);
+      throw error;
+    }
+  },
+
+  // Fix ingredients that have lost their parentheses
+  async fixIngredientsWithParentheses() {
+    try {
+      const user = getCurrentUser() || await signInAnonymouslyUser();
+      const batch = writeBatch(db);
+      let fixedCount = 0;
+      
+      // Common ingredient patterns that should have parentheses
+      const parenthesesPatterns = [
+        { id: 'amino-acids-trophamine', name: 'Amino Acids (Trophamine)' },
+        { id: 'amino-acids-premasol', name: 'Amino Acids (Premasol)' },
+        { id: 'trace-elements-pedte', name: 'Trace Elements (PedTE)' },
+        { id: 'trace-elements-ped', name: 'Trace Elements (Ped)' },
+        { id: 'vitamins-mv-ped', name: 'Vitamins (MV Ped)' },
+        { id: 'lipids-intralipid', name: 'Lipids (Intralipid)' },
+        { id: 'lipids-smof', name: 'Lipids (SMOF)' },
+        { id: 'calcium-gluconate', name: 'Calcium (Gluconate)' },
+        { id: 'magnesium-sulfate', name: 'Magnesium (Sulfate)' },
+        { id: 'sodium-chloride', name: 'Sodium (Chloride)' },
+        { id: 'sodium-phosphate', name: 'Sodium (Phosphate)' },
+        { id: 'potassium-chloride', name: 'Potassium (Chloride)' },
+        { id: 'potassium-phosphate', name: 'Potassium (Phosphate)' }
+      ];
+      
+      for (const pattern of parenthesesPatterns) {
+        const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, pattern.id);
+        const ingredientDoc = await getDoc(ingredientRef);
+        
+        if (ingredientDoc.exists()) {
+          const data = ingredientDoc.data();
+          // Only fix if the name doesn't already have parentheses
+          if (data.name && !data.name.includes('(')) {
+            batch.update(ingredientRef, {
+              name: pattern.name,
+              lastModified: serverTimestamp(),
+              modifiedBy: user.uid
+            });
+            fixedCount++;
+            console.log(`Fixed ingredient: ${pattern.id} -> ${pattern.name}`);
+          }
+        }
+      }
+      
+      if (fixedCount > 0) {
+        await batch.commit();
+        console.log(`Fixed ${fixedCount} ingredients with missing parentheses`);
+      }
+      
+      return fixedCount;
+    } catch (error) {
+      console.error('Error fixing ingredients:', error);
+      throw error;
+    }
   }
 };
 
 // Reference service (nested under ingredients)
 export const referenceService = {
   // Save a reference under an ingredient with version tracking
-  async saveReference(ingredientId, referenceData) {
+  async saveReference(ingredientId, referenceData, commitMessage = null) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
@@ -380,6 +568,14 @@ export const referenceService = {
         version: currentVersion + 1,
         lastModified: serverTimestamp(),
         modifiedBy: user.uid,
+        contentHash: generateIngredientHash(referenceData), // Add content hash
+        commitMessage: commitMessage || null, // Store commit message if provided
+        // Preserve validation data if it exists
+        validationStatus: referenceData.validationStatus || currentDoc.data()?.validationStatus || 'untested',
+        validationNotes: referenceData.validationNotes || currentDoc.data()?.validationNotes || '',
+        validatedBy: referenceData.validatedBy || currentDoc.data()?.validatedBy || null,
+        validatedAt: referenceData.validatedAt || currentDoc.data()?.validatedAt || null,
+        testResults: referenceData.testResults || currentDoc.data()?.testResults || null,
         // Keep legacy fields for compatibility
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
@@ -393,7 +589,10 @@ export const referenceService = {
       
       // Save current version to history before updating
       if (currentDoc.exists() && currentDoc.data()) {
-        await this.saveReferenceVersionHistory(ingredientId, referenceId, currentDoc.data());
+        await this.saveReferenceVersionHistory(ingredientId, referenceId, {
+          ...currentDoc.data(),
+          commitMessage: currentDoc.data().commitMessage || null
+        });
       }
       
       await setDoc(referenceRef, data);
@@ -474,6 +673,29 @@ export const referenceService = {
     }
   },
   
+  // Update validation status for a reference
+  async updateReferenceValidation(ingredientId, referenceId, validationData) {
+    try {
+      const user = getCurrentUser() || await signInAnonymouslyUser();
+      const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId);
+      
+      await updateDoc(referenceRef, {
+        validationStatus: validationData.status,
+        validationNotes: validationData.notes || '',
+        validatedBy: validationData.validatedBy || user.uid,
+        validatedAt: validationData.validatedAt || serverTimestamp(),
+        testResults: validationData.testResults || null,
+        lastModified: serverTimestamp(),
+        modifiedBy: user.uid
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating validation status:', error);
+      throw error;
+    }
+  },
+
   // Get references by population type
   async getReferencesByPopulation(ingredientId, populationType) {
     try {
@@ -681,11 +903,125 @@ export const organizationService = {
 
 // Config service for imported TPN configurations
 export const configService = {
+  // Phase 3.2: Detect duplicates before import
+  async detectDuplicatesBeforeImport(configData) {
+    try {
+      const report = {
+        duplicatesFound: [],
+        identicalIngredients: [],
+        variations: [],
+        totalChecked: 0
+      };
+      
+      if (!configData.INGREDIENT || configData.INGREDIENT.length === 0) {
+        return report;
+      }
+      
+      report.totalChecked = configData.INGREDIENT.length;
+      
+      // Get all existing ingredients
+      const existingSnapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
+      const existingIngredients = new Map();
+      
+      existingSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        existingIngredients.set(doc.id, data);
+      });
+      
+      // Check each ingredient in the import for duplicates
+      for (const importIngredient of configData.INGREDIENT) {
+        const name = importIngredient.KEYNAME || importIngredient.keyname || 
+                    importIngredient.Ingredient || importIngredient.ingredient || 
+                    importIngredient.name;
+        
+        if (!name) continue;
+        
+        const ingredientId = normalizeIngredientId(name);
+        const existingIngredient = existingIngredients.get(ingredientId);
+        
+        if (existingIngredient) {
+          // Ingredient exists - check if it's identical
+          const importHash = generateIngredientHash({
+            NOTE: importIngredient.NOTE || importIngredient.notes
+          });
+          const existingHash = existingIngredient.contentHash || generateIngredientHash(existingIngredient);
+          
+          if (importHash && existingHash && importHash === existingHash) {
+            report.identicalIngredients.push({
+              name,
+              ingredientId,
+              hash: importHash,
+              existingConfigs: existingIngredient.configSources || []
+            });
+          } else {
+            report.variations.push({
+              name,
+              ingredientId,
+              importHash,
+              existingHash,
+              existingConfigs: existingIngredient.configSources || []
+            });
+          }
+        }
+      }
+      
+      // Find duplicates within the import itself
+      const importDuplicates = findDuplicates(configData.INGREDIENT.map(ing => ({
+        NOTE: ing.NOTE || ing.notes,
+        name: ing.KEYNAME || ing.keyname || ing.Ingredient || ing.ingredient || ing.name
+      })));
+      
+      Object.entries(importDuplicates).forEach(([hash, ingredients]) => {
+        report.duplicatesFound.push({
+          hash,
+          count: ingredients.length,
+          ingredients: ingredients.map(ing => ing.name)
+        });
+      });
+      
+      return report;
+    } catch (error) {
+      console.error('Error detecting duplicates:', error);
+      return {
+        duplicatesFound: [],
+        identicalIngredients: [],
+        variations: [],
+        totalChecked: 0,
+        error: error.message
+      };
+    }
+  },
+  
   // Save an imported config with all ingredient data
   // Phase 2.1: Now preserves original imports as immutable baseline
+  // Phase 3.2: Now includes duplicate detection
   async saveImportedConfig(configData, metadata) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
+      
+      // Phase 3.2: Detect duplicates before import
+      const duplicateReport = await this.detectDuplicatesBeforeImport(configData);
+      
+      // Phase 3.6: Check for auto-deduplication preference
+      const preferences = getPreferences();
+      let autoDedupeActions = [];
+      
+      if (preferences.autoDeduplicateOnImport && duplicateReport.identicalIngredients.length > 0) {
+        // Prepare auto-deduplication actions
+        for (const identical of duplicateReport.identicalIngredients) {
+          autoDedupeActions.push({
+            ingredientId: identical.ingredientId,
+            name: identical.name,
+            hash: identical.hash,
+            existingConfigs: identical.existingConfigs,
+            action: 'link' // Will link to existing shared ingredient
+          });
+        }
+        
+        // Add to duplicate report for display
+        duplicateReport.autoDedupeActions = autoDedupeActions;
+        duplicateReport.autoDedupeEnabled = true;
+      }
       
       // Generate meaningful config ID
       const configId = normalizeConfigId(
@@ -731,10 +1067,21 @@ export const configService = {
         baselineId: configId  // Link to baseline
       });
       
+      // Include duplicate report in the import process
+      const importStats = {
+        totalIngredients: 0,
+        newIngredients: 0,
+        updatedIngredients: 0,
+        duplicatesFound: duplicateReport.duplicatesFound.length,
+        identicalIngredients: duplicateReport.identicalIngredients.length
+      };
+      
       // Store each ingredient in a subcollection and create/update main ingredients
       if (configData.INGREDIENT && configData.INGREDIENT.length > 0) {
         const batch = writeBatch(db);
         const processedIngredients = new Map(); // Track unique ingredients
+        
+        importStats.totalIngredients = configData.INGREDIENT.length;
         
         // Phase 2.1: Store baseline ingredients (only if baseline doesn't exist)
         if (!baselineExists.exists()) {
@@ -749,23 +1096,40 @@ export const configService = {
           });
         }
         
+        // Phase 3.6: Pre-process auto-deduplication data
+        const autoDedupeMap = new Map();
+        if (autoDedupeActions.length > 0) {
+          for (const action of autoDedupeActions) {
+            const sharedIngredient = await getSharedIngredientByHash(action.hash);
+            autoDedupeMap.set(action.ingredientId, {
+              ...action,
+              sharedIngredient
+            });
+          }
+        }
+        
         // First, identify unique ingredients and their data
         configData.INGREDIENT.forEach((ingredientData) => {
           // Handle both uppercase and lowercase property names
-          const name = ingredientData.KEYNAME || ingredientData.keyname || 
-                      ingredientData.Ingredient || ingredientData.ingredient || 
-                      ingredientData.name;
+          const rawName = ingredientData.KEYNAME || ingredientData.keyname || 
+                         ingredientData.Ingredient || ingredientData.ingredient || 
+                         ingredientData.name;
           
-          if (name && !processedIngredients.has(name)) {
-            processedIngredients.set(name, {
-              name: name,
-              category: getKeyCategory(name) || 'OTHER',
-              description: ingredientData.DISPLAY || ingredientData.display || 
-                          ingredientData.Description || ingredientData.description || '',
-              unit: ingredientData.Unit || ingredientData.unit || '',
-              type: ingredientData.TYPE || ingredientData.type || '',
-              configSources: [configId]
-            });
+          if (rawName) {
+            // Format the name properly (e.g., "PotassiumChloride" -> "Potassium Chloride")
+            const name = formatIngredientName(rawName);
+            
+            if (!processedIngredients.has(name)) {
+              processedIngredients.set(name, {
+                name: name,  // Properly formatted name
+                category: getKeyCategory(name) || 'OTHER',
+                description: ingredientData.DISPLAY || ingredientData.display || 
+                            ingredientData.Description || ingredientData.description || '',
+                unit: ingredientData.Unit || ingredientData.unit || '',
+                type: ingredientData.TYPE || ingredientData.type || '',
+                configSources: [configId]
+              });
+            }
           }
         });
         
@@ -796,6 +1160,7 @@ export const configService = {
             };
             console.log(`DEBUG: Creating new ingredient with ID "${ingredientId}" at path "${ingredientRef.path}"`);
             batch.set(ingredientRef, ingredientData);
+            importStats.newIngredients++;
           } else {
             // Update existing ingredient
             console.log(`DEBUG: Updating existing ingredient "${ingredientId}"`);
@@ -807,14 +1172,16 @@ export const configService = {
               // Update description if it was empty
               description: existingData.description || ingredientInfo.description
             });
+            importStats.updatedIngredients++;
           }
           
           // Find the matching ingredient data to get its notes
           const matchingIngredientData = configData.INGREDIENT.find(ing => {
-            const ingName = ing.KEYNAME || ing.keyname || 
-                           ing.Ingredient || ing.ingredient || 
-                           ing.name;
-            return ingName === name;
+            const rawIngName = ing.KEYNAME || ing.keyname || 
+                              ing.Ingredient || ing.ingredient || 
+                              ing.name;
+            const formattedIngName = formatIngredientName(rawIngName);
+            return formattedIngName === name;
           });
           
           // Convert notes to sections if available
@@ -827,7 +1194,9 @@ export const configService = {
           // Create a reference under the ingredient for this config
           // Use config ID as reference ID for uniqueness
           const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', configId);
-          batch.set(referenceRef, {
+          
+          // Check if this ingredient should be auto-deduplicated
+          let referenceData = {
             name: metadata.name,
             healthSystem: metadata.healthSystem,
             domain: metadata.domain,
@@ -840,7 +1209,28 @@ export const configService = {
             createdBy: user.uid,
             updatedAt: serverTimestamp(),
             updatedBy: user.uid
-          });
+          };
+          
+          // Phase 3.6: Apply auto-deduplication if enabled
+          const autoDedupeData = autoDedupeMap.get(ingredientId);
+          if (autoDedupeData) {
+            // This ingredient is identical to an existing one and should be linked
+            if (autoDedupeData.sharedIngredient) {
+              // Link to existing shared ingredient
+              referenceData.sharedIngredientId = autoDedupeData.sharedIngredient.id;
+              referenceData.isShared = true;
+              referenceData.sharedAt = serverTimestamp();
+              referenceData.autoDeduped = true;
+              importStats.autoDeduped = (importStats.autoDeduped || 0) + 1;
+            } else {
+              // Create new shared ingredient with this as the first reference
+              // This is the first time we're seeing this content
+              const contentHash = generateIngredientHash({ sections });
+              referenceData.contentHash = contentHash;
+            }
+          }
+          
+          batch.set(referenceRef, referenceData);
         }
         
         // Also store in the importedConfigs subcollection for reference
@@ -872,15 +1262,20 @@ export const configService = {
         }
       }
       
-      // Log the import action
+      // Log the import action with stats
       await auditService.logAction('CONFIG_IMPORTED', {
         configId: configId,
         name: metadata.name,
         healthSystem: metadata.healthSystem,
-        ingredientCount: configData.INGREDIENT?.length || 0
+        ingredientCount: configData.INGREDIENT?.length || 0,
+        importStats: importStats
       });
       
-      return configId;
+      return {
+        configId,
+        duplicateReport,
+        importStats
+      };
     } catch (error) {
       console.error('Error saving imported config:', error);
       throw error;
@@ -1106,16 +1501,19 @@ export const configService = {
         
         // Process each ingredient in the config
         configIngredients.forEach((ingredientData) => {
-          const name = ingredientData.KEYNAME || ingredientData.Ingredient || ingredientData.name;
-          if (name && !processedIngredients.has(name)) {
-            processedIngredients.set(name, {
-              name: name,
-              category: getKeyCategory(name) || 'OTHER',
-              description: ingredientData.DISPLAY || ingredientData.Description || '',
-              unit: ingredientData.Unit || '',
-              type: ingredientData.TYPE || '',
-              configSources: [config.id]
-            });
+          const rawName = ingredientData.KEYNAME || ingredientData.Ingredient || ingredientData.name;
+          if (rawName) {
+            const name = formatIngredientName(rawName);
+            if (!processedIngredients.has(name)) {
+              processedIngredients.set(name, {
+                name: name,
+                category: getKeyCategory(name) || 'OTHER',
+                description: ingredientData.DISPLAY || ingredientData.Description || '',
+                unit: ingredientData.Unit || '',
+                type: ingredientData.TYPE || '',
+                configSources: [config.id]
+              });
+            }
           }
         });
         

@@ -1,9 +1,14 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { ingredientService, referenceService, POPULATION_TYPES, configService, organizationService } from './firebaseDataService.js';
+  import { ingredientService, referenceService, POPULATION_TYPES, configService, organizationService, formatIngredientName } from './firebaseDataService.js';
   import { getKeyCategory } from './tpnLegacy.js';
   import { isFirebaseConfigured } from './firebase.js';
   import VersionHistory from './VersionHistory.svelte';
+  import SharedIngredientManager from './SharedIngredientManager.svelte';
+  import VariationDetector from './VariationDetector.svelte';
+  import ValidationStatus from './ValidationStatus.svelte';
+  import BulkOperations from './BulkOperations.svelte';
+  import { isIngredientShared } from './sharedIngredientService.js';
   
   let {
     onSelectIngredient = () => {},
@@ -34,6 +39,16 @@
   let baselineStatuses = $state({}); // Track baseline comparison status
   let showBaselineComparison = $state(false);
   let baselineComparisonData = $state(null);
+  let showSharedManager = $state(false);
+  let sharedManagerIngredient = $state(null);
+  let sharedStatuses = $state({}); // Track shared status for ingredients
+  let showVariationDetector = $state(false);
+  let variationTargetIngredient = $state(null);
+  
+  // Multi-select and bulk operations state
+  let selectionMode = $state(false);
+  let selectedIngredients = $state(new Set());
+  let showBulkOperations = $state(false);
   
   // Cache for loaded references to avoid refetching
   const referenceCache = new Map();
@@ -97,7 +112,64 @@
       // Subscribe to real-time updates
       unsubscribe = ingredientService.subscribeToIngredients(async (updatedIngredients) => {
         console.log(`Received ${updatedIngredients.length} ingredients from Firebase:`, updatedIngredients);
+        
+        // Debug: Check for ingredients with parentheses issues and Multrys
+        const ingredientsWithParens = updatedIngredients.filter(ing => 
+          ing.id.includes('-') && (
+            ing.id.includes('amino-acids') || 
+            ing.id.includes('trace-elements') ||
+            ing.id.includes('vitamins')
+          )
+        );
+        if (ingredientsWithParens.length > 0) {
+          console.log('Ingredients that might have parentheses:', ingredientsWithParens.map(ing => ({
+            id: ing.id,
+            name: ing.name,
+            hasParentheses: ing.name?.includes('(')
+          })));
+        }
+        
+        // Debug: Check for Multrys and Tralement specifically
+        const multrysIngredient = updatedIngredients.find(ing => 
+          ing.id === 'multrys' || ing.name?.toLowerCase().includes('multrys')
+        );
+        const tralementIngredient = updatedIngredients.find(ing => 
+          ing.id === 'tralement' || ing.name?.toLowerCase().includes('tralement')
+        );
+        
+        if (multrysIngredient) {
+          console.log('Found Multrys:', multrysIngredient);
+        } else {
+          console.log('Multrys not found in ingredients');
+        }
+        
+        if (tralementIngredient) {
+          console.log('Found Tralement:', tralementIngredient);
+        } else {
+          console.log('Tralement not found in ingredients');
+        }
+        
+        // Show all additives for debugging
+        const additives = updatedIngredients.filter(ing => 
+          getKeyCategory(ing.name) === 'ADDITIVES'
+        );
+        console.log('All additives found:', additives.map(ing => ({ 
+          id: ing.id, 
+          name: ing.name,
+          category: ing.category 
+        })));
+        
         ingredients = updatedIngredients;
+        
+        // Check shared status for ingredients
+        for (const ingredient of updatedIngredients) {
+          try {
+            const sharedStatus = await isIngredientShared(ingredient.id);
+            sharedStatuses[ingredient.id] = sharedStatus;
+          } catch (err) {
+            console.warn(`Failed to check shared status for ${ingredient.name}:`, err);
+          }
+        }
         
         // Pre-load references for first few ingredients to populate health systems
         if (updatedIngredients.length > 0 && Object.keys(ingredientReferences).length === 0) {
@@ -200,9 +272,17 @@
       // Active config filter - if a config is active, only show its ingredients
       if (activeConfigId && activeConfigIngredients.length > 0) {
         // Check if ingredient name matches any of the config ingredients
-        const ingredientNames = activeConfigIngredients.map(ing => 
-          ing.KEYNAME || ing.Ingredient || ing.name || ''
-        );
+        // Format the names from config to match Firebase names
+        const ingredientNames = activeConfigIngredients.map(ing => {
+          const rawName = ing.KEYNAME || ing.Ingredient || ing.name || '';
+          return formatIngredientName(rawName);
+        });
+        
+        // Debug logging for additives
+        if (getKeyCategory(ingredient.name) === 'ADDITIVES') {
+          console.log(`Checking additive: "${ingredient.name}" against formatted config names:`, ingredientNames);
+        }
+        
         if (!ingredientNames.some(name => 
           name.toLowerCase() === ingredient.name.toLowerCase()
         )) {
@@ -303,19 +383,131 @@
   }
   
   // Edit an existing reference
-  function editReference(ingredient, reference) {
+  async function editReference(ingredient, reference) {
     console.log('IngredientManager: editReference called', {
       ingredient: ingredient.name,
       reference: reference.name,
       hasOnEditReference: !!onEditReference
     });
+    
+    // Check if this reference is shared
+    try {
+      const sharedStatus = await isIngredientShared(ingredient.id, reference.id);
+      if (sharedStatus.isShared) {
+        const message = `⚠️ Warning: This reference is shared across multiple configurations.\n\n` +
+                       `Editing it will affect all configurations that use this shared ingredient.\n\n` +
+                       `Would you like to:\n` +
+                       `• OK - Continue editing (affects all shared configs)\n` +
+                       `• Cancel - Make an independent copy first`;
+        
+        if (!confirm(message)) {
+          // User wants to make it independent first
+          alert('To make this reference independent, use the share manager (🔗 button) and unshare it first.');
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to check shared status:', err);
+      // Continue with edit even if check fails
+    }
+    
     onEditReference(ingredient, reference);
+  }
+  
+  // Toggle selection mode
+  function toggleSelectionMode() {
+    selectionMode = !selectionMode;
+    if (!selectionMode) {
+      selectedIngredients.clear();
+      selectedIngredients = new Set();
+    }
+  }
+  
+  // Toggle ingredient selection
+  function toggleIngredientSelection(ingredientId) {
+    if (selectedIngredients.has(ingredientId)) {
+      selectedIngredients.delete(ingredientId);
+    } else {
+      selectedIngredients.add(ingredientId);
+    }
+    selectedIngredients = new Set(selectedIngredients); // Trigger reactivity
+  }
+  
+  // Select all visible ingredients
+  function selectAll() {
+    filteredIngredients.forEach(ingredient => {
+      selectedIngredients.add(ingredient.id);
+    });
+    selectedIngredients = new Set(selectedIngredients);
+  }
+  
+  // Clear selection
+  function clearSelection() {
+    selectedIngredients.clear();
+    selectedIngredients = new Set();
+  }
+  
+  // Open bulk operations
+  function openBulkOperations() {
+    if (selectedIngredients.size === 0) {
+      alert('Please select at least one ingredient');
+      return;
+    }
+    showBulkOperations = true;
+  }
+  
+  // Get selected items for bulk operations
+  function getSelectedItems() {
+    return Array.from(selectedIngredients).map(id => {
+      const ingredient = ingredients.find(i => i.id === id);
+      const refs = ingredientReferences[id];
+      return {
+        id,
+        name: ingredient?.name || id,
+        ingredientId: id,
+        configs: refs ? Object.values(refs).flat().map(r => r.configId).filter(Boolean) : [],
+        references: refs
+      };
+    });
   }
   
   // Open version history for an ingredient
   function openVersionHistory(ingredient) {
     versionHistoryIngredientId = ingredient.id;
     showVersionHistory = true;
+  }
+  
+  // Open shared ingredient manager
+  function openSharedManager(ingredient) {
+    sharedManagerIngredient = {
+      id: ingredient.id,
+      name: ingredient.name
+    };
+    showSharedManager = true;
+  }
+  
+  // Open variation detector
+  function openVariationDetector(ingredient) {
+    variationTargetIngredient = ingredient;
+    showVariationDetector = true;
+  }
+  
+  // Handle merge of variations
+  async function handleMergeVariations(primary, variations) {
+    if (!primary || !variations || variations.length === 0) return;
+    
+    try {
+      // Implementation would merge variations into primary
+      // For now, just log the action
+      console.log('Merging variations:', { primary, variations });
+      alert(`Would merge ${variations.length} variations into "${primary.name}"`);
+      
+      // Reload ingredients after merge
+      await loadIngredients();
+    } catch (error) {
+      console.error('Error merging variations:', error);
+      alert('Failed to merge variations');
+    }
   }
   
   // Check baseline status for a reference
@@ -484,20 +676,109 @@
       migrating = false;
     }
   }
+  
+  // Fix ingredients with missing parentheses
+  async function fixParentheses() {
+    try {
+      const fixedCount = await ingredientService.fixIngredientsWithParentheses();
+      if (fixedCount > 0) {
+        alert(`Successfully fixed ${fixedCount} ingredients with missing parentheses!`);
+      } else {
+        alert('No ingredients needed fixing - all parentheses are correct!');
+      }
+    } catch (err) {
+      console.error('Error fixing parentheses:', err);
+      alert('Failed to fix parentheses: ' + err.message);
+    }
+  }
+  
+  // Fix ingredient categories
+  async function fixCategories() {
+    try {
+      const fixedCount = await ingredientService.fixIngredientCategories();
+      if (fixedCount > 0) {
+        alert(`Successfully fixed ${fixedCount} ingredient categories!`);
+      } else {
+        alert('All ingredient categories are correct!');
+      }
+    } catch (err) {
+      console.error('Error fixing categories:', err);
+      alert('Failed to fix categories: ' + err.message);
+    }
+  }
+  
+  // Clear all ingredients (for fresh start)
+  async function clearAllIngredients() {
+    if (!confirm('⚠️ WARNING: This will delete ALL ingredients and their references!\n\nAre you sure you want to continue?')) {
+      return;
+    }
+    
+    if (!confirm('This action cannot be undone. Are you REALLY sure?')) {
+      return;
+    }
+    
+    try {
+      const deletedCount = await ingredientService.clearAllIngredients();
+      alert(`Successfully deleted ${deletedCount} ingredients. You can now re-import your configs.`);
+      // Refresh the view
+      ingredients = [];
+      filteredIngredients = [];
+    } catch (err) {
+      console.error('Error clearing ingredients:', err);
+      alert('Failed to clear ingredients: ' + err.message);
+    }
+  }
 </script>
 
 <div class="ingredient-manager">
   <div class="manager-header">
     <h2>📦 Ingredient Library</h2>
-    <div class="header-stats">
-      {#if activeConfigId}
-        <span class="active-config-badge">
-          ⚙️ Filtered by config: {activeConfigId}
-        </span>
-      {/if}
-      {#if !loading}
-        <span class="stat">{filteredIngredients.length} of {ingredients.length} ingredients</span>
-      {/if}
+    <div class="header-controls">
+      <div class="header-stats">
+        {#if activeConfigId}
+          <span class="active-config-badge">
+            ⚙️ Filtered by config: {activeConfigId}
+          </span>
+        {/if}
+        {#if !loading}
+          <span class="stat">{filteredIngredients.length} of {ingredients.length} ingredients</span>
+        {/if}
+      </div>
+      
+      <div class="selection-controls">
+        <button 
+          class="selection-toggle-btn {selectionMode ? 'active' : ''}"
+          onclick={toggleSelectionMode}
+          title="{selectionMode ? 'Exit selection mode' : 'Enter selection mode'}"
+        >
+          {selectionMode ? '✓ Selection Mode' : '☐ Select'}
+        </button>
+        
+        {#if selectionMode}
+          <span class="selection-count">{selectedIngredients.size} selected</span>
+          <button 
+            class="select-all-btn"
+            onclick={selectAll}
+            disabled={selectedIngredients.size === filteredIngredients.length}
+          >
+            Select All
+          </button>
+          <button 
+            class="clear-selection-btn"
+            onclick={clearSelection}
+            disabled={selectedIngredients.size === 0}
+          >
+            Clear
+          </button>
+          <button 
+            class="bulk-operations-btn"
+            onclick={openBulkOperations}
+            disabled={selectedIngredients.size === 0}
+          >
+            ⚙️ Bulk Operations
+          </button>
+        {/if}
+      </div>
     </div>
   </div>
   
@@ -544,6 +825,17 @@
           />
           <span>Show only with differences</span>
         </label>
+        
+        <button
+          class="variation-detector-btn"
+          onclick={() => {
+            variationTargetIngredient = null;
+            showVariationDetector = true;
+          }}
+          title="Find all variation clusters"
+        >
+          🔍 Find All Variations
+        </button>
       </div>
     </div>
     
@@ -551,6 +843,30 @@
       <div class="migration-success">
         <span class="success-icon">✅</span>
         Migration complete! Created {migrationResult.totalIngredients} ingredients and {migrationResult.totalReferences} references from {migrationResult.totalConfigs} configs.
+      </div>
+    {/if}
+    
+    {#if ingredients.length > 0}
+      <div class="fix-parentheses-prompt">
+        <p>If some ingredients are missing parentheses (e.g., "Amino Acids Trophamine" instead of "Amino Acids (Trophamine)"), you can fix them.</p>
+        <button 
+          class="fix-btn"
+          onclick={fixParentheses}
+        >
+          🔧 Fix Missing Parentheses
+        </button>
+        <button 
+          class="fix-btn"
+          onclick={fixCategories}
+        >
+          📁 Fix Categories
+        </button>
+        <button 
+          class="clear-btn"
+          onclick={clearAllIngredients}
+        >
+          🗑️ Clear All & Start Fresh
+        </button>
       </div>
     {/if}
     
@@ -581,13 +897,37 @@
           <div class="ingredients-grid">
             {#each categoryIngredients as ingredient (ingredient.id)}
               <div 
-                class="ingredient-card {currentIngredient?.id === ingredient.id ? 'selected' : ''} {hasDifferences(ingredient.id) ? 'has-diffs' : ''}"
-                onclick={() => selectIngredient(ingredient, true)}
-                onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && selectIngredient(ingredient, true)}
+                class="ingredient-card {currentIngredient?.id === ingredient.id ? 'selected' : ''} {hasDifferences(ingredient.id) ? 'has-diffs' : ''} {selectionMode && selectedIngredients.has(ingredient.id) ? 'multi-selected' : ''}"
+                onclick={() => {
+                  if (selectionMode) {
+                    toggleIngredientSelection(ingredient.id);
+                  } else {
+                    selectIngredient(ingredient, true);
+                  }
+                }}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    if (selectionMode) {
+                      toggleIngredientSelection(ingredient.id);
+                    } else {
+                      selectIngredient(ingredient, true);
+                    }
+                  }
+                }}
                 role="button"
                 tabindex="0"
-                title="Click to load clinical notes"
+                title="{selectionMode ? 'Click to select/deselect' : 'Click to load clinical notes'}"
               >
+                {#if selectionMode}
+                  <div class="selection-checkbox">
+                    <input 
+                      type="checkbox"
+                      checked={selectedIngredients.has(ingredient.id)}
+                      onclick={(e) => e.stopPropagation()}
+                      onchange={() => toggleIngredientSelection(ingredient.id)}
+                    />
+                  </div>
+                {/if}
                 <div class="card-header">
                   <h4 class="card-title">{ingredient.name}</h4>
                   <div class="card-badges">
@@ -603,6 +943,39 @@
                         v{ingredient.version}
                       </button>
                     {/if}
+                    {#if sharedStatuses[ingredient.id]?.isShared}
+                      <button
+                        class="shared-badge clickable"
+                        title="Manage shared ingredient (shared across {sharedStatuses[ingredient.id].sharedCount || 'multiple'} configs)"
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          openSharedManager(ingredient);
+                        }}
+                      >
+                        🔗 {sharedStatuses[ingredient.id].sharedCount || ''}
+                      </button>
+                    {:else}
+                      <button
+                        class="share-badge clickable"
+                        title="Share this ingredient"
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          openSharedManager(ingredient);
+                        }}
+                      >
+                        📄
+                      </button>
+                    {/if}
+                    <button
+                      class="variation-badge clickable"
+                      title="Find variations of this ingredient"
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        openVariationDetector(ingredient);
+                      }}
+                    >
+                      🔍
+                    </button>
                     {#if hasDifferences(ingredient.id)}
                       <span class="diff-badge" title="Has differences across populations">⚡</span>
                     {/if}
@@ -714,12 +1087,32 @@
                                     title="{reference.status === 'MODIFIED' ? 'Modified from baseline' : reference.status === 'CLEAN' ? 'Matches baseline' : ''}"
                                   >
                                     {reference.healthSystem} {reference.version ? `v${reference.version}` : ''}
+                                    {#if reference.isShared}
+                                      <span class="status-indicator shared" title="Shared across configs">🔗</span>
+                                    {/if}
                                     {#if reference.status === 'MODIFIED'}
                                       <span class="status-indicator modified" title="Modified from baseline">●</span>
                                     {:else if reference.status === 'CLEAN'}
                                       <span class="status-indicator clean" title="Matches baseline">✓</span>
                                     {/if}
                                   </button>
+                                  <ValidationStatus 
+                                    status={reference.validationStatus || 'untested'}
+                                    validatedBy={reference.validatedBy}
+                                    validatedAt={reference.validatedAt}
+                                    testResults={reference.testResults}
+                                    notes={reference.validationNotes || ''}
+                                    compact={true}
+                                    onUpdate={async (validationData) => {
+                                      await referenceService.updateReferenceValidation(
+                                        ingredient.id,
+                                        reference.id,
+                                        validationData
+                                      );
+                                      // Refresh the reference
+                                      await loadReferencesForIngredient(ingredient.id);
+                                    }}
+                                  />
                                   {#if reference.configId}
                                     <button 
                                       class="baseline-action-btn"
@@ -861,6 +1254,26 @@
   </div>
 {/if}
 
+{#if showBulkOperations}
+  <div class="modal-backdrop" onclick={() => showBulkOperations = false}>
+    <div class="modal-content bulk-operations-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <h2>Bulk Operations</h2>
+        <button class="close-btn" onclick={() => showBulkOperations = false}>✕</button>
+      </div>
+      <BulkOperations 
+        selectedItems={getSelectedItems()}
+        onComplete={() => {
+          showBulkOperations = false;
+          clearSelection();
+          loadIngredients(); // Reload to show changes
+        }}
+        onCancel={() => showBulkOperations = false}
+      />
+    </div>
+  </div>
+{/if}
+
 <style>
   .ingredient-manager {
     height: 100%;
@@ -980,6 +1393,26 @@
   
   .diff-filter input {
     cursor: pointer;
+  }
+  
+  .variation-detector-btn {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .variation-detector-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
   }
   
   .ingredients-container {
@@ -1115,6 +1548,54 @@
     font-size: 1.2rem;
     color: #ffc107;
     filter: drop-shadow(0 2px 4px rgba(255, 193, 7, 0.3));
+  }
+  
+  .shared-badge,
+  .share-badge {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .shared-badge {
+    background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+    color: white;
+  }
+  
+  .shared-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
+  }
+  
+  .share-badge {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+  }
+  
+  .share-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+  }
+  
+  .variation-badge {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+    color: white;
+    transition: all 0.2s;
+  }
+  
+  .variation-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(156, 39, 176, 0.4);
   }
   
   .card-metadata {
@@ -1376,7 +1857,8 @@
     font-size: 1.5rem;
   }
   
-  .fix-population-prompt {
+  .fix-population-prompt,
+  .fix-parentheses-prompt {
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -1407,6 +1889,23 @@
   .fix-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+  
+  .clear-btn {
+    padding: 0.5rem 1.25rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .clear-btn:hover {
+    background-color: #c82333;
+    transform: translateY(-1px);
   }
   
   .fix-help {
@@ -1692,10 +2191,148 @@
     background-color: #f57c00;
   }
   
+  /* Selection mode styles */
+  .header-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .selection-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .selection-toggle-btn {
+    padding: 0.375rem 0.75rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+  
+  .selection-toggle-btn:hover {
+    background: #f5f5f5;
+  }
+  
+  .selection-toggle-btn.active {
+    background: #1976d2;
+    color: white;
+    border-color: #1976d2;
+  }
+  
+  .selection-count {
+    padding: 0.25rem 0.75rem;
+    background: #e3f2fd;
+    color: #1976d2;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .select-all-btn,
+  .clear-selection-btn,
+  .bulk-operations-btn {
+    padding: 0.375rem 0.75rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+  
+  .select-all-btn:hover,
+  .clear-selection-btn:hover,
+  .bulk-operations-btn:hover {
+    background: #f5f5f5;
+  }
+  
+  .select-all-btn:disabled,
+  .clear-selection-btn:disabled,
+  .bulk-operations-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .bulk-operations-btn {
+    background: #4CAF50;
+    color: white;
+    border-color: #4CAF50;
+  }
+  
+  .bulk-operations-btn:hover {
+    background: #45a049;
+  }
+  
+  .ingredient-card.multi-selected {
+    background: #e3f2fd;
+    border-color: #1976d2;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  }
+  
+  .selection-checkbox {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 1;
+  }
+  
+  .selection-checkbox input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+  }
+  
+  .ingredient-card {
+    position: relative;
+  }
+  
+  .bulk-operations-modal {
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
 </style>
 
 <VersionHistory 
   bind:isOpen={showVersionHistory}
   ingredientId={versionHistoryIngredientId}
   onRestore={handleRestoreVersion}
+/>
+
+{#if showSharedManager && sharedManagerIngredient}
+  <SharedIngredientManager
+    ingredientId={sharedManagerIngredient.id}
+    ingredientName={sharedManagerIngredient.name}
+    onClose={() => {
+      showSharedManager = false;
+      sharedManagerIngredient = null;
+      // Refresh shared statuses
+      ingredients.forEach(async (ingredient) => {
+        try {
+          const sharedStatus = await isIngredientShared(ingredient.id);
+          sharedStatuses[ingredient.id] = sharedStatus;
+        } catch (err) {
+          console.warn(`Failed to refresh shared status for ${ingredient.name}:`, err);
+        }
+      });
+    }}
+  />
+{/if}
+
+<VariationDetector
+  bind:isOpen={showVariationDetector}
+  targetIngredient={variationTargetIngredient}
+  onMerge={handleMergeVariations}
+  onClose={() => {
+    showVariationDetector = false;
+    variationTargetIngredient = null;
+  }}
 />

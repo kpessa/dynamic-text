@@ -53,7 +53,15 @@ Svelte 5 SPA with Firebase integration and AI-powered test generation.
 - Configuration in `src/lib/firebase.js` and `src/lib/firebaseDataService.js`
 - Environment variables required: Firebase config keys
 
-#### 4. AI Test Generation
+#### 4. Versioning & Sharing System
+- **Version tracking**: Every save increments version number with history
+- **Baseline preservation**: Original imports stored immutably in `baselineConfigs`
+- **Content hashing**: Automatic duplicate detection via `contentHashing.js`
+- **Shared ingredients**: Link identical content across configs via `sharedIngredientService.js`
+- **Diff viewing**: Compare versions and baseline differences
+- See `VERSIONING_ROADMAP.md` for implementation phases
+
+#### 5. AI Test Generation
 - Powered by Google Gemini API
 - Generates test cases from JavaScript code
 - Serverless function at `api/generate-tests.js`
@@ -65,10 +73,13 @@ Svelte 5 SPA with Firebase integration and AI-powered test generation.
 App.svelte (main orchestrator)
 ├── Navbar (navigation and mode switching)
 ├── CodeEditor (CodeMirror wrapper)
-├── Sidebar (reference management)
+├── Sidebar (reference management & config import)
 ├── TPNTestPanel (TPN value inputs)
-├── IngredientManager (Firebase CRUD)
+├── IngredientManager (Firebase CRUD & versioning)
 ├── IngredientDiffViewer (compare references)
+├── VersionHistory (view/restore versions)
+├── SharedIngredientManager (link/unlink shared ingredients)
+├── DuplicateReportModal (import analysis)
 ├── TestGeneratorModal (AI test generation)
 └── AIWorkflowInspector (debug AI responses)
 ```
@@ -90,5 +101,8 @@ App.svelte (main orchestrator)
 - `src/App.svelte` - Main application logic and state management
 - `src/lib/tpnLegacy.js` - TPN function implementations and key extraction
 - `src/lib/firebaseDataService.js` - Firebase CRUD operations
+- `src/lib/contentHashing.js` - Content fingerprinting for deduplication
+- `src/lib/sharedIngredientService.js` - Shared ingredient management
 - `api/generate-tests.js` - AI test generation endpoint
 - `vercel.json` - Vercel deployment configuration
+- `VERSIONING_ROADMAP.md` - Detailed versioning implementation guide

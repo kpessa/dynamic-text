@@ -460,7 +460,14 @@ export const TPN_VALID_KEYS = {
 
   ADDITIVES: [
     'MultiVitamin',
+    'PediatricMultiVitamin',
+    'AdultMultiVitamin',
+    'NeonatalMultiVitamin',
+    'MVI',
+    'MVP',
     'TraceElements',
+    'Tralement',
+    'PedTE',
     'PretermTraceCombo',
     'Trace4',
     'Trace4C',
@@ -479,6 +486,7 @@ export const TPN_VALID_KEYS = {
     'Levocarnitine',
     'Thiamine',
     'FolicAcid',
+    'Multrys',
     'Pyridoxine',
     'AscorbicAcid',
     'Cysteine',
@@ -605,6 +613,31 @@ export function getKeyCategory(key) {
   // Check if it's admixture (which is calculated)
   if (canonicalKey === 'admixture') {
     return 'CLINICAL_CALCULATIONS';
+  }
+  
+  // Additional pattern-based categorization for items not in the list
+  const keyLower = key.toLowerCase();
+  
+  // Check for vitamin patterns
+  if (keyLower.includes('vitamin') || keyLower.includes('vit')) {
+    return 'ADDITIVES';
+  }
+  
+  // Check for trace element patterns
+  if (keyLower.includes('trace') || keyLower === 'tralement' || keyLower === 'pedte') {
+    return 'ADDITIVES';
+  }
+  
+  // Check for specific additives
+  if (['multrys', 'mvi', 'mvp'].includes(keyLower)) {
+    return 'ADDITIVES';
+  }
+  
+  // Check for electrolyte patterns
+  if (keyLower.includes('chloride') || keyLower.includes('acetate') || 
+      keyLower.includes('phosphate') || keyLower.includes('gluconate') || 
+      keyLower.includes('sulfate')) {
+    return 'ELECTROLYTES';
   }
   
   return null;

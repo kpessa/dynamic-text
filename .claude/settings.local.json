@@ -3,7 +3,8 @@
     "allow": [
       "Bash(vercel env pull:*)",
       "Bash(vercel link:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(pnpm dev:*)"
     ],
     "deny": []
   }

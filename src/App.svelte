@@ -13,6 +13,11 @@
   import IngredientManager from './lib/IngredientManager.svelte';
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
   import DataMigrationTool from './lib/DataMigrationTool.svelte';
+  import CommitMessageDialog from './lib/CommitMessageDialog.svelte';
+  import ExportModal from './lib/ExportModal.svelte';
+  import ValidationStatus from './lib/ValidationStatus.svelte';
+  import SelectiveApply from './lib/SelectiveApply.svelte';
+  import PreferencesModal from './lib/PreferencesModal.svelte';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
@@ -49,6 +54,13 @@
   let loadedReference = $state(null);
   let currentHealthSystem = $state(null);
   
+  // Validation tracking state
+  let currentValidationStatus = $state('untested');
+  let currentValidationNotes = $state('');
+  let currentValidatedBy = $state(null);
+  let currentValidatedAt = $state(null);
+  let currentTestResults = $state(null);
+  
   // Test generation state
   let showTestGeneratorModal = $state(false);
   let currentGeneratedTests = $state(null);
@@ -62,9 +74,15 @@
   let showIngredientManager = $state(false);
   let showDiffViewer = $state(false);
   let showMigrationTool = $state(false);
+  let showPreferences = $state(false);
   let selectedIngredientForDiff = $state(null);
   let currentPopulationType = $state(POPULATION_TYPES.ADULT);
   let firebaseEnabled = $state(isFirebaseConfigured());
+  let showCommitMessageDialog = $state(false);
+  let pendingSaveData = $state(null);
+  let showExportModal = $state(false);
+  let showSelectiveApply = $state(false);
+  let pendingReferenceData = $state(null);
   
   // Active config state
   let activeConfigId = $state(null);
@@ -713,6 +731,82 @@
     originalSections = '[]';
   }
   
+  // Save current work with commit message
+  async function saveCurrentWork(commitMessage = null) {
+    if (!loadedIngredient || !loadedReferenceId) {
+      alert('No reference loaded to save');
+      return;
+    }
+    
+    try {
+      const { referenceService } = await import('./lib/firebaseDataService.js');
+      const { isIngredientShared } = await import('./lib/sharedIngredientService.js');
+      
+      // Prepare the reference data
+      const referenceData = {
+        id: loadedReferenceId,
+        name: currentReferenceName,
+        sections: sections,
+        populationType: currentPopulationType,
+        healthSystem: currentHealthSystem,
+        // Include validation data
+        validationStatus: currentValidationStatus,
+        validationNotes: currentValidationNotes,
+        validatedBy: currentValidatedBy,
+        validatedAt: currentValidatedAt,
+        testResults: currentTestResults
+      };
+      
+      // Check if this ingredient is shared
+      const sharedStatus = await isIngredientShared(loadedIngredient.id);
+      
+      if (sharedStatus.isShared && sharedStatus.sharedCount > 1) {
+        // Show selective apply dialog
+        pendingReferenceData = { ...referenceData, commitMessage };
+        showSelectiveApply = true;
+      } else {
+        // Save normally
+        await referenceService.saveReference(loadedIngredient.id, referenceData, commitMessage);
+        
+        // Update state
+        hasUnsavedChanges = false;
+        lastSavedTime = new Date();
+        originalSections = JSON.stringify(sections);
+        
+        console.log('Reference saved successfully with commit message:', commitMessage);
+      }
+    } catch (error) {
+      console.error('Error saving reference:', error);
+      alert('Failed to save reference. Please try again.');
+    }
+  }
+  
+  // Handle save with commit message dialog
+  function handleSaveWithCommit() {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+    
+    showCommitMessageDialog = true;
+  }
+  
+  // Handle commit message confirmation
+  function handleCommitMessageConfirm(commitMessage) {
+    saveCurrentWork(commitMessage);
+    showCommitMessageDialog = false;
+  }
+  
+  // Handle keyboard shortcut for save
+  function handleKeyDown(e) {
+    // Ctrl+S or Cmd+S to save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (hasUnsavedChanges) {
+        handleSaveWithCommit();
+      }
+    }
+  }
+  
   function handleEditReference(ingredient, reference) {
     console.log('App: handleEditReference called', {
       ingredient: ingredient.name,
@@ -739,6 +833,13 @@
       hasUnsavedChanges = false;
       lastSavedTime = reference.updatedAt;
       originalSections = JSON.stringify(reference.sections);
+      
+      // Load validation data
+      currentValidationStatus = reference.validationStatus || 'untested';
+      currentValidationNotes = reference.validationNotes || '';
+      currentValidatedBy = reference.validatedBy || null;
+      currentValidatedAt = reference.validatedAt || null;
+      currentTestResults = reference.testResults || null;
       
       // Close all other views to ensure Dynamic Text Editor is visible
       showIngredientManager = false;
@@ -879,7 +980,7 @@
   
 </script>
 
-<div class="app-container {showSidebar ? 'sidebar-open' : ''}">
+<div class="app-container {showSidebar ? 'sidebar-open' : ''}" onkeydown={handleKeyDown}>
   {#if showSidebar}
     <Sidebar 
       onLoadReference={handleLoadReference}
@@ -903,6 +1004,7 @@
       hasUnsavedChanges={hasUnsavedChanges}
       lastSavedTime={lastSavedTime}
       firebaseEnabled={firebaseEnabled}
+      onSave={handleSaveWithCommit}
       onNewDocument={() => {
         if (hasUnsavedChanges && !confirm('You have unsaved changes. Start new anyway?')) {
           return;
@@ -910,15 +1012,12 @@
         clearEditor();
       }}
       onExport={() => {
-        // Switch to output view first if not already there
-        if (previewMode !== 'output') {
-          previewMode = 'output';
-          showOutput = true;
-        }
-        copyToClipboard();
+        // Show export modal with format options
+        showExportModal = true;
       }}
       onOpenIngredientManager={() => showIngredientManager = true}
       onOpenMigrationTool={() => showMigrationTool = true}
+      onOpenPreferences={() => showPreferences = true}
       copied={copied}
     />
     
@@ -1006,6 +1105,25 @@
           {#if loadedReference.version}
             <span class="version-badge">v{loadedReference.version}</span>
           {/if}
+        </div>
+        
+        <!-- Validation Status Section -->
+        <div class="validation-section">
+          <ValidationStatus 
+            status={currentValidationStatus}
+            validatedBy={currentValidatedBy}
+            validatedAt={currentValidatedAt}
+            testResults={currentTestResults}
+            notes={currentValidationNotes}
+            compact={false}
+            onUpdate={(validationData) => {
+              currentValidationStatus = validationData.status;
+              currentValidationNotes = validationData.notes;
+              currentValidatedBy = validationData.validatedBy;
+              currentValidatedAt = validationData.validatedAt;
+              hasUnsavedChanges = true;
+            }}
+          />
         </div>
       {/if}
       
@@ -1422,6 +1540,57 @@
   <DataMigrationTool
     bind:isOpen={showMigrationTool}
     onMigrationComplete={handleMigrationComplete}
+  />
+  <!-- Commit Message Dialog -->
+  <CommitMessageDialog
+    bind:isOpen={showCommitMessageDialog}
+    onConfirm={handleCommitMessageConfirm}
+    onCancel={() => showCommitMessageDialog = false}
+    title="Save Changes"
+    defaultMessage=""
+    showOptionalNote={true}
+  />
+  
+  <!-- Export Modal -->
+  <ExportModal
+    bind:isOpen={showExportModal}
+    sections={sections}
+    currentIngredient={currentIngredient}
+    currentReferenceName={currentReferenceName}
+    healthSystem={currentHealthSystem}
+    populationType={currentPopulationType}
+    onClose={() => showExportModal = false}
+  />
+  
+  <!-- Selective Apply Modal -->
+  {#if showSelectiveApply && loadedIngredient && pendingReferenceData}
+    <div class="modal-backdrop" onclick={() => showSelectiveApply = false}>
+      <div class="modal-content selective-apply-modal" onclick={(e) => e.stopPropagation()}>
+        <div class="modal-header">
+          <h2>Apply Changes to Shared Configurations</h2>
+          <button class="close-btn" onclick={() => showSelectiveApply = false}>✕</button>
+        </div>
+        <SelectiveApply 
+          ingredientId={loadedIngredient.id}
+          referenceData={pendingReferenceData}
+          onApply={async (results) => {
+            showSelectiveApply = false;
+            hasUnsavedChanges = false;
+            lastSavedTime = new Date();
+            originalSections = JSON.stringify(sections);
+            console.log('Changes applied to configurations:', results);
+            alert(`Changes applied to ${results.filter(r => r.status === 'success').length} configurations successfully.`);
+          }}
+          onCancel={() => showSelectiveApply = false}
+        />
+      </div>
+    </div>
+  {/if}
+  
+  <!-- Preferences Modal -->
+  <PreferencesModal 
+    isOpen={showPreferences}
+    onClose={() => showPreferences = false}
   />
 </div>
 
@@ -2610,5 +2779,69 @@
   .empty-state-btn .btn-hint {
     font-size: 0.85rem;
     color: #666;
+  }
+  /* Validation section styles */
+  .validation-section {
+    margin: 0.75rem 1rem;
+    margin-top: 0;
+  }
+  
+  /* Selective Apply Modal */
+  .selective-apply-modal {
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .close-btn:hover {
+    color: #333;
   }
 </style>
