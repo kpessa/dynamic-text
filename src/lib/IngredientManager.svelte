@@ -31,6 +31,9 @@
   let preloadedHealthSystems = $state([]);
   let showVersionHistory = $state(false);
   let versionHistoryIngredientId = $state(null);
+  let baselineStatuses = $state({}); // Track baseline comparison status
+  let showBaselineComparison = $state(false);
+  let baselineComparisonData = $state(null);
   
   // Cache for loaded references to avoid refetching
   const referenceCache = new Map();
@@ -313,6 +316,55 @@
   function openVersionHistory(ingredient) {
     versionHistoryIngredientId = ingredient.id;
     showVersionHistory = true;
+  }
+  
+  // Check baseline status for a reference
+  async function checkBaselineStatus(ingredient, reference) {
+    if (!reference.configId) return null;
+    
+    try {
+      const status = await configService.compareWithBaseline(reference.configId, ingredient.name);
+      return status;
+    } catch (error) {
+      console.error('Error checking baseline status:', error);
+      return null;
+    }
+  }
+  
+  // Open baseline comparison view
+  async function openBaselineComparison(ingredient, reference) {
+    if (!reference.configId) {
+      console.warn('No config ID for baseline comparison');
+      return;
+    }
+    
+    const status = await checkBaselineStatus(ingredient, reference);
+    if (status && status.differences) {
+      baselineComparisonData = {
+        ingredient,
+        reference,
+        status,
+        configId: reference.configId
+      };
+      showBaselineComparison = true;
+    }
+  }
+  
+  // Revert to baseline
+  async function revertToBaseline(ingredient, reference) {
+    if (!confirm('Are you sure you want to revert this reference to its original imported state? This will discard all changes.')) {
+      return;
+    }
+    
+    try {
+      await configService.revertToBaseline(reference.configId, ingredient.name);
+      // Reload references to show updated data
+      await loadReferences(ingredient.id);
+      alert('Successfully reverted to baseline');
+    } catch (error) {
+      console.error('Error reverting to baseline:', error);
+      alert('Failed to revert to baseline: ' + error.message);
+    }
   }
   
   // Handle restoring a version from history
@@ -652,15 +704,52 @@
                             <div class="pop-references">
                               <h5 style="color: {populationTypeColors[value]}">{populationTypeNames[value]}</h5>
                               {#each filteredRefs as reference}
-                                <button 
-                                  class="ref-chip"
-                                  onclick={(e) => {
-                                    e.stopPropagation();
-                                    editReference(ingredient, reference);
-                                  }}
-                                >
-                                  {reference.healthSystem} {reference.version ? `v${reference.version}` : ''}
-                                </button>
+                                <div class="ref-chip-container">
+                                  <button 
+                                    class="ref-chip {reference.status === 'MODIFIED' ? 'modified' : ''}"
+                                    onclick={(e) => {
+                                      e.stopPropagation();
+                                      editReference(ingredient, reference);
+                                    }}
+                                    title="{reference.status === 'MODIFIED' ? 'Modified from baseline' : reference.status === 'CLEAN' ? 'Matches baseline' : ''}"
+                                  >
+                                    {reference.healthSystem} {reference.version ? `v${reference.version}` : ''}
+                                    {#if reference.status === 'MODIFIED'}
+                                      <span class="status-indicator modified" title="Modified from baseline">●</span>
+                                    {:else if reference.status === 'CLEAN'}
+                                      <span class="status-indicator clean" title="Matches baseline">✓</span>
+                                    {/if}
+                                  </button>
+                                  {#if reference.configId}
+                                    <button 
+                                      class="baseline-action-btn"
+                                      onclick={async (e) => {
+                                        e.stopPropagation();
+                                        const status = await checkBaselineStatus(ingredient, reference);
+                                        if (status?.status === 'MODIFIED') {
+                                          openBaselineComparison(ingredient, reference);
+                                        } else if (status?.status === 'CLEAN') {
+                                          alert('This reference matches the baseline.');
+                                        }
+                                      }}
+                                      title="Compare with baseline"
+                                    >
+                                      🔍
+                                    </button>
+                                    {#if reference.status === 'MODIFIED'}
+                                      <button 
+                                        class="baseline-action-btn revert"
+                                        onclick={(e) => {
+                                          e.stopPropagation();
+                                          revertToBaseline(ingredient, reference);
+                                        }}
+                                        title="Revert to baseline"
+                                      >
+                                        ↺
+                                      </button>
+                                    {/if}
+                                  {/if}
+                                </div>
                               {/each}
                             </div>
                           {:else if popRefs.length === 0}
@@ -710,6 +799,67 @@
     </div>
   {/if}
 </div>
+
+{#if showBaselineComparison && baselineComparisonData}
+  <div class="modal-overlay" onclick={() => showBaselineComparison = false}>
+    <div class="modal-content baseline-comparison" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <h3>Baseline Comparison: {baselineComparisonData.ingredient.name}</h3>
+        <button class="close-btn" onclick={() => showBaselineComparison = false}>×</button>
+      </div>
+      
+      <div class="comparison-info">
+        <p>Config: {baselineComparisonData.reference.healthSystem} - {baselineComparisonData.reference.populationType}</p>
+        <p>Status: <span class="status-badge {baselineComparisonData.status.status.toLowerCase()}">{baselineComparisonData.status.status}</span></p>
+      </div>
+      
+      {#if baselineComparisonData.status.differences}
+        <div class="comparison-grid">
+          <div class="comparison-column">
+            <h4>Baseline (Original Import)</h4>
+            <div class="sections-list">
+              {#each baselineComparisonData.status.differences.baseline as section}
+                <div class="section-item {section.type}">
+                  <span class="section-type">{section.type}</span>
+                  <pre>{section.content}</pre>
+                </div>
+              {/each}
+            </div>
+          </div>
+          
+          <div class="comparison-column">
+            <h4>Working Copy (Current)</h4>
+            <div class="sections-list">
+              {#each baselineComparisonData.status.differences.working as section}
+                <div class="section-item {section.type}">
+                  <span class="section-type">{section.type}</span>
+                  <pre>{section.content}</pre>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-actions">
+          <button 
+            class="btn revert-btn" 
+            onclick={() => {
+              revertToBaseline(baselineComparisonData.ingredient, baselineComparisonData.reference);
+              showBaselineComparison = false;
+            }}
+          >
+            ↺ Revert to Baseline
+          </button>
+          <button class="btn" onclick={() => showBaselineComparison = false}>
+            Keep Working Copy
+          </button>
+        </div>
+      {:else}
+        <p>No differences found - working copy matches baseline.</p>
+      {/if}
+    </div>
+  </div>
+{/if}
 
 <style>
   .ingredient-manager {
@@ -1309,6 +1459,237 @@
     padding: 1rem;
     color: #999;
     font-size: 0.875rem;
+  }
+  
+  /* Baseline comparison styles */
+  .ref-chip-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin: 0.25rem;
+  }
+  
+  .ref-chip.modified {
+    border-color: #ff9800;
+    background-color: #fff3e0;
+  }
+  
+  .status-indicator {
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+  }
+  
+  .status-indicator.modified {
+    color: #ff9800;
+  }
+  
+  .status-indicator.clean {
+    color: #4caf50;
+  }
+  
+  .baseline-action-btn {
+    padding: 0.25rem 0.35rem;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .baseline-action-btn:hover {
+    background-color: #f5f5f5;
+    transform: translateY(-1px);
+  }
+  
+  .baseline-action-btn.revert {
+    color: #ff9800;
+    border-color: #ff9800;
+  }
+  
+  .baseline-action-btn.revert:hover {
+    background-color: #fff3e0;
+  }
+  
+  /* Baseline comparison modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .baseline-comparison {
+    width: 1200px;
+    padding: 1.5rem;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    color: #333;
+  }
+  
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .close-btn:hover {
+    color: #000;
+  }
+  
+  .comparison-info {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+  }
+  
+  .comparison-info p {
+    margin: 0.25rem 0;
+    color: #666;
+  }
+  
+  .status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .status-badge.modified {
+    background-color: #fff3e0;
+    color: #ff9800;
+  }
+  
+  .status-badge.clean {
+    background-color: #e8f5e9;
+    color: #4caf50;
+  }
+  
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .comparison-column {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 1rem;
+  }
+  
+  .comparison-column h4 {
+    margin: 0 0 1rem 0;
+    color: #333;
+    font-size: 1rem;
+  }
+  
+  .sections-list {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  
+  .section-item {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background-color: #fafafa;
+  }
+  
+  .section-item.dynamic {
+    background-color: #f0f7ff;
+    border-color: #2196f3;
+  }
+  
+  .section-type {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    background-color: #666;
+    color: white;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .section-item.dynamic .section-type {
+    background-color: #2196f3;
+  }
+  
+  .section-item pre {
+    margin: 0.5rem 0 0 0;
+    white-space: pre-wrap;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.875rem;
+    color: #333;
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+  }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .btn.revert-btn {
+    background-color: #ff9800;
+    color: white;
+    border-color: #ff9800;
+  }
+  
+  .btn.revert-btn:hover {
+    background-color: #f57c00;
   }
   
 </style>

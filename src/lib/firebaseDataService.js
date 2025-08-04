@@ -682,6 +682,7 @@ export const organizationService = {
 // Config service for imported TPN configurations
 export const configService = {
   // Save an imported config with all ingredient data
+  // Phase 2.1: Now preserves original imports as immutable baseline
   async saveImportedConfig(configData, metadata) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
@@ -694,7 +695,28 @@ export const configService = {
         metadata.version
       );
       
-      // Create the main config document with custom ID
+      // Phase 2.1: Store original import as immutable baseline
+      const baselineRef = doc(db, 'baselineConfigs', configId);
+      const baselineExists = await getDoc(baselineRef);
+      
+      // Only save baseline if it doesn't exist (preserve original)
+      if (!baselineExists.exists()) {
+        await setDoc(baselineRef, {
+          name: metadata.name || configId,
+          healthSystem: metadata.healthSystem,
+          domain: metadata.domain,
+          subdomain: metadata.subdomain,
+          version: metadata.version,
+          ingredientCount: configData.INGREDIENT?.length || 0,
+          importedAt: serverTimestamp(),
+          importedBy: user.uid,
+          metadata: metadata,
+          isBaseline: true,  // Mark as baseline
+          originalData: configData  // Store complete original data
+        });
+      }
+      
+      // Keep backward compatibility: still create the importedConfigs document
       const configRef = doc(db, 'importedConfigs', configId);
       await setDoc(configRef, {
         name: metadata.name || configId,
@@ -705,13 +727,27 @@ export const configService = {
         ingredientCount: configData.INGREDIENT?.length || 0,
         importedAt: serverTimestamp(),
         importedBy: user.uid,
-        metadata: metadata
+        metadata: metadata,
+        baselineId: configId  // Link to baseline
       });
       
       // Store each ingredient in a subcollection and create/update main ingredients
       if (configData.INGREDIENT && configData.INGREDIENT.length > 0) {
         const batch = writeBatch(db);
         const processedIngredients = new Map(); // Track unique ingredients
+        
+        // Phase 2.1: Store baseline ingredients (only if baseline doesn't exist)
+        if (!baselineExists.exists()) {
+          configData.INGREDIENT.forEach((ingredient, index) => {
+            const baselineIngredientRef = doc(collection(db, 'baselineConfigs', configId, 'ingredients'));
+            batch.set(baselineIngredientRef, {
+              ...ingredient,
+              index: index,
+              configId: configId,
+              isBaseline: true
+            });
+          });
+        }
         
         // First, identify unique ingredients and their data
         configData.INGREDIENT.forEach((ingredientData) => {
@@ -931,6 +967,126 @@ export const configService = {
       await auditService.logAction('CONFIG_DELETED', { configId });
     } catch (error) {
       console.error('Error deleting config:', error);
+      throw error;
+    }
+  },
+  
+  // Phase 2.1: Get baseline config data (immutable original)
+  async getBaselineConfig(configId) {
+    try {
+      const baselineDoc = await getDoc(doc(db, 'baselineConfigs', configId));
+      if (!baselineDoc.exists()) {
+        return null;
+      }
+      return {
+        id: baselineDoc.id,
+        ...baselineDoc.data()
+      };
+    } catch (error) {
+      console.error('Error fetching baseline config:', error);
+      return null;
+    }
+  },
+  
+  // Phase 2.1: Get baseline ingredients for a config
+  async getBaselineIngredients(configId) {
+    try {
+      const q = query(
+        collection(db, 'baselineConfigs', configId, 'ingredients'),
+        orderBy('index', 'asc')
+      );
+      
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error fetching baseline ingredients:', error);
+      return [];
+    }
+  },
+  
+  // Phase 2.3: Compare working config with baseline to detect modifications
+  async compareWithBaseline(configId, ingredientName) {
+    try {
+      // Get baseline ingredient data
+      const baselineIngredients = await this.getBaselineIngredients(configId);
+      const baselineIngredient = baselineIngredients.find(ing => {
+        const name = ing.KEYNAME || ing.keyname || ing.Ingredient || ing.ingredient || ing.name;
+        return name === ingredientName;
+      });
+      
+      if (!baselineIngredient) {
+        return { status: 'NEW', differences: null };
+      }
+      
+      // Get current working ingredient data
+      const ingredientId = normalizeIngredientId(ingredientName);
+      const referenceDoc = await getDoc(
+        doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', configId)
+      );
+      
+      if (!referenceDoc.exists()) {
+        return { status: 'DELETED', differences: null };
+      }
+      
+      const workingData = referenceDoc.data();
+      
+      // Compare sections (working) with NOTE (baseline)
+      const baselineSections = convertNotesToSections(baselineIngredient.NOTE || baselineIngredient.notes || []);
+      const workingSections = workingData.sections || [];
+      
+      // Simple comparison - could be enhanced with deep diff
+      const sectionsMatch = JSON.stringify(baselineSections) === JSON.stringify(workingSections);
+      
+      return {
+        status: sectionsMatch ? 'CLEAN' : 'MODIFIED',
+        differences: sectionsMatch ? null : {
+          baseline: baselineSections,
+          working: workingSections
+        }
+      };
+    } catch (error) {
+      console.error('Error comparing with baseline:', error);
+      return { status: 'ERROR', differences: null };
+    }
+  },
+  
+  // Phase 2.5: Revert working copy to baseline
+  async revertToBaseline(configId, ingredientName) {
+    try {
+      const user = getCurrentUser() || await signInAnonymouslyUser();
+      
+      // Get baseline ingredient data
+      const baselineIngredients = await this.getBaselineIngredients(configId);
+      const baselineIngredient = baselineIngredients.find(ing => {
+        const name = ing.KEYNAME || ing.keyname || ing.Ingredient || ing.ingredient || ing.name;
+        return name === ingredientName;
+      });
+      
+      if (!baselineIngredient) {
+        throw new Error('Baseline ingredient not found');
+      }
+      
+      // Convert baseline NOTE to sections
+      const sections = convertNotesToSections(baselineIngredient.NOTE || baselineIngredient.notes || []);
+      
+      // Update the reference with baseline data
+      const ingredientId = normalizeIngredientId(ingredientName);
+      const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', configId);
+      
+      await updateDoc(referenceRef, {
+        sections: sections,
+        lastModified: serverTimestamp(),
+        modifiedBy: user.uid,
+        revertedToBaseline: serverTimestamp(),
+        status: 'CLEAN'
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error reverting to baseline:', error);
       throw error;
     }
   },
