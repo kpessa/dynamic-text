@@ -66,6 +66,10 @@
   let currentPopulationType = $state(POPULATION_TYPES.ADULT);
   let firebaseEnabled = $state(isFirebaseConfigured());
   
+  // Active config state
+  let activeConfigId = $state(null);
+  let activeConfigIngredients = $state([]);
+  
   // Population type switching
   let showPopulationDropdown = $state(false);
   let availablePopulations = $state([]);
@@ -554,6 +558,13 @@
     return sections;
   }
   
+  // Handle config activation from sidebar
+  function handleConfigActivate(configId, ingredients) {
+    activeConfigId = configId;
+    activeConfigIngredients = ingredients || [];
+    console.log(`Config activated: ${configId} with ${activeConfigIngredients.length} ingredients`);
+  }
+  
   // Handle TPN value changes
   function handleTPNValuesChange(tpnInstance) {
     currentTPNInstance = tpnInstance;
@@ -873,7 +884,10 @@
     <Sidebar 
       onLoadReference={handleLoadReference}
       onSaveReference={handleSaveReference}
+      onConfigActivate={handleConfigActivate}
       currentSections={sections}
+      activeConfigId={activeConfigId}
+      activeConfigIngredients={activeConfigIngredients}
     />
   {/if}
   
@@ -1385,6 +1399,8 @@
           onSelectIngredient={handleIngredientSelection}
           onCreateReference={handleCreateReference}
           onEditReference={handleEditReference}
+          activeConfigId={activeConfigId}
+          activeConfigIngredients={activeConfigIngredients}
         />
       </div>
     </div>

@@ -9,79 +9,86 @@ Dynamic Text Editor - A specialized web application for creating and testing dyn
 ## Commands
 
 ### Development
-- `pnpm dev` - Start Vercel development server with both frontend and AI API functions (**Recommended**)
-- `pnpm run dev:frontend` - Start Vite development server (frontend only, AI features disabled)
+- `pnpm dev` - Start full development server with Vercel functions (includes AI API) (**Recommended**)
+- `pnpm dev:frontend` - Start Vite-only server (frontend only, no API features)
 - `pnpm build` - Build for production
 - `pnpm preview` - Preview production build locally
 
-### AI Test Generation API
-This project includes Vercel serverless functions for AI-powered test generation:
-- **Local Development**: Use `pnpm dev` (default) to enable API functions during development
-- **Production API**: Available at `https://dynamic-text-beta.vercel.app/api/generate-tests`
-- **Dependencies**: Requires Google Gemini API key set in environment variables (`GEMINI_API_KEY`)
-- **Configuration**: API settings in `api/generate-tests.js` and `vercel.json`
-- **Error Handling**: Frontend components provide helpful messages when API is unavailable
-
 ### Package Management
-This project uses pnpm. If pnpm is not available, npm can be used as a fallback.
+Uses pnpm (fallback to npm if unavailable).
 
 ## Architecture
 
-This is a Svelte 5 single-page application built with Vite. Key architectural points:
+Svelte 5 SPA with Firebase integration and AI-powered test generation.
 
-### Technology Stack
-- **Svelte 5.35+** - Using modern runes API (`$state`, `$derived`, etc.)
-- **Vite 7** - Build tool providing fast HMR and optimized production builds
-- **ES Modules** - Project uses native ES module syntax
-- **CodeMirror 6** - Code editor for HTML and JavaScript content
-- **Babel Standalone** - Runtime JavaScript transpilation for dynamic code execution
-- **DOMPurify** - HTML sanitization for secure content rendering
+### Key Technologies
+- **Svelte 5.35+** with runes API (`$state`, `$derived`, `$effect`)
+- **Vite 7** for build and HMR
+- **Firebase Firestore** for data persistence
+- **CodeMirror 6** for code editing
+- **Babel Standalone** for runtime JS transpilation
+- **DOMPurify** for HTML sanitization
+- **Vercel Functions** for serverless API (AI test generation)
 
-### Core Features
-1. **Dual Mode Editor**: Supports both static HTML sections and dynamic JavaScript sections
-2. **TPN Mode**: Special mode for testing TPN advisor functions with mock data
-3. **Live Preview**: Real-time rendering of content with HTML sanitization
-4. **Test Cases**: Dynamic sections can have multiple test cases with different variable values
-5. **Export Functionality**: Generate JSON output compatible with TPN configurator format
+### Core Systems
 
-### Project Structure
-- `src/` - Application source code
-  - `main.js` - Entry point that mounts the Svelte app
-  - `App.svelte` - Root component managing sections, preview, and TPN mode
-  - `lib/` - Reusable components directory
-    - `CodeEditor.svelte` - CodeMirror wrapper for code editing
-    - `Sidebar.svelte` - Reference management sidebar
-    - `TPNTestPanel.svelte` - TPN value input panel
-    - `TPNKeyReference.svelte` - TPN key reference panel
-    - `tpnLegacy.js` - Legacy TPN advisor function support
-- `public/` - Static files served directly
+#### 1. Dynamic Content Engine
+- Dual-mode editor: static HTML and dynamic JavaScript sections
+- Runtime code execution with sandboxed `me` object
+- Test cases with variable substitution
+- Live preview with real-time updates
 
-### Component Architecture
-- **App.svelte**: Main orchestrator handling section management, test cases, and state
-- **CodeEditor**: Wraps CodeMirror with language-specific syntax highlighting
-- **Sidebar**: Manages saving/loading of reference documents
-- **TPN Components**: Provide TPN-specific functionality when in TPN mode
+#### 2. TPN (Total Parenteral Nutrition) System
+- Special mode for TPN advisor functions
+- Access to TPN values via `me.getValue(key)`
+- Ingredient-based organization
+- Population type support (Neonatal, Pediatric, Adolescent, Adult)
+- Reference ranges and validation
+- Key reference: `src/lib/tpnLegacy.js`, `src/lib/tpnReferenceRanges.js`
 
-### Dynamic Code Execution
-- JavaScript code is transpiled using Babel before execution
-- Code runs in a sandboxed environment with access to a `me` object
-- In TPN mode, `me` provides access to TPN values via `getValue()` and formatting via `maxP()`
+#### 3. Firebase Integration
+- Ingredient-centric data model
+- Real-time sync across users
+- Health system organization
+- Configuration in `src/lib/firebase.js` and `src/lib/firebaseDataService.js`
+- Environment variables required: Firebase config keys
 
-### Svelte 5 Runes
-This project uses Svelte 5's new runes API. When creating or modifying components:
-- Use `$state()` for reactive state instead of `let`
-- Use `$derived()` for computed values
-- Use `$effect()` for side effects instead of `$:`
+#### 4. AI Test Generation
+- Powered by Google Gemini API
+- Generates test cases from JavaScript code
+- Serverless function at `api/generate-tests.js`
+- Requires `GEMINI_API_KEY` environment variable
+- Workflow inspector for debugging AI responses
 
-### Styling
-- Global styles in `src/app.css`
-- Component styles use scoped `<style>` blocks
-- CSS supports custom properties and includes dark/light theme variables
-- Preview panel forces light theme for content display
+### Component Hierarchy
+```
+App.svelte (main orchestrator)
+├── Navbar (navigation and mode switching)
+├── CodeEditor (CodeMirror wrapper)
+├── Sidebar (reference management)
+├── TPNTestPanel (TPN value inputs)
+├── IngredientManager (Firebase CRUD)
+├── IngredientDiffViewer (compare references)
+├── TestGeneratorModal (AI test generation)
+└── AIWorkflowInspector (debug AI responses)
+```
 
-### Development Notes
-- Type checking is enabled for JavaScript files (`checkJs: true`)
-- No testing framework is currently configured
-- No linting or formatting tools are set up
-- Drag-and-drop functionality for reordering sections
-- LocalStorage used for persisting references
+### Data Flow
+1. **Sections**: Array of content sections (HTML/JS) managed in App.svelte
+2. **Test Cases**: Per-section test configurations with variable values
+3. **TPN Instance**: Current TPN context passed to dynamic code execution
+4. **Firebase Sync**: Automatic save/load of ingredients and references
+5. **Export**: JSON format compatible with TPN configurator
+
+### Svelte 5 Patterns
+- State: `let value = $state(initial)`
+- Computed: `let computed = $derived(() => expression)` or `$derived.by(() => { ... })`
+- Effects: `$effect(() => { ... })` for side effects
+- Component props: `let { prop = defaultValue } = $props()`
+
+### Important Files
+- `src/App.svelte` - Main application logic and state management
+- `src/lib/tpnLegacy.js` - TPN function implementations and key extraction
+- `src/lib/firebaseDataService.js` - Firebase CRUD operations
+- `api/generate-tests.js` - AI test generation endpoint
+- `vercel.json` - Vercel deployment configuration

@@ -6,7 +6,10 @@
   let { 
     onLoadReference = () => {}, 
     onSaveReference = () => {},
-    currentSections = []
+    onConfigActivate = () => {},
+    currentSections = [],
+    activeConfigId = null,
+    activeConfigIngredients = []
   } = $props();
   
   let referenceTexts = $state({});
@@ -15,6 +18,7 @@
   let selectedReference = $state(null);
   let showSaveDialog = $state(false);
   let searchQuery = $state('');
+  let configSearchQuery = $state('');
   
   // Filter states
   let filters = $state({
@@ -48,6 +52,7 @@
   let showSubdomainDialog = $state(false);
   let showIngredientDialog = $state(false);
   let showImportDialog = $state(false);
+  let showManageDropdown = $state(false);
   let newItemName = $state('');
   
   // Ingredient type configuration
@@ -64,6 +69,51 @@
     return ingredientTypeConfig[type] || ingredientTypeConfig['Other'];
   }
   
+  // Group active config ingredients by type
+  let groupedConfigIngredients = $derived.by(() => {
+    if (!activeConfigId || !activeConfigIngredients || activeConfigIngredients.length === 0) {
+      return [];
+    }
+    
+    // Filter ingredients based on search query
+    let filteredIngredients = activeConfigIngredients;
+    if (configSearchQuery) {
+      const query = configSearchQuery.toLowerCase();
+      filteredIngredients = activeConfigIngredients.filter(ingredient => {
+        const name = (ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname || '').toLowerCase();
+        const keyname = (ingredient.KEYNAME || ingredient.keyname || '').toLowerCase();
+        return name.includes(query) || keyname.includes(query);
+      });
+    }
+    
+    const groups = {};
+    const typeOrder = ['Diluent', 'Macronutrient', 'Micronutrient', 'Salt', 'Additive', 'Other'];
+    
+    // Group ingredients by type
+    filteredIngredients.forEach(ingredient => {
+      const type = ingredient.TYPE || ingredient.type || 'Other';
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(ingredient);
+    });
+    
+    // Sort groups by predefined order
+    return typeOrder
+      .filter(type => groups[type] && groups[type].length > 0)
+      .map(type => ({
+        type,
+        ingredients: groups[type].sort((a, b) => {
+          const nameA = (a.DISPLAY || a.display || a.KEYNAME || a.keyname || '').toLowerCase();
+          const nameB = (b.DISPLAY || b.display || b.KEYNAME || b.keyname || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        })
+      }));
+  });
+  
+  // Track expanded state for config ingredient groups
+  let expandedConfigGroups = $state({});
+  
   // Import state
   let importData = $state({
     jsonText: '',
@@ -75,7 +125,13 @@
     parsedIngredients: [],
     parsedConfig: null,
     isImporting: false,
-    importProgress: 0
+    importProgress: 0,
+    importStatus: '',
+    importResults: {
+      successful: [],
+      failed: [],
+      skipped: []
+    }
   });
   
   // Resize state
@@ -103,7 +159,8 @@
   
   // Config management state
   let tpnConfigs = $state({});
-  let activeConfigId = $state(null);
+  let firebaseConfigs = $state([]);
+  let loadingFirebaseConfigs = $state(false);
   let showConfigDialog = $state(false);
   
   onMount(() => {
@@ -158,7 +215,7 @@
         if (data.sidebarWidth) sidebarWidth = data.sidebarWidth;
         // Load TPN configs
         if (data.tpnConfigs) tpnConfigs = data.tpnConfigs;
-        if (data.activeConfigId) activeConfigId = data.activeConfigId;
+        // activeConfigId is now managed by parent component
         
         // Discover any missing health systems from existing references
         Object.values(referenceTexts).forEach(ref => {
@@ -185,8 +242,7 @@
         subdomains,
         versions,
         sidebarWidth,
-        tpnConfigs,
-        activeConfigId
+        tpnConfigs
       }));
     } catch (e) {
       console.error('Failed to save to localStorage:', e);
@@ -417,6 +473,44 @@
   function loadReference(ref) {
     selectedReference = ref;
     onLoadReference(ref);
+  }
+  
+  // Handle clicking on an ingredient in the config view
+  function handleIngredientClick(ingredient) {
+    // Check for notes in both possible fields (notes for local imports, NOTE for Firebase)
+    const notes = ingredient.notes || ingredient.NOTE;
+    
+    if (!notes || notes.length === 0) {
+      alert(`No content available for ${ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}`);
+      return;
+    }
+    
+    // Convert notes to sections
+    const sections = convertNotesToSections(notes);
+    
+    // Check if valid content exists
+    if (!hasValidContent(sections)) {
+      alert(`No valid content found for ${ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}`);
+      return;
+    }
+    
+    // Create a reference object
+    const reference = {
+      id: `config-${activeConfigId}-${ingredient.KEYNAME || ingredient.keyname}`,
+      name: ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname,
+      ingredient: ingredient.KEYNAME || ingredient.keyname,
+      ingredientType: ingredient.TYPE || ingredient.type,
+      sections: sections.map((s, idx) => ({
+        ...s,
+        id: idx + 1,
+        content: s.content
+      })),
+      fromConfig: true,
+      configId: activeConfigId
+    };
+    
+    // Load the reference into the editor
+    loadReference(reference);
   }
   
   function deleteReference(id) {
@@ -914,7 +1008,13 @@
       parsedIngredients: [],
       parsedConfig: null,
       isImporting: false,
-      importProgress: 0
+      importProgress: 0,
+      importStatus: '',
+      importResults: {
+        successful: [],
+        failed: [],
+        skipped: []
+      }
     };
   }
   
@@ -926,8 +1026,13 @@
     
     importData.isImporting = true;
     importData.importProgress = 0;
+    importData.importStatus = 'Preparing import...';
+    importData.importResults = {
+      successful: [],
+      failed: [],
+      skipped: []
+    };
     let firstReference = null;
-    let skippedCount = 0;
     
     // Save the config to Firebase first if configured
     if (importData.parsedConfig) {
@@ -992,7 +1097,7 @@
       tpnConfigs = { ...tpnConfigs };
       // Set as active config if no config is active
       if (!activeConfigId) {
-        activeConfigId = configId;
+        // Config activation is handled by parent component
       }
       saveToLocalStorage();
     }
@@ -1000,43 +1105,59 @@
     // Process all ingredients with a small delay between each
     importData.parsedIngredients.forEach((ingredient, index) => {
       setTimeout(() => {
+        importData.importStatus = `Processing: ${ingredient.display || ingredient.keyname}`;
         const sections = convertNotesToSections(ingredient.notes);
         
         // Skip if no valid content
         if (!hasValidContent(sections)) {
-          skippedCount++;
+          importData.importResults.skipped.push({
+            name: ingredient.display,
+            reason: 'No valid content'
+          });
           importData.importProgress = index + 1;
           
           // If this is the last ingredient, show summary
           if (index === total - 1) {
-            const importedCount = total - skippedCount;
-            alert(`Import complete!\n\nImported: ${importedCount} ingredients\nSkipped: ${skippedCount} ingredients (no valid content)`);
+            importData.importStatus = 'Import complete!';
             
             referenceTexts = { ...referenceTexts };
             saveToLocalStorage();
-            importData.isImporting = false;
-            showImportDialog = false;
             
             // Load first reference if any were imported
             if (firstReference) {
               loadReference(firstReference);
             }
             
-            // Reset import data after delay
+            // Show results for 3 seconds before closing
             setTimeout(() => {
-              importData = {
-                jsonText: '',
-                healthSystem: 'UHS',
-                domain: 'west',
-                subdomain: 'prod',
-                version: 'adult',
-                parseError: '',
-                parsedIngredients: [],
-                parsedConfig: null,
-                isImporting: false,
-                importProgress: 0
-              };
-            }, 500);
+              importData.isImporting = false;
+              if (importData.importResults.successful.length > 0 || 
+                  importData.importResults.skipped.length > 0) {
+                showImportDialog = false;
+              }
+              
+              // Reset import data after delay
+              setTimeout(() => {
+                importData = {
+                  jsonText: '',
+                  healthSystem: 'UHS',
+                  domain: 'west',
+                  subdomain: 'prod',
+                  version: 'adult',
+                  parseError: '',
+                  parsedIngredients: [],
+                  parsedConfig: null,
+                  isImporting: false,
+                  importProgress: 0,
+                  importStatus: '',
+                  importResults: {
+                    successful: [],
+                    failed: [],
+                    skipped: []
+                  }
+                };
+              }, 500);
+            }, 3000);
           }
           return;
         }
@@ -1066,6 +1187,10 @@
         };
         
         referenceTexts[id] = newReference;
+        importData.importResults.successful.push({
+          name: ingredient.display,
+          id: id
+        });
         
         // Save first reference to load after import
         if (index === 0) {
@@ -1076,6 +1201,7 @@
         
         // When done, save and load first reference
         if (index === total - 1) {
+          importData.importStatus = 'Import complete!';
           referenceTexts = { ...referenceTexts };
           saveToLocalStorage();
           
@@ -1083,9 +1209,13 @@
             loadReference(firstReference);
           }
           
+          // Show results for 3 seconds before closing
           setTimeout(() => {
             importData.isImporting = false;
-            showImportDialog = false;
+            if (importData.importResults.successful.length > 0 || 
+                importData.importResults.skipped.length > 0) {
+              showImportDialog = false;
+            }
             
             // Reset import data
             importData = {
@@ -1097,7 +1227,13 @@
               parseError: '',
               parsedIngredients: [],
               isImporting: false,
-              importProgress: 0
+              importProgress: 0,
+              importStatus: '',
+              importResults: {
+                successful: [],
+                failed: [],
+                skipped: []
+              }
             };
           }, 500);
         }
@@ -1221,9 +1357,10 @@
     contextMenu = null;
   }
   
-  // Global click handler to hide context menu
+  // Global click handler to hide context menu and dropdown
   function handleGlobalClick() {
     if (contextMenu) hideContextMenu();
+    if (showManageDropdown) showManageDropdown = false;
   }
   
   // Drag and drop handlers
@@ -1290,6 +1427,40 @@
     // Can only drop into version folders or subdomain folders
     return folder.type === 'version' || folder.type === 'subdomain';
   }
+  
+  // Load configs from Firebase when dialog opens
+  async function loadFirebaseConfigs() {
+    if (!isFirebaseConfigured()) {
+      console.log('Firebase not configured, skipping config load');
+      return;
+    }
+    
+    loadingFirebaseConfigs = true;
+    try {
+      const configs = await configService.getAllConfigs();
+      firebaseConfigs = configs;
+      console.log(`Loaded ${configs.length} configs from Firebase:`, configs);
+      
+      // Add any new health systems from Firebase configs
+      configs.forEach(config => {
+        if (config.healthSystem && !healthSystems.includes(config.healthSystem)) {
+          healthSystems = [...healthSystems, config.healthSystem];
+        }
+      });
+    } catch (error) {
+      console.error('Failed to load configs from Firebase:', error);
+      firebaseConfigs = [];
+    } finally {
+      loadingFirebaseConfigs = false;
+    }
+  }
+  
+  // Load Firebase configs when dialog opens
+  $effect(() => {
+    if (showConfigDialog && firebaseConfigs.length === 0 && !loadingFirebaseConfigs) {
+      loadFirebaseConfigs();
+    }
+  });
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1315,26 +1486,138 @@
         🔧 Configs
       </button>
       <div class="manage-dropdown">
-        <button class="manage-btn">⚙️</button>
-        <div class="dropdown-content">
-          <button onclick={() => showHealthSystemDialog = true}>Manage Health Systems</button>
-          <button onclick={() => showDomainDialog = true}>Manage Domains</button>
-          <button onclick={() => showSubdomainDialog = true}>Manage Subdomains</button>
-        </div>
+        <button 
+          class="manage-btn {showManageDropdown ? 'active' : ''}"
+          onclick={(e) => {
+            e.stopPropagation();
+            showManageDropdown = !showManageDropdown;
+          }}
+        >
+          ⚙️
+        </button>
+        {#if showManageDropdown}
+          <div class="dropdown-content">
+            <button onclick={() => {
+              showHealthSystemDialog = true;
+              showManageDropdown = false;
+            }}>Manage Health Systems</button>
+            <button onclick={() => {
+              showDomainDialog = true;
+              showManageDropdown = false;
+            }}>Manage Domains</button>
+            <button onclick={() => {
+              showSubdomainDialog = true;
+              showManageDropdown = false;
+            }}>Manage Subdomains</button>
+          </div>
+        {/if}
       </div>
     </div>
   </div>
   
-  <div class="search-box">
-    <input 
-      type="text" 
-      placeholder="Search references..."
-      bind:value={searchQuery}
-      class="search-input"
-    />
-  </div>
-  
-  <div class="filters">
+  {#if activeConfigId && activeConfigIngredients.length > 0}
+    <!-- Config ingredients view -->
+    <div class="config-header">
+      <h3>Configuration Ingredients</h3>
+      <button 
+        class="deactivate-btn"
+        onclick={() => {
+          onConfigActivate(null, []);
+          configSearchQuery = '';
+        }}
+        title="Deactivate configuration"
+      >
+        ✕ Deactivate
+      </button>
+    </div>
+    
+    <div class="config-search">
+      <input
+        type="text"
+        placeholder="🔍 Search config ingredients..."
+        bind:value={configSearchQuery}
+        class="search-input"
+      />
+      {#if configSearchQuery}
+        <button 
+          class="clear-search-btn"
+          onclick={() => configSearchQuery = ''}
+          title="Clear search"
+        >
+          ✕
+        </button>
+      {/if}
+      <span class="search-results-count">
+        {groupedConfigIngredients.reduce((acc, group) => acc + group.ingredients.length, 0)} 
+        {#if configSearchQuery}
+          of {activeConfigIngredients.length}
+        {/if}
+        ingredients
+      </span>
+    </div>
+    
+    <div class="config-ingredients">
+      {#if groupedConfigIngredients.length === 0}
+        <div class="no-results">
+          No ingredients match "{configSearchQuery}"
+        </div>
+      {:else}
+        {#each groupedConfigIngredients as group}
+          {@const typeInfo = getIngredientTypeInfo(group.type)}
+          <div class="ingredient-type-group">
+            <button 
+              class="type-group-header"
+              style="border-left-color: {typeInfo.color}"
+              onclick={() => {
+                expandedConfigGroups[group.type] = !expandedConfigGroups[group.type];
+              }}
+            >
+            <span class="type-icon" style="color: {typeInfo.color}">{typeInfo.icon}</span>
+            <span class="type-name">{typeInfo.name}</span>
+            <span class="type-count">({group.ingredients.length})</span>
+            <span class="expand-icon">{expandedConfigGroups[group.type] ? '▼' : '▶'}</span>
+          </button>
+          
+          {#if expandedConfigGroups[group.type] !== false}
+            <div class="type-group-ingredients">
+              {#each group.ingredients as ingredient}
+                <button 
+                  class="config-ingredient-item"
+                  onclick={() => handleIngredientClick(ingredient)}
+                  title="Click to load {ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}"
+                >
+                  <span class="ingredient-icon" style="color: {typeInfo.color}">{typeInfo.icon}</span>
+                  <div class="ingredient-details">
+                    <span class="ingredient-display">
+                      {ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}
+                    </span>
+                    <span class="ingredient-keyname">
+                      ({ingredient.KEYNAME || ingredient.keyname || ingredient.name})
+                    </span>
+                    {#if ingredient.Unit || ingredient.unit}
+                      <span class="ingredient-unit">{ingredient.Unit || ingredient.unit}</span>
+                    {/if}
+                  </div>
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/each}
+      {/if}
+    </div>
+  {:else}
+    <!-- Normal reference view -->
+    <div class="search-box">
+      <input 
+        type="text" 
+        placeholder="Search references..."
+        bind:value={searchQuery}
+        class="search-input"
+      />
+    </div>
+    
+    <div class="filters">
     <select bind:value={filters.healthSystem} class="filter-select">
       <option value="">All Systems</option>
       {#each healthSystems as system}
@@ -1618,6 +1901,7 @@
       {/if}
     {/each}
   </div>
+  {/if}
   
   {#if showSaveDialog}
     <div 
@@ -1752,7 +2036,7 @@
               placeholder="New health system name"
               onkeydown={(e) => e.key === 'Enter' && addHealthSystem()}
             />
-            <button onclick={addHealthSystem}>Add</button>
+            <button onclick={() => addHealthSystem()}>Add</button>
           </div>
           
           <div class="existing-items">
@@ -1809,7 +2093,7 @@
               placeholder="New domain name"
               onkeydown={(e) => e.key === 'Enter' && addDomain()}
             />
-            <button onclick={addDomain}>Add</button>
+            <button onclick={() => addDomain()}>Add</button>
           </div>
           
           <div class="existing-items">
@@ -1864,7 +2148,7 @@
               placeholder="New subdomain name"
               onkeydown={(e) => e.key === 'Enter' && addSubdomain()}
             />
-            <button onclick={addSubdomain}>Add</button>
+            <button onclick={() => addSubdomain()}>Add</button>
           </div>
           
           <div class="existing-items">
@@ -2006,12 +2290,52 @@
                 disabled={importData.isImporting}
               >
                 {#if importData.isImporting}
-                  Importing {importData.importProgress}/{importData.parsedIngredients.length}...
+                  ⏳ Importing...
                 {:else}
                   📥 Import All
                 {/if}
               </button>
             </div>
+            
+            {#if importData.isImporting}
+              <div class="import-progress-container">
+                <div class="import-progress-bar">
+                  <div 
+                    class="import-progress-fill" 
+                    style="width: {(importData.importProgress / importData.parsedIngredients.length) * 100}%"
+                  ></div>
+                </div>
+                <div class="import-progress-text">
+                  {importData.importProgress} / {importData.parsedIngredients.length} 
+                  ({Math.round((importData.importProgress / importData.parsedIngredients.length) * 100)}%)
+                </div>
+                {#if importData.importStatus}
+                  <div class="import-status-text">
+                    {importData.importStatus}
+                  </div>
+                {/if}
+                
+                {#if importData.importProgress === importData.parsedIngredients.length}
+                  <div class="import-results-summary">
+                    {#if importData.importResults.successful.length > 0}
+                      <div class="result-item success">
+                        ✅ {importData.importResults.successful.length} imported successfully
+                      </div>
+                    {/if}
+                    {#if importData.importResults.skipped.length > 0}
+                      <div class="result-item skipped">
+                        ⚠️ {importData.importResults.skipped.length} skipped (no valid content)
+                      </div>
+                    {/if}
+                    {#if importData.importResults.failed.length > 0}
+                      <div class="result-item failed">
+                        ❌ {importData.importResults.failed.length} failed
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/if}
             <div class="ingredient-list">
               {#each importData.parsedIngredients as ingredient}
                 {@const typeInfo = getIngredientTypeInfo(ingredient.type)}
@@ -2141,15 +2465,86 @@
         {/if}
         
         <div class="config-list">
-          <h4>Loaded Configs:</h4>
-          {#if Object.keys(tpnConfigs).length === 0}
-            <p class="no-configs">No configs loaded. Import a TPN JSON file to get started.</p>
-          {:else}
+          {#if loadingFirebaseConfigs}
+            <div class="loading-configs">
+              <div class="spinner"></div>
+              <p>Loading configs from Firebase...</p>
+            </div>
+          {/if}
+          
+          {#if firebaseConfigs.length > 0}
+            <h4>Firebase Configs:</h4>
+            <div class="config-items">
+              {#each firebaseConfigs as config}
+                <div class="config-item firebase-config {activeConfigId === config.id ? 'active' : ''}">
+                  <div class="config-info">
+                    <strong>{config.name || config.id}</strong>
+                    <span class="firebase-badge">☁️ Firebase</span>
+                    <div class="config-metadata">
+                      {config.healthSystem} / {config.domain} / {config.subdomain} / {config.version}
+                    </div>
+                    {#if config.importedAt}
+                      <div class="config-date">
+                        Imported: {new Date(config.importedAt.seconds * 1000).toLocaleDateString()}
+                      </div>
+                    {/if}
+                  </div>
+                  <div class="config-actions">
+                    {#if activeConfigId !== config.id}
+                      <button 
+                        class="activate-btn"
+                        onclick={async () => {
+                          // Config activation already handled by onConfigActivate call below
+                          // Load ingredients for this config if needed
+                          let configIngredients = [];
+                          try {
+                            configIngredients = await configService.getConfigIngredients(config.id);
+                            console.log(`Loaded ${configIngredients.length} ingredients for config ${config.id}`);
+                          } catch (err) {
+                            console.error('Failed to load ingredients:', err);
+                          }
+                          // Notify parent component about config activation
+                          onConfigActivate(config.id, configIngredients);
+                          saveToLocalStorage();
+                        }}
+                      >
+                        Activate
+                      </button>
+                    {/if}
+                    <button 
+                      class="delete-btn"
+                      onclick={async () => {
+                        if (confirm(`Delete config "${config.name || config.id}" from Firebase?`)) {
+                          try {
+                            await configService.deleteConfig(config.id);
+                            firebaseConfigs = firebaseConfigs.filter(c => c.id !== config.id);
+                            if (activeConfigId === config.id) {
+                              saveToLocalStorage();
+                              // Notify parent that config is deactivated
+                              onConfigActivate(null, []);
+                            }
+                          } catch (err) {
+                            alert(`Failed to delete config: ${err.message}`);
+                          }
+                        }
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+          
+          {#if Object.keys(tpnConfigs).length > 0}
+            <h4>Local Configs:</h4>
             <div class="config-items">
               {#each Object.entries(tpnConfigs) as [configId, config]}
                 <div class="config-item {activeConfigId === configId ? 'active' : ''}">
                   <div class="config-info">
                     <strong>{configId}</strong>
+                    <span class="local-badge">💾 Local</span>
                     {#if config.metadata}
                       <div class="config-metadata">
                         {config.metadata.healthSystem} / {config.metadata.domain} / {config.metadata.subdomain} / {config.metadata.version}
@@ -2163,7 +2558,11 @@
                     {#if activeConfigId !== configId}
                       <button 
                         class="activate-btn"
-                        onclick={() => { activeConfigId = configId; saveToLocalStorage(); }}
+                        onclick={() => { 
+                          saveToLocalStorage(); 
+                          // For local configs, we pass an empty array since ingredients are managed differently
+                          onConfigActivate(configId, []);
+                        }}
                       >
                         Activate
                       </button>
@@ -2174,7 +2573,8 @@
                         if (confirm(`Delete config "${configId}"?`)) {
                           delete tpnConfigs[configId];
                           if (activeConfigId === configId) {
-                            activeConfigId = null;
+                            // Notify parent that config is deactivated
+                            onConfigActivate(null, []);
                           }
                           tpnConfigs = { ...tpnConfigs };
                           saveToLocalStorage();
@@ -2187,6 +2587,10 @@
                 </div>
               {/each}
             </div>
+          {/if}
+          
+          {#if Object.keys(tpnConfigs).length === 0 && firebaseConfigs.length === 0 && !loadingFirebaseConfigs}
+            <p class="no-configs">No configs found. Import a TPN JSON file to get started.</p>
           {/if}
         </div>
         
@@ -2304,8 +2708,12 @@
     background-color: #5a6268;
   }
   
+  .manage-btn.active {
+    background-color: #5a6268;
+  }
+  
   .dropdown-content {
-    display: none;
+    display: block;
     position: absolute;
     right: 0;
     top: 100%;
@@ -2316,10 +2724,18 @@
     min-width: 160px;
     z-index: 100;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    animation: fadeIn 0.2s ease-out;
   }
   
-  .manage-dropdown:hover .dropdown-content {
-    display: block;
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   
   .dropdown-content button {
@@ -2800,6 +3216,102 @@
     cursor: not-allowed;
   }
   
+  .import-progress-container {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    border: 1px solid #444;
+  }
+
+  .import-progress-bar {
+    width: 100%;
+    height: 24px;
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .import-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #646cff, #747bff);
+    border-radius: 12px;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .import-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .import-progress-text {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #a0a0a0;
+  }
+
+  .import-status-text {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #646cff;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .import-results-summary {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #444;
+  }
+
+  .result-item {
+    padding: 0.5rem;
+    margin: 0.25rem 0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .result-item.success {
+    background-color: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+
+  .result-item.skipped {
+    background-color: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+  }
+
+  .result-item.failed {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
   .ingredient-list {
     max-height: 200px;
     overflow-y: auto;
@@ -3009,6 +3521,37 @@
     border: 1px solid #17a2b8;
   }
   
+  .loading-configs {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+  }
+  
+  .loading-configs .spinner {
+    margin: 0 auto 1rem;
+  }
+  
+  .firebase-badge,
+  .local-badge {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+  }
+  
+  .firebase-badge {
+    background-color: rgba(52, 211, 153, 0.2);
+    color: #34d399;
+    border: 1px solid #34d399;
+  }
+  
+  .local-badge {
+    background-color: rgba(100, 108, 255, 0.2);
+    color: #646cff;
+    border: 1px solid #646cff;
+  }
+  
   .config-info strong {
     display: block;
     margin-bottom: 0.25rem;
@@ -3134,6 +3677,23 @@
       color: #535bf2;
     }
     
+    .import-progress-container {
+      background-color: #f5f5f5;
+      border-color: #ddd;
+    }
+
+    .import-progress-bar {
+      background-color: #e0e0e0;
+    }
+
+    .import-status-text {
+      color: #535bf2;
+    }
+
+    .import-results-summary {
+      border-top-color: #ddd;
+    }
+
     .ingredient-list {
       border-color: #ddd;
     }
@@ -3304,6 +3864,281 @@
     
     .breadcrumb-separator {
       color: #999;
+    }
+  }
+  
+  /* Config ingredients view styles */
+  .config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .config-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .deactivate-btn {
+    padding: 6px 12px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #666;
+    transition: all 0.2s;
+  }
+  
+  .deactivate-btn:hover {
+    background: #e0e0e0;
+    color: #333;
+  }
+  
+  .config-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    position: relative;
+  }
+  
+  .config-search .search-input {
+    flex: 1;
+    max-width: none;
+  }
+  
+  .clear-search-btn {
+    position: absolute;
+    right: 140px;
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+  
+  .clear-search-btn:hover {
+    color: #333;
+  }
+  
+  .search-results-count {
+    font-size: 0.85rem;
+    color: #666;
+    white-space: nowrap;
+  }
+  
+  .no-results {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+    font-style: italic;
+  }
+  
+  .config-ingredients {
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  
+  .ingredient-type-group {
+    margin-bottom: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  .ingredient-type-group .type-group-header {
+    width: 100%;
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border: none;
+    border-left: 4px solid;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 14px;
+  }
+  
+  .ingredient-type-group .type-group-header:hover {
+    background: #e9ecef;
+  }
+  
+  .type-icon {
+    font-size: 16px;
+  }
+  
+  .type-name {
+    font-weight: 600;
+    flex: 1;
+    text-align: left;
+  }
+  
+  .type-count {
+    color: #666;
+    font-size: 13px;
+  }
+  
+  .expand-icon {
+    color: #999;
+    font-size: 11px;
+  }
+  
+  .type-group-ingredients {
+    background: white;
+    border-top: 1px solid #e0e0e0;
+  }
+  
+  .config-ingredient-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .config-ingredient-item:last-child {
+    border-bottom: none;
+  }
+  
+  .config-ingredient-item:hover {
+    background: #f8f9fa;
+  }
+  
+  .config-ingredient-item:active {
+    background: #e9ecef;
+  }
+  
+  .ingredient-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  
+  .ingredient-details {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .ingredient-display {
+    font-weight: 500;
+    color: #333;
+    font-size: 14px;
+  }
+  
+  .ingredient-keyname {
+    color: #666;
+    font-size: 12px;
+    font-family: 'Monaco', 'Courier New', monospace;
+  }
+  
+  .ingredient-unit {
+    color: #999;
+    font-size: 12px;
+    padding: 2px 6px;
+    background: #f0f0f0;
+    border-radius: 3px;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .config-header {
+      border-bottom-color: #444;
+    }
+    
+    .config-header h3 {
+      color: #f0f0f0;
+    }
+    
+    .deactivate-btn {
+      background: #2a2a2a;
+      border-color: #444;
+      color: #ccc;
+    }
+    
+    .deactivate-btn:hover {
+      background: #3a3a3a;
+      color: #fff;
+    }
+    
+    .config-search {
+      background-color: #2a2a2a;
+      border-bottom-color: #444;
+    }
+    
+    .clear-search-btn {
+      color: #aaa;
+    }
+    
+    .clear-search-btn:hover {
+      color: #ddd;
+    }
+    
+    .search-results-count {
+      color: #aaa;
+    }
+    
+    .no-results {
+      color: #666;
+    }
+    
+    .ingredient-type-group {
+      border-color: #444;
+    }
+    
+    .ingredient-type-group .type-group-header {
+      background: #2a2a2a;
+    }
+    
+    .ingredient-type-group .type-group-header:hover {
+      background: #333;
+    }
+    
+    .type-group-ingredients {
+      background: #1a1a1a;
+      border-top-color: #444;
+    }
+    
+    .config-ingredient-item {
+      border-bottom-color: #333;
+    }
+    
+    .config-ingredient-item:hover {
+      background: #252525;
+    }
+    
+    .config-ingredient-item:active {
+      background: #2a2a2a;
+    }
+    
+    .ingredient-display {
+      color: #f0f0f0;
+    }
+    
+    .ingredient-keyname {
+      color: #999;
+    }
+    
+    .ingredient-unit {
+      background: #2a2a2a;
+      color: #aaa;
     }
   }
 </style>

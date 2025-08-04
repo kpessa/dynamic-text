@@ -8,7 +8,9 @@
     onSelectIngredient = () => {},
     onCreateReference = () => {},
     onEditReference = () => {},
-    currentIngredient = $bindable()
+    currentIngredient = $bindable(),
+    activeConfigId = null,
+    activeConfigIngredients = []
   } = $props();
   
   let ingredients = $state([]);
@@ -189,6 +191,19 @@
   // Apply filters
   function applyFilters() {
     filteredIngredients = ingredients.filter(ingredient => {
+      // Active config filter - if a config is active, only show its ingredients
+      if (activeConfigId && activeConfigIngredients.length > 0) {
+        // Check if ingredient name matches any of the config ingredients
+        const ingredientNames = activeConfigIngredients.map(ing => 
+          ing.KEYNAME || ing.Ingredient || ing.name || ''
+        );
+        if (!ingredientNames.some(name => 
+          name.toLowerCase() === ingredient.name.toLowerCase()
+        )) {
+          return false;
+        }
+      }
+      
       // Search filter
       if (searchQuery && !ingredient.name.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
@@ -400,6 +415,11 @@
   <div class="manager-header">
     <h2>📦 Ingredient Library</h2>
     <div class="header-stats">
+      {#if activeConfigId}
+        <span class="active-config-badge">
+          ⚙️ Filtered by config: {activeConfigId}
+        </span>
+      {/if}
       {#if !loading}
         <span class="stat">{filteredIngredients.length} of {ingredients.length} ingredients</span>
       {/if}
@@ -674,12 +694,24 @@
   .header-stats {
     font-size: 0.9rem;
     color: #666;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
   }
   
   .stat {
     background-color: #e9ecef;
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
+  }
+  
+  .active-config-badge {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid #ffeeba;
+    font-weight: 500;
   }
   
   .error-message {
