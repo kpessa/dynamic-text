@@ -473,9 +473,9 @@
     };
   }
   
-  function loadReference(ref) {
+  function loadReference(ref, ingredient = null) {
     selectedReference = ref;
-    onLoadReference(ref);
+    onLoadReference(ref, ingredient);
   }
   
   // Handle clicking on an ingredient in the config view
@@ -512,8 +512,8 @@
       configId: activeConfigId
     };
     
-    // Load the reference into the editor
-    loadReference(reference);
+    // Load the reference into the editor with ingredient data
+    loadReference(reference, ingredient);
   }
   
   function deleteReference(id) {

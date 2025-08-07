@@ -1,16 +1,18 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { 
-  getFirestore, 
   connectFirestoreEmulator,
   enableIndexedDbPersistence,
   initializeFirestore,
-  CACHE_SIZE_UNLIMITED
+  CACHE_SIZE_UNLIMITED,
+  type Firestore
 } from 'firebase/firestore';
 import { 
   getAuth, 
   connectAuthEmulator,
   signInAnonymously,
-  onAuthStateChanged
+  onAuthStateChanged,
+  type Auth,
+  type User
 } from 'firebase/auth';
 
 // Firebase configuration from environment variables
@@ -25,9 +27,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
-let db;
-let auth;
+let app: FirebaseApp | undefined;
+let db: Firestore | undefined;
+let auth: Auth | undefined;
 
 try {
   app = initializeApp(firebaseConfig);
@@ -51,8 +53,8 @@ try {
   // Connect to Firebase Emulator if enabled
   if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
     const host = import.meta.env.VITE_FIREBASE_EMULATOR_HOST || 'localhost';
-    const firestorePort = import.meta.env.VITE_FIREBASE_FIRESTORE_PORT || 8080;
-    const authPort = import.meta.env.VITE_FIREBASE_AUTH_PORT || 9099;
+    const firestorePort = Number(import.meta.env.VITE_FIREBASE_FIRESTORE_PORT) || 8080;
+    const authPort = Number(import.meta.env.VITE_FIREBASE_AUTH_PORT) || 9099;
     
     connectFirestoreEmulator(db, host, firestorePort);
     connectAuthEmulator(auth, `http://${host}:${authPort}`);
@@ -63,18 +65,20 @@ try {
 }
 
 // Authentication state management
-let currentUser = null;
-let authStateListeners = [];
+let currentUser: User | null = null;
+let authStateListeners: ((user: User | null) => void)[] = [];
 
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
-  authStateListeners.forEach(listener => listener(user));
-});
+if (auth) {
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    authStateListeners.forEach(listener => listener(user));
+  });
+}
 
 // Auth helper functions
-export const getCurrentUser = () => currentUser;
+export const getCurrentUser = (): User | null => currentUser;
 
-export const onAuthStateChange = (callback) => {
+export const onAuthStateChange = (callback: (user: User | null) => void) => {
   authStateListeners.push(callback);
   // Call immediately with current state
   callback(currentUser);
@@ -85,7 +89,7 @@ export const onAuthStateChange = (callback) => {
   };
 };
 
-export const signInAnonymouslyUser = async () => {
+export const signInAnonymouslyUser = async (): Promise<User> => {
   try {
     const userCredential = await signInAnonymously(auth);
     return userCredential.user;

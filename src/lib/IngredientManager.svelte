@@ -171,18 +171,8 @@
           }
         }
         
-        // Pre-load references for first few ingredients to populate health systems
-        if (updatedIngredients.length > 0 && Object.keys(ingredientReferences).length === 0) {
-          console.log('Pre-loading references for first ingredients to discover health systems...');
-          const ingredientsToPreload = updatedIngredients.slice(0, 5); // Load first 5
-          for (const ingredient of ingredientsToPreload) {
-            try {
-              await loadReferencesForIngredient(ingredient.id);
-            } catch (err) {
-              console.warn(`Failed to pre-load references for ${ingredient.name}:`, err);
-            }
-          }
-        }
+        // Don't pre-load references - load them on-demand for better performance
+        // This significantly speeds up initial load time
         
         applyFilters();
         loading = false;
@@ -216,6 +206,7 @@
     }
     
     referenceLoadingStates[ingredientId] = true;
+    referenceLoadingStates = { ...referenceLoadingStates }; // Trigger reactivity
     
     try {
       const refs = await referenceService.getReferencesForIngredient(ingredientId);
@@ -230,6 +221,8 @@
       ingredientReferences[ingredientId] = {};
     } finally {
       referenceLoadingStates[ingredientId] = false;
+      referenceLoadingStates = { ...referenceLoadingStates }; // Trigger reactivity
+      ingredientReferences = { ...ingredientReferences }; // Trigger reactivity
     }
   }
   

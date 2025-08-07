@@ -4,7 +4,12 @@
       "Bash(vercel env pull:*)",
       "Bash(vercel link:*)",
       "Bash(ls:*)",
-      "Bash(pnpm dev:*)"
+      "Bash(pnpm dev:*)",
+      "Bash(find:*)",
+      "Bash(mv src/main.js src/main.ts)",
+      "Bash(curl:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm storybook:*)"
     ],
     "deny": []
   }

@@ -18,8 +18,8 @@ import {
   arrayRemove,
   serverTimestamp
 } from 'firebase/firestore';
-import { db, COLLECTIONS, getCurrentUser } from './firebase.js';
-import { generateIngredientHash, areIngredientsIdentical } from './contentHashing.js';
+import { db, COLLECTIONS, getCurrentUser } from './firebase';
+import { generateIngredientHash, areIngredientsIdentical } from './contentHashing';
 
 // Collection for shared ingredient metadata
 const SHARED_INGREDIENTS_COLLECTION = 'sharedIngredients';
@@ -30,17 +30,28 @@ const SHARED_INGREDIENTS_COLLECTION = 'sharedIngredients';
  */
 export async function createSharedIngredient(ingredientId, references = []) {
   try {
+    // Check if Firebase is initialized
+    if (!db) {
+      throw new Error('Firebase is not initialized. Please check your configuration.');
+    }
+    
     const user = getCurrentUser();
     if (!user) throw new Error('User not authenticated');
     
-    // Get the ingredient to use as the master copy
-    const ingredientDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId));
-    if (!ingredientDoc.exists()) {
-      throw new Error('Ingredient not found');
+    if (!references || references.length === 0) {
+      throw new Error('No references provided to share');
     }
     
-    const ingredientData = ingredientDoc.data();
-    const contentHash = ingredientData.contentHash || generateIngredientHash(ingredientData);
+    // Get the first reference to extract content for hashing
+    const firstRef = references[0];
+    const firstRefDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, firstRef.ingredientId, 'references', firstRef.configId));
+    
+    if (!firstRefDoc.exists()) {
+      throw new Error('Reference not found');
+    }
+    
+    const refData = firstRefDoc.data();
+    const contentHash = refData.contentHash || generateIngredientHash(refData);
     
     if (!contentHash) {
       throw new Error('Cannot share ingredient without content');
@@ -91,10 +102,10 @@ export async function createSharedIngredient(ingredientId, references = []) {
     
     await batch.commit();
     
-    return sharedId;
+    return { success: true, sharedId };
   } catch (error) {
     console.error('Error creating shared ingredient:', error);
-    throw error;
+    return { success: false, error: error.message };
   }
 }
 

@@ -3,13 +3,13 @@
  * Generates deterministic hashes for ingredient content to identify duplicates
  */
 
+import type { Section, Ingredient } from '../types';
+
 /**
  * Simple hash function using djb2 algorithm
  * Chosen for simplicity and good distribution for our use case
- * @param {string} str - String to hash
- * @returns {string} Hex hash string
  */
-function simpleHash(str) {
+function simpleHash(str: string): string {
     let hash = 5381;
     for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
@@ -21,10 +21,8 @@ function simpleHash(str) {
 /**
  * Normalize content for consistent hashing
  * Removes whitespace variations and normalizes line endings
- * @param {string} content - Content to normalize
- * @returns {string} Normalized content
  */
-function normalizeContent(content) {
+function normalizeContent(content: string): string {
     if (!content) return '';
     
     return content
@@ -35,10 +33,8 @@ function normalizeContent(content) {
 
 /**
  * Generate hash for ingredient sections
- * @param {Array} sections - Array of section objects with type and content
- * @returns {string} Hash of sections content
  */
-export function hashSections(sections) {
+export function hashSections(sections: Section[]): string {
     if (!sections || !Array.isArray(sections)) {
         return '';
     }
@@ -57,10 +53,8 @@ export function hashSections(sections) {
 
 /**
  * Generate hash for NOTE array (legacy format)
- * @param {Array} noteArray - Array of NOTE content strings
- * @returns {string} Hash of NOTE content
  */
-export function hashNoteArray(noteArray) {
+export function hashNoteArray(noteArray: string[]): string {
     if (!noteArray || !Array.isArray(noteArray)) {
         return '';
     }
@@ -77,10 +71,8 @@ export function hashNoteArray(noteArray) {
 /**
  * Generate content hash for an ingredient
  * Handles both sections format and NOTE array format
- * @param {Object} ingredient - Ingredient object
- * @returns {string} Content hash
  */
-export function generateIngredientHash(ingredient) {
+export function generateIngredientHash(ingredient: any): string {
     if (!ingredient) return '';
     
     // Check for sections format (new format)
@@ -104,11 +96,8 @@ export function generateIngredientHash(ingredient) {
 
 /**
  * Compare two ingredients for content equality
- * @param {Object} ingredient1 - First ingredient
- * @param {Object} ingredient2 - Second ingredient
- * @returns {boolean} True if content is identical
  */
-export function areIngredientsIdentical(ingredient1, ingredient2) {
+export function areIngredientsIdentical(ingredient1: any, ingredient2: any): boolean {
     if (!ingredient1 || !ingredient2) return false;
     
     const hash1 = generateIngredientHash(ingredient1);
@@ -122,10 +111,8 @@ export function areIngredientsIdentical(ingredient1, ingredient2) {
 
 /**
  * Find duplicate ingredients in a collection
- * @param {Array} ingredients - Array of ingredient objects
- * @returns {Object} Map of hash to array of duplicate ingredients
  */
-export function findDuplicates(ingredients) {
+export function findDuplicates(ingredients: any[]): Record<string, any[]> {
     const hashMap = new Map();
     
     ingredients.forEach(ingredient => {
@@ -139,7 +126,7 @@ export function findDuplicates(ingredients) {
     });
     
     // Filter to only include duplicates (more than one ingredient)
-    const duplicates = {};
+    const duplicates: Record<string, any[]> = {};
     hashMap.forEach((ingredients, hash) => {
         if (ingredients.length > 1) {
             duplicates[hash] = ingredients;
@@ -156,7 +143,7 @@ export function findDuplicates(ingredients) {
  * @param {Object} ingredient2 - Second ingredient
  * @returns {number} Similarity score
  */
-export function calculateSimilarity(ingredient1, ingredient2) {
+export function calculateSimilarity(ingredient1: any, ingredient2: any): number {
     // For now, just return 1 if identical, 0 otherwise
     // This can be enhanced later with fuzzy matching
     return areIngredientsIdentical(ingredient1, ingredient2) ? 1 : 0;

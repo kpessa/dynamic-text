@@ -14,6 +14,7 @@
     onOpenIngredientManager = () => {},
     onOpenMigrationTool = () => {},
     onOpenPreferences = () => {},
+    onOpenDiffViewer = () => {},
     onSave = () => {},
     copied = false,
     firebaseEnabled = false
@@ -105,6 +106,17 @@
             <span class="btn-icon">📦</span>
             <span class="btn-text">Ingredients</span>
           </button>
+          
+          {#if currentIngredient}
+            <button 
+              class="action-btn diff-btn"
+              onclick={onOpenDiffViewer}
+              title="Compare versions of {currentIngredient}"
+            >
+              <span class="btn-icon">🔍</span>
+              <span class="btn-text">Compare</span>
+            </button>
+          {/if}
           
           <button 
             class="action-btn migration-btn"
@@ -412,6 +424,15 @@
   
   .migration-btn:hover {
     background-color: #138496;
+  }
+  
+  .diff-btn {
+    background-color: #6f42c1;
+    color: white;
+  }
+  
+  .diff-btn:hover {
+    background-color: #5a32a3;
   }
   
   .btn-icon {

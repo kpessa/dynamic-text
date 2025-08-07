@@ -1,9 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env['GEMINI_API_KEY'] || '');
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   // Set CORS headers for all responses
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
 
   try {
     // Check if API key is configured
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env['GEMINI_API_KEY']) {
       console.error('GEMINI_API_KEY not configured');
       return res.status(500).json({ 
         error: 'AI service not configured', 
@@ -82,8 +83,8 @@ export default async function handler(req, res) {
     console.log('First 200 chars:', text.substring(0, 200));
 
     // Parse the JSON response from Gemini
-    let tests;
-    let jsonText; // Declare jsonText outside try block so it's accessible in catch
+    let tests: any;
+    let jsonText: string | undefined; // Declare jsonText outside try block so it's accessible in catch
     try {
       // Extract JSON from the response (Gemini might add markdown formatting)
       const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
@@ -92,7 +93,7 @@ export default async function handler(req, res) {
       // More aggressive JSON cleanup
       
       // First check if there are problematic patterns
-      if (jsonText.includes('alert(') || jsonText.includes('script>')) {
+      if (jsonText && (jsonText.includes('alert(') || jsonText.includes('script>'))) {
         // Handle XSS test cases with nested quotes more carefully
         // Replace problematic patterns before general cleanup
         jsonText = jsonText
@@ -102,9 +103,10 @@ export default async function handler(req, res) {
           .replace(/alert\("([^"]+)"\)/g, 'alert(\\\"$1\\\")');
       }
       
-      jsonText = jsonText
-        // Remove trailing commas
-        .replace(/,(\s*[}\]])/g, '$1')
+      if (jsonText) {
+        jsonText = jsonText
+          // Remove trailing commas
+          .replace(/,(\s*[}\]])/g, '$1')
         // Remove comments
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/\/\/.*$/gm, '')
@@ -118,6 +120,7 @@ export default async function handler(req, res) {
         // Clean up extra whitespace
         .replace(/\s+/g, ' ')
         .trim();
+      }
       
       // If response seems truncated, try to complete it
       if (jsonText && !jsonText.endsWith('}')) {
@@ -163,13 +166,13 @@ export default async function handler(req, res) {
         if (testCategory !== 'qaBreaking') tests.qaBreaking = tests.qaBreaking || [];
       }
       
-    } catch (parseError) {
+    } catch (parseError: any) {
       console.error('Failed to parse Gemini response:', text);
       console.error('Parse error details:', parseError.message);
       console.error('Attempted to parse:', jsonText?.substring(0, 200) + '...');
       
       // In development, return the full error details for debugging
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env['NODE_ENV'] !== 'production') {
         return res.status(500).json({ 
           error: 'Failed to parse AI response - Debug Mode', 
           details: parseError.message,
@@ -222,7 +225,7 @@ export default async function handler(req, res) {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Test generation error:', error);
     console.error('Error stack:', error.stack);
     
@@ -244,18 +247,18 @@ export default async function handler(req, res) {
 }
 
 function createTestGenerationPrompt(
-  dynamicCode, 
-  variables, 
-  notes, 
-  sectionName,
-  documentContext,
-  allDocumentVariables,
-  documentStats,
-  targetSectionId,
+  dynamicCode: string, 
+  variables: string[], 
+  notes: string, 
+  sectionName: string,
+  documentContext: any,
+  allDocumentVariables: string[],
+  documentStats: any,
+  targetSectionId: string,
   testCategory = 'all',
   tpnMode = false,
   patientType = 'neonatal',
-  variableMetadata = {}
+  variableMetadata: Record<string, any> = {}
 ) {
   const isTPN = tpnMode || variables.some(v => isTPNVariable(v));
   const hasDocumentContext = documentContext && documentContext.length > 0;
@@ -284,7 +287,7 @@ TARGET SECTION FOR TESTING: Section ${targetSectionId}
   
   // Build medical context if in TPN mode
   if (isTPN && Object.keys(variableMetadata).length > 0) {
-    const patientTypeDescriptions = {
+    const patientTypeDescriptions: Record<string, string> = {
       'neonatal': 'Neonatal (newborn infants, typically 0.5-4 kg)',
       'child': 'Child (children 1-12 years)',
       'adolescent': 'Adolescent (13-18 years)',
@@ -299,7 +302,7 @@ MEDICAL CONTEXT:
 
 VARIABLE UNITS AND TYPICAL RANGES:
 ${Object.entries(variableMetadata)
-  .filter(([key, meta]) => meta.isTPN)
+  .filter(([, meta]) => meta.isTPN)
   .map(([key, meta]) => {
     // Add typical ranges based on variable type and patient type
     let typicalRange = '';
@@ -447,7 +450,7 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
 Only return the JSON object, no additional text.`;
 }
 
-function isTPNVariable(varName) {
+function isTPNVariable(varName: string) {
   const tpnKeywords = [
     'DoseWeight', 'Volume', 'Protein', 'Carbohydrates', 'Fat',
     'Potassium', 'Sodium', 'Calcium', 'Magnesium', 'Phosphate',

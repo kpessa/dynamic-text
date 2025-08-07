@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
   import { javascript } from '@codemirror/lang-javascript';
@@ -8,12 +8,12 @@
   
   export let value = '';
   export let language = 'javascript';
-  export let onChange = () => {};
+  export let onChange = (newValue: string) => {};
   
   const dispatch = createEventDispatcher();
   
-  let element;
-  let view;
+  let element: HTMLDivElement;
+  let view: EditorView | undefined;
   
   // Create a light theme similar to Notepad++
   const notepadPlusPlusTheme = EditorView.theme({

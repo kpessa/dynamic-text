@@ -17,9 +17,9 @@ import {
   arrayRemove,
   increment
 } from 'firebase/firestore';
-import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from './firebase.js';
+import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from './firebase';
 import { getKeyCategory } from './tpnLegacy.js';
-import { generateIngredientHash, findDuplicates, areIngredientsIdentical } from './contentHashing.js';
+import { generateIngredientHash, findDuplicates, areIngredientsIdentical } from './contentHashing';
 import { getPreferences } from './preferencesService.js';
 import { createSharedIngredient, addToSharedIngredient, getSharedIngredientByHash } from './sharedIngredientService.js';
 
@@ -121,8 +121,8 @@ function isValidFirestoreId(id) {
 }
 
 export function normalizeIngredientId(name) {
-  if (!name) {
-    console.warn('normalizeIngredientId called with empty name');
+  if (!name || typeof name !== 'string') {
+    console.warn('normalizeIngredientId called with invalid name:', name);
     return '';
   }
   
@@ -975,7 +975,9 @@ export const configService = {
         report.duplicatesFound.push({
           hash,
           count: ingredients.length,
-          ingredients: ingredients.map(ing => ing.name)
+          ingredients: ingredients.map(ing => 
+            ing.name || ing.KEYNAME || ing.keyname || ing.Ingredient || ing.ingredient || 'Unknown'
+          )
         });
       });
       

@@ -19,7 +19,7 @@
   import SelectiveApply from './lib/SelectiveApply.svelte';
   import PreferencesModal from './lib/PreferencesModal.svelte';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
-  import { isFirebaseConfigured } from './lib/firebase.js';
+  import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
   let showSidebar = $state(false);
@@ -33,6 +33,8 @@
   let draggedSection = $state(null);
   let activeTestCase = $state({}); // Track active test case per section
   let expandedTestCases = $state({}); // Track which sections have expanded test cases
+  let testSummary = $state(null); // Track overall test results
+  let showTestSummary = $state(false); // Show/hide test summary modal
   
   // Work context tracking
   let currentIngredient = $state('');
@@ -92,6 +94,27 @@
   let showPopulationDropdown = $state(false);
   let availablePopulations = $state([]);
   let loadingPopulations = $state(false);
+  
+  // Initialize Firebase authentication
+  $effect(() => {
+    if (firebaseEnabled) {
+      // Sign in anonymously when the app loads
+      signInAnonymouslyUser().catch(error => {
+        console.error('Failed to sign in anonymously:', error);
+      });
+      
+      // Listen for auth state changes
+      const unsubscribe = onAuthStateChange((user) => {
+        if (user) {
+          console.log('User authenticated:', user.uid);
+        }
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    }
+  });
   
   // Extract all referenced ingredients from sections
   let referencedIngredients = $derived.by(() => {
@@ -362,9 +385,37 @@
   let jsonOutput = $derived(sectionsToJSON());
   let lineObjects = $derived(sectionsToLineObjects());
   
+  // Helper to set sections and update nextSectionId
+  function setSections(newSections) {
+    // Ensure dynamic sections have testCases for backward compatibility
+    const migratedSections = newSections.map(section => {
+      // If it's a dynamic section without testCases, add a default one
+      if (section.type === 'dynamic' && !section.testCases) {
+        return {
+          ...section,
+          testCases: [{ name: 'Default', variables: {} }]
+        };
+      }
+      return section;
+    });
+    
+    sections = migratedSections;
+    
+    // Update nextSectionId to be higher than any existing ID
+    if (migratedSections && migratedSections.length > 0) {
+      const maxId = Math.max(...migratedSections.map(s => {
+        const id = typeof s.id === 'number' ? s.id : parseInt(s.id) || 0;
+        return id;
+      }));
+      nextSectionId = maxId + 1;
+    } else {
+      nextSectionId = 1;
+    }
+  }
+
   // Clear editor for new work
   function clearEditor() {
-    sections = [];
+    setSections([]);
     currentIngredient = '';
     currentReferenceName = '';
     hasUnsavedChanges = false;
@@ -377,6 +428,10 @@
   
   // Section management
   function addSection(type) {
+    // Ensure nextSectionId is higher than any existing section ID
+    const maxId = Math.max(0, ...sections.map(s => typeof s.id === 'number' ? s.id : parseInt(s.id) || 0));
+    nextSectionId = Math.max(nextSectionId, maxId + 1);
+    
     const newSection = {
       id: nextSectionId++,
       type: type,
@@ -503,6 +558,183 @@
     
     // In TPN mode, the preview automatically updates via reactive statements
     // The previewHTML derived value will re-evaluate when activeTestCase changes
+    
+    // Run test if it has expectations
+    if (testCase && (testCase.expectedOutput || testCase.expectedStyles)) {
+      runSingleTest(sectionId, testCase);
+    }
+  }
+  
+  // Extract styles from HTML string
+  function extractStylesFromHTML(htmlString) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlString;
+    const styles = {};
+    
+    // Find all elements with inline styles
+    const elementsWithStyles = tempDiv.querySelectorAll('[style]');
+    elementsWithStyles.forEach(element => {
+      const styleAttr = element.getAttribute('style');
+      if (styleAttr) {
+        // Parse style attribute
+        styleAttr.split(';').forEach(rule => {
+          const [prop, value] = rule.split(':').map(s => s.trim());
+          if (prop && value) {
+            styles[prop] = value;
+          }
+        });
+      }
+    });
+    
+    return styles;
+  }
+  
+  // Remove HTML tags to get plain text
+  function stripHTML(html) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || '';
+  }
+  
+  // Validate test output against expectations
+  function validateTestOutput(actual, expected, matchType = 'contains') {
+    const actualText = stripHTML(actual).trim();
+    const expectedText = (expected || '').trim();
+    
+    if (!expectedText) return true; // No expectation means pass
+    
+    switch (matchType) {
+      case 'exact':
+        return actualText === expectedText;
+      case 'contains':
+        return actualText.includes(expectedText);
+      case 'regex':
+        try {
+          const regex = new RegExp(expectedText);
+          return regex.test(actualText);
+        } catch (e) {
+          return false;
+        }
+      default:
+        return actualText.includes(expectedText);
+    }
+  }
+  
+  // Validate styles against expectations
+  function validateStyles(actualStyles, expectedStyles) {
+    if (!expectedStyles || Object.keys(expectedStyles).length === 0) {
+      return { passed: true };
+    }
+    
+    const errors = [];
+    for (const [prop, expectedValue] of Object.entries(expectedStyles)) {
+      const actualValue = actualStyles[prop];
+      if (actualValue !== expectedValue) {
+        errors.push(`${prop}: expected "${expectedValue}", got "${actualValue || 'undefined'}"`);
+      }
+    }
+    
+    return {
+      passed: errors.length === 0,
+      errors
+    };
+  }
+  
+  // Run a single test case
+  function runSingleTest(sectionId, testCase) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'dynamic') return;
+    
+    // Evaluate the code with test variables
+    const output = evaluateCode(section.content, testCase.variables);
+    const actualText = stripHTML(output);
+    const actualStyles = extractStylesFromHTML(output);
+    
+    // Validate output
+    const outputPassed = validateTestOutput(output, testCase.expectedOutput, testCase.matchType);
+    
+    // Validate styles
+    const styleValidation = validateStyles(actualStyles, testCase.expectedStyles);
+    
+    // Combine results
+    const passed = outputPassed && styleValidation.passed;
+    
+    let error = '';
+    if (!outputPassed) {
+      error = `Output mismatch: expected "${testCase.expectedOutput}", got "${actualText}"`;
+    }
+    if (!styleValidation.passed && styleValidation.errors) {
+      error += (error ? '\n' : '') + 'Style mismatches: ' + styleValidation.errors.join(', ');
+    }
+    
+    // Update test result
+    const testIndex = section.testCases.findIndex(tc => tc === testCase);
+    if (testIndex !== -1) {
+      updateTestCase(sectionId, testIndex, {
+        testResult: {
+          passed,
+          actualOutput: actualText,
+          actualStyles,
+          error: error || undefined,
+          timestamp: Date.now()
+        }
+      });
+    }
+    
+    return { passed, error };
+  }
+  
+  // Run all tests for a section
+  function runSectionTests(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section || !section.testCases) return;
+    
+    const results = [];
+    section.testCases.forEach(testCase => {
+      if (testCase.expectedOutput || testCase.expectedStyles) {
+        const result = runSingleTest(sectionId, testCase);
+        results.push({ testCase, ...result });
+      }
+    });
+    
+    return results;
+  }
+  
+  // Run all tests across all sections
+  function runAllTests() {
+    const allResults = [];
+    sections.forEach(section => {
+      if (section.type === 'dynamic' && section.testCases) {
+        const sectionResults = runSectionTests(section.id);
+        if (sectionResults && sectionResults.length > 0) {
+          allResults.push({
+            sectionId: section.id,
+            sectionName: `Section ${section.id}`,
+            results: sectionResults
+          });
+        }
+      }
+    });
+    
+    // Calculate summary
+    const totalTests = allResults.reduce((sum, sr) => sum + sr.results.length, 0);
+    const passedTests = allResults.reduce((sum, sr) => 
+      sum + sr.results.filter(r => r.passed).length, 0);
+    
+    const summary = {
+      sections: allResults,
+      summary: {
+        total: totalTests,
+        passed: passedTests,
+        failed: totalTests - passedTests,
+        timestamp: Date.now()
+      }
+    };
+    
+    testSummary = summary;
+    showTestSummary = true;
+    
+    return summary;
   }
   
   function toggleTestCases(sectionId) {
@@ -556,9 +788,9 @@
   }
   
   // Sidebar handlers
-  function handleLoadReference(reference) {
+  function handleLoadReference(reference, ingredient = null) {
     if (reference && reference.sections) {
-      sections = reference.sections;
+      setSections(reference.sections);
       // Update work context
       currentIngredient = reference.ingredient || '';
       currentReferenceName = reference.name || '';
@@ -567,6 +799,17 @@
       lastSavedTime = reference.updatedAt || null;
       // Store original sections for comparison
       originalSections = JSON.stringify(reference.sections);
+      
+      // Set loadedIngredient if provided
+      if (ingredient) {
+        loadedIngredient = {
+          id: ingredient.KEYNAME || ingredient.keyname,
+          name: ingredient.KEYNAME || ingredient.keyname,
+          display: ingredient.DISPLAY || ingredient.display,
+          type: ingredient.TYPE || ingredient.type,
+          unit: ingredient.Unit || ingredient.unit
+        };
+      }
     }
   }
   
@@ -713,7 +956,7 @@
     currentIngredient = ingredient.name;
     currentPopulationType = populationType;
     currentReferenceName = `${ingredient.name} - ${populationType}`;
-    sections = [];
+    setSections([]);
     addSection('static');
     showIngredientManager = false;
     
@@ -796,7 +1039,7 @@
     showCommitMessageDialog = false;
   }
   
-  // Handle keyboard shortcut for save
+  // Handle keyboard shortcuts
   function handleKeyDown(e) {
     // Ctrl+S or Cmd+S to save
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -804,6 +1047,27 @@
       if (hasUnsavedChanges) {
         handleSaveWithCommit();
       }
+    }
+    
+    // Ctrl+T or Cmd+T to run all tests
+    if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+      e.preventDefault();
+      runAllTests();
+    }
+    
+    // Ctrl+Shift+T or Cmd+Shift+T to run current section's tests
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+      e.preventDefault();
+      // Find the currently active or focused section
+      const activeSectionId = Object.keys(activeTestCase)[0];
+      if (activeSectionId) {
+        runSectionTests(activeSectionId);
+      }
+    }
+    
+    // Escape to close test summary modal
+    if (e.key === 'Escape' && showTestSummary) {
+      showTestSummary = false;
     }
   }
   
@@ -825,7 +1089,7 @@
         return;
       }
       
-      sections = reference.sections;
+      setSections(reference.sections);
       currentIngredient = ingredient.name;
       currentReferenceName = reference.name;
       currentPopulationType = reference.populationType;
@@ -843,7 +1107,7 @@
       
       // Close all other views to ensure Dynamic Text Editor is visible
       showIngredientManager = false;
-      showDiffViewer = false;
+      // Don't close diff viewer - allow it to stay open for comparison
       showMigrationTool = false;
       showAIWorkflowInspector = false;
       showTestGeneratorModal = false;
@@ -1018,6 +1282,47 @@
       onOpenIngredientManager={() => showIngredientManager = true}
       onOpenMigrationTool={() => showMigrationTool = true}
       onOpenPreferences={() => showPreferences = true}
+      onOpenDiffViewer={async () => {
+        console.log('Compare button clicked', { loadedIngredient, showIngredientManager, showDiffViewer });
+        
+        // Make sure to close ingredient manager if it's open
+        showIngredientManager = false;
+        
+        if (loadedIngredient) {
+          // If we don't have a proper Firebase ID, try to find the ingredient
+          if (!loadedIngredient.id || loadedIngredient.id === loadedIngredient.name) {
+            try {
+              // Import the ingredient service to search for the ingredient
+              const { ingredientService } = await import('./lib/firebaseDataService.js');
+              const ingredients = await ingredientService.getAllIngredients();
+              
+              // Find the ingredient by name
+              const foundIngredient = ingredients.find(ing => 
+                ing.name === loadedIngredient.name || 
+                ing.name === loadedIngredient.id
+              );
+              
+              if (foundIngredient) {
+                console.log('Found ingredient:', foundIngredient);
+                selectedIngredientForDiff = foundIngredient;
+                showDiffViewer = true;
+                showIngredientManager = false; // Ensure it's closed
+              } else {
+                alert(`Cannot find ingredient "${loadedIngredient.name}" in Firebase. Make sure it has been properly imported.`);
+              }
+            } catch (error) {
+              console.error('Error finding ingredient:', error);
+              alert('Error loading ingredient data. Please try again.');
+            }
+          } else {
+            // We already have a proper ingredient object
+            console.log('Using existing ingredient:', loadedIngredient);
+            selectedIngredientForDiff = loadedIngredient;
+            showDiffViewer = true;
+            showIngredientManager = false; // Ensure it's closed
+          }
+        }
+      }}
       copied={copied}
     />
     
@@ -1025,13 +1330,22 @@
     <div class="editor-panel">
       <div class="panel-header">
         <h2>Content Sections</h2>
-        <div class="add-section-buttons">
-          <button class="add-btn" onclick={() => addSection('static')}>
-            + Static HTML
+        <div class="header-controls">
+          <button 
+            class="run-all-tests-btn"
+            onclick={runAllTests}
+            title="Run all test cases with expectations (Ctrl/Cmd+T)"
+          >
+            🧪 Run All Tests
           </button>
-          <button class="add-btn" onclick={() => addSection('dynamic')}>
-            + Dynamic JS
-          </button>
+          <div class="add-section-buttons">
+            <button class="add-btn" onclick={() => addSection('static')}>
+              + Static HTML
+            </button>
+            <button class="add-btn" onclick={() => addSection('dynamic')}>
+              + Dynamic JS
+            </button>
+          </div>
         </div>
       </div>
       
@@ -1354,6 +1668,92 @@
                           </div>
                         {/each}
                       </div>
+                      
+                      <!-- Test Expectations -->
+                      <div class="test-expectations">
+                        <div class="expectation-header">
+                          <span>Expected Output:</span>
+                          <select 
+                            class="match-type-select"
+                            value={testCase.matchType || 'contains'}
+                            onchange={(e) => updateTestCase(section.id, index, { matchType: e.target.value })}
+                          >
+                            <option value="exact">Exact Match</option>
+                            <option value="contains">Contains</option>
+                            <option value="regex">Regex</option>
+                          </select>
+                        </div>
+                        <textarea
+                          class="expected-output"
+                          value={testCase.expectedOutput || ''}
+                          placeholder="Enter expected output text..."
+                          oninput={(e) => updateTestCase(section.id, index, { expectedOutput: e.target.value })}
+                        />
+                        
+                        <div class="expectation-header">
+                          <span>Expected Styles:</span>
+                          <button 
+                            class="add-style-btn"
+                            onclick={() => {
+                              const styleProp = prompt('CSS property (e.g., color, font-weight):');
+                              if (styleProp) {
+                                const styleValue = prompt(`Value for ${styleProp}:`);
+                                if (styleValue) {
+                                  const styles = { ...(testCase.expectedStyles || {}), [styleProp]: styleValue };
+                                  updateTestCase(section.id, index, { expectedStyles: styles });
+                                }
+                              }
+                            }}
+                          >
+                            + Add Style
+                          </button>
+                        </div>
+                        
+                        {#if testCase.expectedStyles}
+                          {#each Object.entries(testCase.expectedStyles) as [prop, value]}
+                            <div class="style-row">
+                              <span class="style-prop">{prop}:</span>
+                              <input 
+                                type="text"
+                                value={value}
+                                class="style-value"
+                                oninput={(e) => {
+                                  const styles = { ...testCase.expectedStyles };
+                                  styles[prop] = e.target.value;
+                                  updateTestCase(section.id, index, { expectedStyles: styles });
+                                }}
+                              />
+                              <button 
+                                class="style-delete"
+                                onclick={() => {
+                                  const styles = { ...testCase.expectedStyles };
+                                  delete styles[prop];
+                                  updateTestCase(section.id, index, { expectedStyles: Object.keys(styles).length > 0 ? styles : undefined });
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          {/each}
+                        {/if}
+                      </div>
+                      
+                      <!-- Test Result Display -->
+                      {#if testCase.testResult}
+                        <div class="test-result {testCase.testResult.passed ? 'passed' : 'failed'}">
+                          <div class="result-header">
+                            {testCase.testResult.passed ? '✅ Passed' : '❌ Failed'}
+                          </div>
+                          {#if !testCase.testResult.passed && testCase.testResult.error}
+                            <div class="result-error">{testCase.testResult.error}</div>
+                          {/if}
+                          {#if testCase.testResult.actualOutput}
+                            <div class="result-detail">
+                              <strong>Actual Output:</strong> {testCase.testResult.actualOutput}
+                            </div>
+                          {/if}
+                        </div>
+                      {/if}
                     </div>
                   {/each}
                   </div>
@@ -1592,6 +1992,63 @@
     isOpen={showPreferences}
     onClose={() => showPreferences = false}
   />
+  
+  <!-- Test Summary Modal -->
+  {#if showTestSummary && testSummary}
+    <div class="modal-overlay" onclick={() => showTestSummary = false}>
+      <div class="modal-content test-summary-modal" onclick={(e) => e.stopPropagation()}>
+        <div class="modal-header">
+          <h2>Test Results Summary</h2>
+          <button class="close-btn" onclick={() => showTestSummary = false}>✕</button>
+        </div>
+        
+        <div class="summary-overview">
+          <div class="summary-stat {testSummary.summary.failed === 0 ? 'all-passed' : 'has-failures'}">
+            <div class="stat-label">Total Tests</div>
+            <div class="stat-value">{testSummary.summary.total}</div>
+          </div>
+          <div class="summary-stat passed">
+            <div class="stat-label">Passed</div>
+            <div class="stat-value">{testSummary.summary.passed}</div>
+          </div>
+          <div class="summary-stat failed">
+            <div class="stat-label">Failed</div>
+            <div class="stat-value">{testSummary.summary.failed}</div>
+          </div>
+          <div class="summary-stat">
+            <div class="stat-label">Success Rate</div>
+            <div class="stat-value">
+              {testSummary.summary.total > 0 
+                ? Math.round((testSummary.summary.passed / testSummary.summary.total) * 100) 
+                : 0}%
+            </div>
+          </div>
+        </div>
+        
+        <div class="test-details">
+          {#each testSummary.sections as section}
+            <div class="section-results">
+              <h3>{section.sectionName}</h3>
+              {#each section.results as result}
+                <div class="test-result-item {result.passed ? 'passed' : 'failed'}">
+                  <div class="test-name">
+                    {result.passed ? '✅' : '❌'} {result.testCase.name}
+                  </div>
+                  {#if !result.passed && result.error}
+                    <div class="test-error">{result.error}</div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/each}
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn-primary" onclick={() => showTestSummary = false}>Close</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -1737,6 +2194,29 @@
     align-items: center;
     padding: 1rem;
     border-bottom: 1px solid #444;
+  }
+  
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .run-all-tests-btn {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  
+  .run-all-tests-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
   }
   
   .ingredient-context-bar {
@@ -2333,7 +2813,7 @@
     cursor: pointer;
   }
 
-  .variable-row {
+  .variable-row, .style-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -2355,7 +2835,7 @@
     font-size: 0.85rem;
   }
 
-  .var-delete {
+  .var-delete, .style-delete {
     padding: 0.2rem 0.4rem;
     background-color: #dc3545;
     color: white;
@@ -2363,6 +2843,109 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.75rem;
+  }
+
+  /* Test expectations styles */
+  .test-expectations {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  .expectation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    color: #666;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .match-type-select {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+  }
+
+  .expected-output {
+    width: 100%;
+    min-height: 60px;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    resize: vertical;
+    margin-bottom: 1rem;
+  }
+
+  .add-style-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .style-prop {
+    color: #6c757d;
+    min-width: 100px;
+    font-size: 0.85rem;
+  }
+
+  .style-value {
+    flex: 1;
+    padding: 0.2rem;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #333;
+    font-size: 0.85rem;
+  }
+
+  /* Test result styles */
+  .test-result {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .test-result.passed {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+  }
+
+  .test-result.failed {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+
+  .result-header {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-error {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 3px;
+  }
+
+  .result-detail {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 3px;
+    word-break: break-word;
   }
 
   /* Rest of styles remain the same... */
@@ -2843,5 +3426,132 @@
   
   .close-btn:hover {
     color: #333;
+  }
+  
+  /* Test Summary Modal Styles */
+  .test-summary-modal {
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .summary-overview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin: 1rem 1.5rem;
+  }
+  
+  .summary-stat {
+    text-align: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 6px;
+    border: 2px solid #e0e0e0;
+  }
+  
+  .summary-stat.all-passed {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  }
+  
+  .summary-stat.has-failures {
+    border-color: #ffc107;
+  }
+  
+  .summary-stat.passed {
+    border-color: #28a745;
+  }
+  
+  .summary-stat.failed {
+    border-color: #dc3545;
+  }
+  
+  .stat-label {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .test-details {
+    padding: 0 1.5rem 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  
+  .section-results {
+    margin-bottom: 1.5rem;
+  }
+  
+  .section-results h3 {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .test-result-item {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    background: white;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .test-result-item.passed {
+    border-left: 3px solid #28a745;
+  }
+  
+  .test-result-item.failed {
+    border-left: 3px solid #dc3545;
+    background-color: #fff5f5;
+  }
+  
+  .test-name {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+  
+  .test-error {
+    color: #dc3545;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: #ffe0e0;
+    border-radius: 3px;
+    white-space: pre-wrap;
+  }
+  
+  .modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .btn-primary {
+    padding: 0.5rem 1.5rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .btn-primary:hover {
+    background-color: #0056b3;
   }
 </style>
