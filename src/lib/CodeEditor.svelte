@@ -19,51 +19,70 @@
   let element: HTMLDivElement;
   let view: EditorView | undefined;
   
-  // Create a light theme similar to Notepad++
-  const notepadPlusPlusTheme = EditorView.theme({
+  // Medical-grade code editor theme
+  const medicalCodeTheme = EditorView.theme({
     '&': {
-      color: '#000000',
-      backgroundColor: '#ffffff'
+      color: 'var(--color-text-primary)',
+      backgroundColor: 'var(--color-surface)',
+      fontSize: 'var(--font-size-sm)',
+      fontFamily: 'var(--font-mono, "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace)'
     },
     '.cm-content': {
-      caretColor: '#000000',
-      lineHeight: '1.5'
+      caretColor: 'var(--color-primary)',
+      lineHeight: 'var(--line-height-relaxed)',
+      padding: 'var(--space-4)',
+      minHeight: '200px'
     },
-    '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#000000' },
+    '.cm-cursor, .cm-dropCursor': { 
+      borderLeftColor: 'var(--color-primary)',
+      borderLeftWidth: '2px'
+    },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: '#3399ff'
+      backgroundColor: 'var(--color-primary-200)'
     },
-    '.cm-activeLine': { backgroundColor: '#e8f2ff' },
-    '.cm-activeLineGutter': { backgroundColor: '#e8f2ff' },
+    '.cm-activeLine': { 
+      backgroundColor: 'var(--color-primary-50)'
+    },
+    '.cm-activeLineGutter': { 
+      backgroundColor: 'var(--color-primary-100)'
+    },
     '.cm-gutters': {
-      backgroundColor: '#f5f5f5',
-      color: '#666666',
-      border: 'none'
+      backgroundColor: 'var(--color-surface-elevated)',
+      color: 'var(--color-text-tertiary)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius-base) 0 0 var(--radius-base)'
     },
     '.cm-lineNumbers': {
-      minWidth: '40px'
+      minWidth: '48px',
+      fontSize: 'var(--font-size-xs)',
+      color: 'var(--color-text-muted)'
+    },
+    '.cm-foldGutter': {
+      width: '20px'
     }
   }, { dark: false });
   
-  // Syntax highlighting colors similar to Notepad++
-  const notepadPlusPlusHighlight = HighlightStyle.define([
-    { tag: t.keyword, color: '#0000ff' },
-    { tag: t.operator, color: '#000000' },
-    { tag: t.variableName, color: '#000000' },
-    { tag: t.function(t.variableName), color: '#000000' },
-    { tag: t.string, color: '#a31515' },
-    { tag: t.number, color: '#098658' },
-    { tag: t.bool, color: '#0000ff' },
-    { tag: t.null, color: '#0000ff' },
-    { tag: t.comment, color: '#008000' },
-    { tag: t.lineComment, color: '#008000' },
-    { tag: t.blockComment, color: '#008000' },
-    { tag: t.propertyName, color: '#000000' },
-    { tag: t.tagName, color: '#800080' },
-    { tag: t.attributeName, color: '#ff0000' },
-    { tag: t.attributeValue, color: '#0000ff' },
-    { tag: t.punctuation, color: '#000000' },
-    { tag: t.bracket, color: '#000000' }
+  // Medical-appropriate syntax highlighting (clear and professional)
+  const medicalSyntaxHighlight = HighlightStyle.define([
+    { tag: t.keyword, color: 'var(--color-primary-700)', fontWeight: 'var(--font-weight-semibold)' },
+    { tag: t.operator, color: 'var(--color-text-primary)' },
+    { tag: t.variableName, color: 'var(--color-text-primary)' },
+    { tag: t.function(t.variableName), color: 'var(--color-info-600)', fontWeight: 'var(--font-weight-medium)' },
+    { tag: t.string, color: 'var(--color-success-700)' },
+    { tag: t.number, color: 'var(--color-warning-700)' },
+    { tag: t.bool, color: 'var(--color-primary-600)' },
+    { tag: t.null, color: 'var(--color-primary-600)' },
+    { tag: t.comment, color: 'var(--color-text-muted)', fontStyle: 'italic' },
+    { tag: t.lineComment, color: 'var(--color-text-muted)', fontStyle: 'italic' },
+    { tag: t.blockComment, color: 'var(--color-text-muted)', fontStyle: 'italic' },
+    { tag: t.propertyName, color: 'var(--color-info-700)' },
+    { tag: t.tagName, color: 'var(--color-danger-600)', fontWeight: 'var(--font-weight-medium)' },
+    { tag: t.attributeName, color: 'var(--color-primary-600)' },
+    { tag: t.attributeValue, color: 'var(--color-success-600)' },
+    { tag: t.punctuation, color: 'var(--color-text-secondary)' },
+    { tag: t.bracket, color: 'var(--color-text-secondary)' },
+    { tag: t.brace, color: 'var(--color-text-secondary)' },
+    { tag: t.paren, color: 'var(--color-text-secondary)' }
   ]);
   
   onMount(() => {
@@ -80,21 +99,45 @@
       extensions.push(html());
     }
     
-    // Add theme extensions
-    extensions.push(notepadPlusPlusTheme);
-    extensions.push(syntaxHighlighting(notepadPlusPlusHighlight));
+    // Add medical theme extensions
+    extensions.push(medicalCodeTheme);
+    extensions.push(syntaxHighlighting(medicalSyntaxHighlight));
     
-    // Add custom theme with higher specificity
+    // Add medical-grade accessibility and styling
     extensions.push(EditorView.theme({
-      '&': { height: '100%' },
-      '.cm-scroller': { overflow: 'auto' },
-      '.cm-content': { whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+      '&': { 
+        height: '100%',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden',
+        boxShadow: 'var(--shadow-sm)'
+      },
+      '.cm-scroller': { 
+        overflow: 'auto',
+        '-webkit-overflow-scrolling': 'touch'
+      },
+      '.cm-content': { 
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        padding: 'var(--space-4)'
+      },
       '.cm-content.cm-focused': { outline: 'none' },
       '.cm-editor.cm-focused': { 
-        outline: '3px solid #0066cc',
-        outlineOffset: '2px'
+        outline: 'var(--focus-ring-width) solid var(--focus-ring-color)',
+        outlineOffset: 'var(--focus-ring-offset)',
+        borderColor: 'var(--color-primary)',
+        boxShadow: 'var(--shadow-md), 0 0 0 3px var(--color-focus-ring)'
       },
-      '.cm-line': { wordWrap: 'break-word' }
+      '.cm-line': { wordWrap: 'break-word' },
+      '.cm-searchMatch': {
+        backgroundColor: 'var(--color-warning-200)',
+        color: 'var(--color-gray-900)',
+        border: '1px solid var(--color-warning-400)'
+      },
+      '.cm-searchMatch.cm-searchMatch-selected': {
+        backgroundColor: 'var(--color-warning-300)',
+        borderColor: 'var(--color-warning-500)'
+      }
     }));
     
     // Add line wrapping
@@ -215,25 +258,105 @@
   });
 </script>
 
-<div bind:this={element} class="code-editor">
+<div bind:this={element} class="medical-code-editor">
   <!-- Hidden helper text for screen readers -->
   <div id="js-editor-help" class="sr-only">
-    JavaScript code editor. Use me.getValue('keyname') to access TPN values. Press Tab to move to next element.
+    Medical JavaScript code editor. Use me.getValue('keyname') to access TPN values. Press Tab to move to next element. This editor supports TPN calculation functions.
   </div>
   <div id="html-editor-help" class="sr-only">
-    HTML code editor. Type [f( to convert to dynamic JavaScript section. Press Tab to move to next element.
+    Medical HTML content editor. Type [f( to convert to dynamic JavaScript section. Press Tab to move to next element. Use this for static medical content.
   </div>
 </div>
 
 <style>
-  .code-editor {
+  .medical-code-editor {
     width: 100%;
     height: 100%;
-    border-radius: 4px;
+    min-height: 300px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    transition: 
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
+    position: relative;
     overflow: hidden;
   }
   
-  :global(.cm-editor) {
-    height: 100%;
+  .medical-code-editor:hover {
+    border-color: var(--color-border-medium);
+    box-shadow: var(--shadow-base);
+  }
+  
+  .medical-code-editor:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 
+      var(--shadow-md),
+      0 0 0 3px var(--color-focus-ring);
+  }
+  
+  /* Global CodeMirror overrides for medical theme */
+  :global(.medical-code-editor .cm-editor) {
+    height: 100% !important;
+    font-size: var(--font-size-sm) !important;
+    line-height: var(--line-height-relaxed) !important;
+  }
+  
+  :global(.medical-code-editor .cm-content) {
+    padding: var(--space-4) !important;
+    min-height: 250px !important;
+    font-family: inherit !important;
+  }
+  
+  :global(.medical-code-editor .cm-focused) {
+    outline: none !important;
+  }
+  
+  :global(.medical-code-editor .cm-gutters) {
+    font-family: inherit !important;
+  }
+  
+  :global(.medical-code-editor .cm-lineNumbers) {
+    font-family: inherit !important;
+    user-select: none;
+  }
+  
+  /* Error indication for medical safety */
+  :global(.medical-code-editor .cm-diagnostic-error) {
+    border-left: 3px solid var(--color-danger-500);
+    background-color: var(--color-danger-50);
+    padding-left: var(--space-2);
+  }
+  
+  /* Accessibility improvements */
+  @media (prefers-reduced-motion: reduce) {
+    .medical-code-editor {
+      transition: none;
+    }
+  }
+  
+  @media (prefers-contrast: high) {
+    .medical-code-editor {
+      border-width: 2px;
+      border-color: var(--color-text-primary);
+    }
+  }
+  
+  /* Mobile optimization */
+  @media (max-width: 767px) {
+    .medical-code-editor {
+      min-height: 200px;
+    }
+    
+    :global(.medical-code-editor .cm-content) {
+      padding: var(--space-3) !important;
+      min-height: 180px !important;
+    }
+    
+    :global(.medical-code-editor .cm-editor) {
+      font-size: 16px !important; /* Prevent iOS zoom */
+    }
   }
 </style>

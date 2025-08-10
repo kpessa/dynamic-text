@@ -1,0 +1,80 @@
+// Color Utilities
+// Generated using SCSS loops for all color variants
+
+@use '../abstracts/variables' as vars;
+
+// Text colors
+@each $variant in vars.$color-variants {
+  .text-#{$variant} { color: var(--color-#{$variant}); }
+  .text-#{$variant}-light { color: var(--color-#{$variant}-100); }
+  .text-#{$variant}-dark { color: var(--color-#{$variant}-700); }
+}
+
+// Gray text colors
+@for $i from 1 through 9 {
+  .text-gray-#{$i}00 { color: var(--color-gray-#{$i}00); }
+}
+
+// Background colors
+@each $variant in vars.$color-variants {
+  .bg-#{$variant} { background-color: var(--color-#{$variant}); }
+  .bg-#{$variant}-light { background-color: var(--color-#{$variant}-100); }
+  .bg-#{$variant}-dark { background-color: var(--color-#{$variant}-700); }
+}
+
+// Gray backgrounds
+@for $i from 1 through 9 {
+  .bg-gray-#{$i}00 { background-color: var(--color-gray-#{$i}00); }
+}
+
+// Border colors
+@each $variant in vars.$color-variants {
+  .border-#{$variant} { border-color: var(--color-#{$variant}); }
+  .border-#{$variant}-light { border-color: var(--color-#{$variant}-100); }
+  .border-#{$variant}-dark { border-color: var(--color-#{$variant}-700); }
+}
+
+// Gray borders
+@for $i from 1 through 9 {
+  .border-gray-#{$i}00 { border-color: var(--color-gray-#{$i}00); }
+}
+
+// Special colors
+.text-muted { color: var(--color-text-muted); }
+.text-inverse { color: var(--color-text-inverse); }
+.bg-surface { background-color: var(--color-surface); }
+.bg-elevated { background-color: var(--color-surface-elevated); }
+.bg-muted { background-color: var(--color-surface-muted); }
+.border-surface { border-color: var(--color-border); }
+
+// Opacity utilities
+$opacities: (0, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 100);
+
+@each $opacity in $opacities {
+  .opacity-#{$opacity} { opacity: $opacity / 100; }
+}
+
+// Gradient utilities
+@each $variant in vars.$color-variants {
+  .gradient-#{$variant} {
+    background: var(--gradient-#{$variant});
+  }
+  
+  .text-gradient-#{$variant} {
+    background: var(--gradient-#{$variant});
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+// Medical status colors
+.text-critical { color: var(--color-critical); }
+.bg-critical { background-color: var(--color-critical-light); }
+.border-critical { border-color: var(--color-critical); }
+
+// Population type colors
+@each $type, $color in vars.$population-types {
+  .bg-#{$type} { background-color: $color; }
+  .border-#{$type} { border-color: darken($color, 10%); }
+}

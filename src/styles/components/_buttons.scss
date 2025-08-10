@@ -1,0 +1,255 @@
+// Button Component Styles
+// Medical-grade button system with variants
+
+@use '../abstracts/variables' as vars;
+@use '../abstracts/mixins' as mixins;
+
+// Base button styles
+.btn {
+  // Structure
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  
+  // Sizing
+  min-height: var(--button-min-height);
+  padding: var(--space-3) var(--space-6);
+  
+  // Typography
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  
+  // Appearance
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  
+  // Transitions
+  @include mixins.transition(all);
+  
+  // States
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-medical-hover);
+  }
+  
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  &:focus-visible {
+    @include mixins.focus-ring();
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  
+  // Icon support
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+  }
+}
+
+// Generate button variants
+@each $variant in vars.$color-variants {
+  .btn-#{$variant} {
+    @include mixins.button-variant($variant);
+  }
+}
+
+// Special medical buttons
+.btn-critical {
+  @include mixins.button-variant(danger);
+  animation: pulse-danger 2s infinite;
+  
+  &:hover:not(:disabled) {
+    animation: none;
+  }
+}
+
+// Button sizes
+.btn-sm {
+  min-height: var(--min-touch-target-small);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.btn-lg {
+  min-height: 56px;
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--font-size-lg);
+  
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+// Button group
+.btn-group {
+  display: inline-flex;
+  gap: 0;
+  
+  .btn {
+    border-radius: 0;
+    margin-left: -1px;
+    
+    &:first-child {
+      border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+      margin-left: 0;
+    }
+    
+    &:last-child {
+      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    }
+    
+    &:only-child {
+      border-radius: var(--radius-lg);
+    }
+    
+    &:hover,
+    &:focus-visible {
+      z-index: 1;
+    }
+  }
+}
+
+// Icon-only buttons
+.btn-icon {
+  padding: var(--space-3);
+  min-width: var(--button-min-height);
+  
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  
+  &.btn-sm {
+    padding: var(--space-2);
+    min-width: var(--min-touch-target-small);
+    
+    svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+  }
+  
+  &.btn-lg {
+    padding: var(--space-4);
+    min-width: 56px;
+    
+    svg {
+      width: 2rem;
+      height: 2rem;
+    }
+  }
+}
+
+// Loading state
+.btn-loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1rem;
+    height: 1rem;
+    margin: -0.5rem 0 0 -0.5rem;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+}
+
+// Full width button
+.btn-block {
+  width: 100%;
+}
+
+// Floating action button (FAB)
+.fab {
+  @extend .btn;
+  @extend .btn-icon;
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-lg);
+  z-index: map-get(vars.$z-indices, fixed);
+  
+  &:hover:not(:disabled) {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-xl);
+  }
+  
+  &.fab-left {
+    right: auto;
+    left: var(--space-6);
+  }
+  
+  @include mixins.mobile {
+    bottom: var(--space-4);
+    right: var(--space-4);
+    
+    &.fab-left {
+      left: var(--space-4);
+    }
+  }
+}
+
+// Medical action buttons
+.btn-emergency {
+  @extend .btn-critical;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn-medical-action {
+  @extend .btn;
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  
+  &:hover:not(:disabled) {
+    background: var(--gradient-primary);
+    filter: brightness(1.1);
+  }
+}
+
+// Animations
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-danger {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(var(--color-danger-rgb), 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(var(--color-danger-rgb), 0);
+  }
+}

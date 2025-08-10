@@ -1,0 +1,332 @@
+// Card Component Styles
+// Medical-grade card system with nested SCSS
+
+@use '../abstracts/variables' as vars;
+@use '../abstracts/mixins' as mixins;
+@use 'sass:map';
+
+// Base card
+.card {
+  @include mixins.card();
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  word-wrap: break-word;
+  background-clip: border-box;
+  margin-bottom: var(--space-6);
+  
+  // Card header
+  &-header {
+    padding: var(--space-4) var(--space-6);
+    margin-bottom: 0;
+    background-color: var(--color-surface-elevated);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    
+    &:first-child {
+      border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+      margin-bottom: 0;
+      color: var(--color-text-primary);
+      font-weight: var(--font-weight-semibold);
+    }
+    
+    // Card actions in header
+    .card-actions {
+      display: flex;
+      gap: var(--space-2);
+      margin-left: auto;
+    }
+  }
+  
+  // Card body
+  &-body {
+    flex: 1 1 auto;
+    padding: var(--space-6);
+    
+    &.compact {
+      padding: var(--space-4);
+    }
+    
+    &.spacious {
+      padding: var(--space-8);
+    }
+  }
+  
+  // Card footer
+  &-footer {
+    padding: var(--space-4) var(--space-6);
+    background-color: var(--color-surface-elevated);
+    border-top: 1px solid var(--color-border);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    
+    &:last-child {
+      border-radius: 0 0 calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px);
+    }
+  }
+  
+  // Card image
+  &-img {
+    width: 100%;
+    border-radius: var(--radius-lg);
+    
+    &-top {
+      width: 100%;
+      border-top-left-radius: calc(var(--radius-lg) - 1px);
+      border-top-right-radius: calc(var(--radius-lg) - 1px);
+    }
+    
+    &-bottom {
+      width: 100%;
+      border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+      border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+    }
+  }
+  
+  // Card title and text
+  &-title {
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+  
+  &-subtitle {
+    margin-top: calc(var(--space-3) * -0.5);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+  
+  &-text {
+    color: var(--color-text-secondary);
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  // Card link
+  &-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+    
+    + .card-link {
+      margin-left: var(--space-4);
+    }
+  }
+  
+  // Card variants
+  @each $variant in vars.$color-variants {
+    &.card-#{$variant} {
+      border-left: 4px solid var(--color-#{$variant});
+      background-color: var(--color-#{$variant}-bg, var(--color-#{$variant}-50));
+      
+      .card-header {
+        background-color: var(--color-#{$variant}-100);
+        border-bottom-color: var(--color-#{$variant}-200);
+        color: var(--color-#{$variant}-700);
+      }
+    }
+  }
+  
+  // Clickable card
+  &.clickable {
+    cursor: pointer;
+    transition: transform var(--duration-normal) var(--ease-out),
+                box-shadow var(--duration-normal) var(--ease-out);
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-medical-hover);
+    }
+    
+    &:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-sm);
+    }
+  }
+  
+  // Horizontal card
+  &.card-horizontal {
+    flex-direction: row;
+    
+    .card-img {
+      max-width: 200px;
+      border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    }
+    
+    .card-body {
+      flex: 1;
+    }
+    
+    @include mixins.mobile {
+      flex-direction: column;
+      
+      .card-img {
+        max-width: 100%;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      }
+    }
+  }
+  
+  // Medical card styles
+  &.medical-card {
+    border: 2px solid var(--color-primary-200);
+    background: linear-gradient(135deg, 
+      var(--color-surface) 0%, 
+      var(--color-primary-50) 100%);
+    
+    .card-header {
+      background: var(--gradient-primary);
+      color: white;
+      border-bottom: none;
+      
+      h1, h2, h3, h4, h5, h6 {
+        color: white;
+      }
+    }
+    
+    .medical-badge {
+      position: absolute;
+      top: var(--space-3);
+      right: var(--space-3);
+      padding: var(--space-1) var(--space-3);
+      background: var(--color-success);
+      color: white;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+    }
+    
+    .medical-value {
+      font-family: var(--font-mono);
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-primary);
+      
+      .unit {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-normal);
+        color: var(--color-text-muted);
+        margin-left: var(--space-1);
+      }
+    }
+    
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      
+      &::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: pulse 2s infinite;
+      }
+      
+      &.normal {
+        color: var(--color-success);
+      }
+      
+      &.warning {
+        color: var(--color-warning);
+      }
+      
+      &.critical {
+        color: var(--color-danger);
+        animation: pulse-danger 1s infinite;
+      }
+    }
+  }
+}
+
+// Card deck
+.card-deck {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-6);
+  
+  @include mixins.tablet {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  @include mixins.mobile {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Card group
+.card-group {
+  display: flex;
+  flex-flow: row wrap;
+  
+  > .card {
+    flex: 1 0 0%;
+    margin-bottom: 0;
+    
+    + .card {
+      margin-left: 0;
+      border-left: 0;
+    }
+    
+    &:not(:last-child) {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      
+      .card-img-top,
+      .card-header {
+        border-top-right-radius: 0;
+      }
+      
+      .card-img-bottom,
+      .card-footer {
+        border-bottom-right-radius: 0;
+      }
+    }
+    
+    &:not(:first-child) {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      
+      .card-img-top,
+      .card-header {
+        border-top-left-radius: 0;
+      }
+      
+      .card-img-bottom,
+      .card-footer {
+        border-bottom-left-radius: 0;
+      }
+    }
+  }
+}
+
+// Animations
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulse-danger {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}

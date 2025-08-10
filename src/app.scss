@@ -1,0 +1,25 @@
+// Dynamic Text Editor - Main SCSS Entry Point
+// Medical-grade design system with WCAG 2.1 AA compliance
+
+// 1. Configuration and Functions
+@use 'styles/abstracts/functions';
+@use 'styles/abstracts/variables';
+@use 'styles/abstracts/mixins';
+
+// 2. Base styles
+@use 'styles/base/reset';
+
+// 3. Utilities
+@use 'styles/utilities/spacing';
+@use 'styles/utilities/colors';
+@use 'styles/utilities/typography';
+
+// 4. Components
+@use 'styles/components/buttons';
+@use 'styles/components/forms';
+@use 'styles/components/cards';
+@use 'styles/components/modals';
+@use 'styles/components/alerts';
+
+// Import the existing CSS temporarily while we migrate
+@import 'app.css';

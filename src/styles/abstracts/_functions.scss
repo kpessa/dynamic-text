@@ -1,0 +1,95 @@
+// SCSS Functions - Utility functions for the design system
+
+// Convert px to rem
+@function px-to-rem($px) {
+  @return #{$px / 16}rem;
+}
+
+// Get spacing value
+@function space($key) {
+  @if map-has-key($spacing, $key) {
+    @return map-get($spacing, $key);
+  }
+  @warn "Spacing key '#{$key}' not found.";
+  @return 0;
+}
+
+// Get breakpoint value
+@function breakpoint($key) {
+  @if map-has-key($breakpoints, $key) {
+    @return map-get($breakpoints, $key);
+  }
+  @warn "Breakpoint '#{$key}' not found.";
+  @return null;
+}
+
+// Get z-index value
+@function z-index($key) {
+  @if map-has-key($z-indices, $key) {
+    @return map-get($z-indices, $key);
+  }
+  @warn "Z-index '#{$key}' not found.";
+  @return 1;
+}
+
+// Get font size
+@function font-size($key) {
+  @if map-has-key($font-sizes, $key) {
+    @return map-get($font-sizes, $key);
+  }
+  @warn "Font size '#{$key}' not found.";
+  @return 1rem;
+}
+
+// Calculate contrast ratio (for WCAG compliance checking)
+@function contrast-ratio($color1, $color2) {
+  $l1: luminance($color1);
+  $l2: luminance($color2);
+  
+  @if $l1 > $l2 {
+    @return ($l1 + 0.05) / ($l2 + 0.05);
+  } @else {
+    @return ($l2 + 0.05) / ($l1 + 0.05);
+  }
+}
+
+// Calculate relative luminance
+@function luminance($color) {
+  $rgb: (
+    red($color) / 255,
+    green($color) / 255,
+    blue($color) / 255
+  );
+  
+  @each $channel in $rgb {
+    @if $channel <= 0.03928 {
+      $channel: $channel / 12.92;
+    } @else {
+      $channel: pow(($channel + 0.055) / 1.055, 2.4);
+    }
+  }
+  
+  @return 0.2126 * nth($rgb, 1) + 0.7152 * nth($rgb, 2) + 0.0722 * nth($rgb, 3);
+}
+
+// Check if color meets WCAG AA standards
+@function is-wcag-aa($foreground, $background) {
+  $ratio: contrast-ratio($foreground, $background);
+  @return $ratio >= 4.5;
+}
+
+// Check if color meets WCAG AAA standards
+@function is-wcag-aaa($foreground, $background) {
+  $ratio: contrast-ratio($foreground, $background);
+  @return $ratio >= 7;
+}
+
+// Strip unit from value
+@function strip-unit($value) {
+  @return $value / ($value * 0 + 1);
+}
+
+// Calculate modular scale
+@function modular-scale($value, $ratio: 1.25) {
+  @return pow($ratio, $value) * 1rem;
+}

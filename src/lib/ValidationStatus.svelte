@@ -111,12 +111,36 @@
   .validation-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.125rem 0.5rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
     white-space: nowrap;
+    border: 1px solid;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .validation-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(255, 255, 255, 0.2) 50%, 
+      transparent 100%);
+    transition: left var(--duration-slow) var(--ease-out);
+  }
+
+  .validation-badge:hover::before {
+    left: 100%;
   }
 
   .badge-icon {
@@ -124,38 +148,82 @@
   }
 
   .badge-gray {
-    background-color: #f3f4f6;
-    color: #6b7280;
+    background: linear-gradient(135deg, 
+      var(--color-gray-100) 0%, 
+      var(--color-gray-200) 100%);
+    border-color: var(--color-gray-300);
+    color: var(--color-gray-700);
   }
 
   .badge-blue {
-    background-color: #dbeafe;
-    color: #1e40af;
+    background: linear-gradient(135deg, 
+      var(--color-info-100) 0%, 
+      var(--color-info-200) 100%);
+    border-color: var(--color-info-300);
+    color: var(--color-info-800);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
   }
 
   .badge-green {
-    background-color: #d1fae5;
-    color: #065f46;
+    background: linear-gradient(135deg, 
+      var(--color-success-100) 0%, 
+      var(--color-success-200) 100%);
+    border-color: var(--color-success-300);
+    color: var(--color-success-800);
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
   }
 
   .badge-red {
-    background-color: #fee2e2;
-    color: #991b1b;
+    background: linear-gradient(135deg, 
+      var(--color-danger-100) 0%, 
+      var(--color-danger-200) 100%);
+    border-color: var(--color-danger-300);
+    color: var(--color-danger-800);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
   }
 
   .badge-purple {
-    background-color: #ede9fe;
+    background: linear-gradient(135deg, 
+      #ede9fe 0%, 
+      #ddd6fe 100%);
+    border-color: #c4b5fd;
     color: #6b21a8;
+    box-shadow: 0 2px 8px rgba(147, 51, 234, 0.15);
   }
 
   .validation-status {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background-color: #f9fafb;
-    border-radius: 0.375rem;
-    border: 1px solid #e5e7eb;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    background: linear-gradient(135deg, 
+      var(--color-surface) 0%, 
+      var(--color-surface-elevated) 100%);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--color-border-light);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-fast);
+    position: relative;
+  }
+
+  .validation-status::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, 
+      var(--color-primary) 0%, 
+      var(--color-primary-400) 100%);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    opacity: 0.7;
+  }
+
+  .validation-status:hover {
+    border-color: var(--color-border-medium);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
   }
 
   .status-header {

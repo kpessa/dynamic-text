@@ -1,5 +1,5 @@
 import { mount } from 'svelte'
-import './app.css'
+import './app.scss'
 
 // Simple, non-blocking app initialization to fix freezing issues
 async function initializeApp() {

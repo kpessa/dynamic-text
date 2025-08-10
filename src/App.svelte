@@ -9,8 +9,8 @@
   import TestGeneratorButton from './lib/TestGeneratorButton.svelte';
   import TestGeneratorModal from './lib/TestGeneratorModal.svelte';
   import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
-  import Navbar from './lib/Navbar.svelte';
-  import IngredientManager from './lib/IngredientManager.svelte';
+  import NavbarRefactored from './lib/NavbarRefactored.svelte';
+  import IngredientManager from './lib/IngredientManagerRefactored.svelte';
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
   import DataMigrationTool from './lib/DataMigrationTool.svelte';
   import CommitMessageDialog from './lib/CommitMessageDialog.svelte';
@@ -99,6 +99,35 @@
   let showPopulationDropdown = $state(false);
   let availablePopulations = $state([]);
   let loadingPopulations = $state(false);
+  
+  // Organized state for refactored Navbar
+  let navbarUiState = $state({
+    showSidebar: false,
+    tpnMode: false,
+    showOutput: false,
+    outputMode: 'json',
+    showKeyReference: false,
+    showKPTReference: false
+  });
+  
+  // Sync individual states with navbar ui state
+  $effect(() => {
+    showSidebar = navbarUiState.showSidebar;
+    tpnMode = navbarUiState.tpnMode;
+    showOutput = navbarUiState.showOutput;
+    outputMode = navbarUiState.outputMode;
+    showKeyReference = navbarUiState.showKeyReference;
+    showKPTReference = navbarUiState.showKPTReference;
+  });
+  
+  $effect(() => {
+    navbarUiState.showSidebar = showSidebar;
+    navbarUiState.tpnMode = tpnMode;
+    navbarUiState.showOutput = showOutput;
+    navbarUiState.outputMode = outputMode;
+    navbarUiState.showKeyReference = showKeyReference;
+    navbarUiState.showKPTReference = showKPTReference;
+  });
   
   // Initialize KPT custom functions on app start
   $effect(() => {
@@ -1270,75 +1299,76 @@
   {/if}
   
   <main>
-    <Navbar
-      bind:showSidebar
-      bind:tpnMode
-      bind:showOutput
-      bind:outputMode
-      bind:showKeyReference
-      currentReferenceName={currentReferenceName}
-      currentIngredient={currentIngredient}
-      hasUnsavedChanges={hasUnsavedChanges}
-      lastSavedTime={lastSavedTime}
-      firebaseEnabled={firebaseEnabled}
-      onSave={handleSaveWithCommit}
-      onNewDocument={() => {
-        if (hasUnsavedChanges && !confirm('You have unsaved changes. Start new anyway?')) {
-          return;
-        }
-        clearEditor();
+    <NavbarRefactored
+      bind:uiState={navbarUiState}
+      documentState={{
+        currentReferenceName,
+        currentIngredient,
+        hasUnsavedChanges,
+        lastSavedTime,
+        copied
       }}
-      onExport={() => {
-        // Show export modal with format options
-        showExportModal = true;
-      }}
-      onOpenIngredientManager={() => showIngredientManager = true}
-      onOpenMigrationTool={() => showMigrationTool = true}
-      onOpenPreferences={() => showPreferences = true}
-      onOpenDiffViewer={async () => {
-        console.log('Compare button clicked', { loadedIngredient, showIngredientManager, showDiffViewer });
-        
-        // Make sure to close ingredient manager if it's open
-        showIngredientManager = false;
-        
-        if (loadedIngredient) {
-          // If we don't have a proper Firebase ID, try to find the ingredient
-          if (!loadedIngredient.id || loadedIngredient.id === loadedIngredient.name) {
-            try {
-              // Import the ingredient service to search for the ingredient
-              const { ingredientService } = await import('./lib/firebaseDataService.js');
-              const ingredients = await ingredientService.getAllIngredients();
-              
-              // Find the ingredient by name
-              const foundIngredient = ingredients.find(ing => 
-                ing.name === loadedIngredient.name || 
-                ing.name === loadedIngredient.id
-              );
-              
-              if (foundIngredient) {
-                console.log('Found ingredient:', foundIngredient);
-                selectedIngredientForDiff = foundIngredient;
-                showDiffViewer = true;
-                showIngredientManager = false; // Ensure it's closed
-              } else {
-                alert(`Cannot find ingredient "${loadedIngredient.name}" in Firebase. Make sure it has been properly imported.`);
+      actions={{
+        onNewDocument: () => {
+          if (hasUnsavedChanges && !confirm('You have unsaved changes. Start new anyway?')) {
+            return;
+          }
+          clearEditor();
+        },
+        onSave: handleSaveWithCommit,
+        onExport: () => {
+          // Show export modal with format options
+          showExportModal = true;
+        },
+        onOpenKPTManager: () => showKPTManager = true,
+        onOpenIngredientManager: () => showIngredientManager = true,
+        onOpenMigrationTool: () => showMigrationTool = true,
+        onOpenPreferences: () => showPreferences = true,
+        onOpenDiffViewer: async () => {
+          console.log('Compare button clicked', { loadedIngredient, showIngredientManager, showDiffViewer });
+          
+          // Make sure to close ingredient manager if it's open
+          showIngredientManager = false;
+          
+          if (loadedIngredient) {
+            // If we don't have a proper Firebase ID, try to find the ingredient
+            if (!loadedIngredient.id || loadedIngredient.id === loadedIngredient.name) {
+              try {
+                // Import the ingredient service to search for the ingredient
+                const { ingredientService } = await import('./lib/firebaseDataService.js');
+                const ingredients = await ingredientService.getAllIngredients();
+                
+                // Find the ingredient by name
+                const foundIngredient = ingredients.find(ing => 
+                  ing.name === loadedIngredient.name || 
+                  ing.name === loadedIngredient.id
+                );
+                
+                if (foundIngredient) {
+                  console.log('Found ingredient:', foundIngredient);
+                  selectedIngredientForDiff = foundIngredient;
+                  showDiffViewer = true;
+                  showIngredientManager = false; // Ensure it's closed
+                } else {
+                  alert(`Cannot find ingredient "${loadedIngredient.name}" in Firebase. Make sure it has been properly imported.`);
+                }
+              } catch (error) {
+                console.error('Error finding ingredient:', error);
+                alert('Error loading ingredient data. Please try again.');
               }
-            } catch (error) {
-              console.error('Error finding ingredient:', error);
-              alert('Error loading ingredient data. Please try again.');
+            } else {
+              // We already have a proper ingredient object
+              console.log('Using existing ingredient:', loadedIngredient);
+              selectedIngredientForDiff = loadedIngredient;
+              showDiffViewer = true;
+              showIngredientManager = false; // Ensure it's closed
             }
-          } else {
-            // We already have a proper ingredient object
-            console.log('Using existing ingredient:', loadedIngredient);
-            selectedIngredientForDiff = loadedIngredient;
-            showDiffViewer = true;
-            showIngredientManager = false; // Ensure it's closed
           }
         }
       }}
-      copied={copied}
-      bind:showKPTReference
-      onOpenKPTManager={() => showKPTManager = true}
+      config={{
+        firebaseEnabled
+      }}
     />
     
     <div class="editor-container {previewCollapsed ? 'preview-collapsed' : ''}">

@@ -1,0 +1,98 @@
+// Typography Utilities
+// Font sizes, weights, and text formatting
+
+@use '../abstracts/variables' as vars;
+@use '../abstracts/functions' as funcs;
+
+// Font sizes
+@each $key, $value in vars.$font-sizes {
+  .text-#{$key} { font-size: $value; }
+}
+
+// Font weights
+@each $key, $value in vars.$font-weights {
+  .font-#{$key} { font-weight: $value; }
+}
+
+// Line heights
+@each $key, $value in vars.$line-heights {
+  .leading-#{$key} { line-height: $value; }
+}
+
+// Font families
+.font-sans { font-family: var(--font-sans); }
+.font-mono { font-family: var(--font-mono); }
+
+// Text alignment
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-justify { text-align: justify; }
+
+// Text decoration
+.underline { text-decoration: underline; }
+.line-through { text-decoration: line-through; }
+.no-underline { text-decoration: none; }
+
+// Text transform
+.uppercase { text-transform: uppercase; }
+.lowercase { text-transform: lowercase; }
+.capitalize { text-transform: capitalize; }
+.normal-case { text-transform: none; }
+
+// Text overflow
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Line clamp utilities
+@for $i from 1 through 6 {
+  .line-clamp-#{$i} {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: $i;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// Letter spacing
+.tracking-tighter { letter-spacing: -0.05em; }
+.tracking-tight { letter-spacing: -0.025em; }
+.tracking-normal { letter-spacing: 0; }
+.tracking-wide { letter-spacing: 0.025em; }
+.tracking-wider { letter-spacing: 0.05em; }
+.tracking-widest { letter-spacing: 0.1em; }
+
+// Word break
+.break-normal { word-break: normal; overflow-wrap: normal; }
+.break-words { overflow-wrap: break-word; }
+.break-all { word-break: break-all; }
+
+// Whitespace
+.whitespace-normal { white-space: normal; }
+.whitespace-nowrap { white-space: nowrap; }
+.whitespace-pre { white-space: pre; }
+.whitespace-pre-line { white-space: pre-line; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+
+// Medical-specific typography
+.tabular-nums { font-feature-settings: 'tnum' on; }
+.medical-value {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' on;
+  font-weight: var(--font-weight-medium);
+}
+
+// Responsive typography
+@each $breakpoint-key, $breakpoint-value in vars.$breakpoints {
+  @media (min-width: $breakpoint-value) {
+    @each $size-key, $size-value in vars.$font-sizes {
+      .#{$breakpoint-key}\:text-#{$size-key} {
+        font-size: $size-value;
+      }
+    }
+  }
+}
