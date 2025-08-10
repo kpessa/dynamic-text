@@ -4,6 +4,9 @@
  * Usage: let { redText, formatNumber, weight } = kpt;
  */
 
+import type { KPTFunction } from './kptPersistence';
+import { KPTPersistence } from './kptPersistence';
+
 // Types for better TypeScript support
 export type KPTNamespace = {
   // Text formatting functions
@@ -59,7 +62,91 @@ export type KPTNamespace = {
   volume: number;
   protein: number;
   calories: number;
+  
+  // Custom functions will be added dynamically
+  [key: string]: any;
 };
+
+/**
+ * Initialize KPT custom functions on app startup
+ */
+export function initializeKPTCustomFunctions(): void {
+  KPTPersistence.initializeCustomFunctions();
+  KPTPersistence.initStorageListener();
+  
+  console.log('[KPT Namespace] Custom functions initialized');
+}
+
+/**
+ * Get all available KPT functions (built-in + custom)
+ */
+export function getAllKPTFunctions(): { builtin: any; custom: KPTFunction[] } {
+  return {
+    builtin: getBuiltInFunctions(),
+    custom: KPTPersistence.loadFunctions()
+  };
+}
+
+/**
+ * Get built-in function definitions for reference
+ */
+function getBuiltInFunctions() {
+  return {
+    // Text formatting functions
+    redText: { params: 'text: string | number', description: 'Display text in red with bold styling' },
+    greenText: { params: 'text: string | number', description: 'Display text in green with bold styling' },
+    blueText: { params: 'text: string | number', description: 'Display text in blue with bold styling' },
+    boldText: { params: 'text: string | number', description: 'Make text bold' },
+    italicText: { params: 'text: string | number', description: 'Make text italic' },
+    highlightText: { params: 'text: string | number, color?: string', description: 'Highlight text with background color' },
+    
+    // Number formatting functions
+    roundTo: { params: 'num: number, decimals?: number', description: 'Round number to specified decimal places' },
+    formatNumber: { params: 'num: number, decimals?: number', description: 'Format number with specified decimals' },
+    formatPercent: { params: 'num: number, decimals?: number', description: 'Format number as percentage' },
+    formatCurrency: { params: 'num: number, currency?: string', description: 'Format number as currency' },
+    
+    // TPN-specific formatting
+    formatWeight: { params: 'weight: number, unit?: string', description: 'Format weight with units' },
+    formatVolume: { params: 'volume: number, unit?: string', description: 'Format volume with units' },
+    formatDose: { params: 'dose: number, unit?: string', description: 'Format dose with units' },
+    formatConcentration: { params: 'concentration: number', description: 'Format concentration as percentage' },
+    
+    // Conditional display functions
+    showIf: { params: 'condition: boolean, content: string', description: 'Show content if condition is true' },
+    hideIf: { params: 'condition: boolean, content: string', description: 'Hide content if condition is true' },
+    whenAbove: { params: 'value: number, threshold: number, content: string', description: 'Show content when value is above threshold' },
+    whenBelow: { params: 'value: number, threshold: number, content: string', description: 'Show content when value is below threshold' },
+    whenInRange: { params: 'value: number, min: number, max: number, content: string', description: 'Show content when value is in range' },
+    
+    // Range checking functions
+    checkRange: { params: 'value: number, normal?: [number, number], critical?: [number, number]', description: 'Check if value is in normal/critical range' },
+    isNormal: { params: 'value: number, min: number, max: number', description: 'Check if value is in normal range' },
+    isCritical: { params: 'value: number, criticalMin: number, criticalMax: number', description: 'Check if value is in critical range' },
+    
+    // HTML building functions
+    createTable: { params: 'data: Array<Array<string | number>>, headers?: string[]', description: 'Create HTML table from data' },
+    createList: { params: 'items: Array<string | number>, ordered?: boolean', description: 'Create HTML list from items' },
+    createAlert: { params: 'message: string, type?: "info" | "warning" | "error" | "success"', description: 'Create styled alert box' },
+    
+    // Utility functions
+    capitalize: { params: 'text: string', description: 'Capitalize first letter of text' },
+    pluralize: { params: 'count: number, singular: string, plural?: string', description: 'Pluralize word based on count' },
+    abbreviate: { params: 'text: string, maxLength: number', description: 'Abbreviate text to max length' },
+    
+    // Math utilities
+    clamp: { params: 'value: number, min: number, max: number', description: 'Constrain value between min and max' },
+    percentage: { params: 'part: number, total: number', description: 'Calculate percentage of part to total' },
+    ratio: { params: 'a: number, b: number', description: 'Express two numbers as a ratio' },
+    
+    // Convenience aliases
+    weight: { params: 'number (calculated)', description: 'Current dose weight (DoseWeightKG)' },
+    age: { params: 'number (calculated)', description: 'Patient age' },
+    volume: { params: 'number (calculated)', description: 'Total TPN volume' },
+    protein: { params: 'number (calculated)', description: 'Protein dose' },
+    calories: { params: 'number (calculated)', description: 'Total calories' }
+  };
+}
 
 /**
  * Create the KPT namespace with all utility functions
@@ -261,8 +348,8 @@ export function createKPTNamespace(meContext?: any): KPTNamespace {
   const protein = getContextValue('Protein');
   const calories = getContextValue('Calories');
 
-  // Return the complete namespace
-  return {
+  // Create the base namespace with built-in functions
+  const namespace: KPTNamespace = {
     // Text formatting
     redText,
     greenText,
@@ -317,4 +404,16 @@ export function createKPTNamespace(meContext?: any): KPTNamespace {
     protein,
     calories
   };
+  
+  // Add custom functions from window.kpt if available
+  if (typeof window !== 'undefined' && window.kpt) {
+    const customFunctions = KPTPersistence.loadFunctions();
+    customFunctions.forEach(func => {
+      if (window.kpt && window.kpt[func.name]) {
+        namespace[func.name] = window.kpt[func.name];
+      }
+    });
+  }
+  
+  return namespace;
 }

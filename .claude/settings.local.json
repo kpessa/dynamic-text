@@ -10,7 +10,8 @@
       "Bash(curl:*)",
       "Bash(pnpm add:*)",
       "Bash(pnpm storybook:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": []
   }

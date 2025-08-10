@@ -53,8 +53,26 @@ async function initializeApp() {
 
 // Background initialization of non-critical services
 async function initializeBackgroundServices() {
-  // Disabled for debugging - all background services removed
-  console.log('[App] Background services disabled for debugging')
+  try {
+    // Initialize KPT namespace on window
+    if (typeof window !== 'undefined') {
+      const { initializeKPTCustomFunctions, createKPTNamespace } = await import('./lib/kptNamespace');
+      
+      // Initialize custom functions from localStorage
+      initializeKPTCustomFunctions();
+      
+      // Create the base KPT namespace if it doesn't exist
+      if (!window.kpt) {
+        window.kpt = createKPTNamespace();
+      }
+      
+      console.log('[KPT] Custom functions initialized successfully');
+    }
+  } catch (error) {
+    console.warn('[KPT] Failed to initialize custom functions:', error);
+  }
+  
+  console.log('[App] Background services initialization complete')
 }
 
 // Initialize app

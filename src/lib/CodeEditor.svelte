@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
-  import { EditorView, basicSetup } from 'codemirror';
+  import { EditorView } from '@codemirror/view';
+  import { EditorState } from '@codemirror/state';
+  import { basicSetup } from 'codemirror';
   import { javascript } from '@codemirror/lang-javascript';
   import { html } from '@codemirror/lang-html';
   import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
@@ -65,47 +67,111 @@
   ]);
   
   onMount(() => {
-    const extensions = [
-      basicSetup,
-      notepadPlusPlusTheme,
-      syntaxHighlighting(notepadPlusPlusHighlight),
-      EditorView.theme({
-        '&': { height: '100%' },
-        '.cm-scroller': { overflow: 'auto' },
-        '.cm-content': { whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
-        '.cm-content.cm-focused': { outline: 'none' },
-        '.cm-editor.cm-focused': { 
-          outline: '3px solid #0066cc',
-          outlineOffset: '2px'
-        },
-        '.cm-line': { wordWrap: 'break-word' }
-      }),
-      EditorView.lineWrapping,
-      EditorView.updateListener.of((v) => {
-        if (v.docChanged) {
-          const newValue = v.state.doc.toString();
-          value = newValue;
-          onChange(newValue);
-          
-          // Check if "[f(" was typed in HTML mode
-          if (language === 'html' && newValue.includes('[f(')) {
-            dispatch('convertToDynamic', { content: newValue });
-          }
-        }
-      })
-    ];
+    // Build extensions array carefully to avoid conflicts
+    const extensions = [];
     
+    // Add basic setup first (this is an array of extensions)
+    extensions.push(...basicSetup);
+    
+    // Add language-specific extensions first (before themes to avoid conflicts)
     if (language === 'javascript') {
       extensions.push(javascript({ jsx: true }));
     } else if (language === 'html') {
       extensions.push(html());
     }
     
-    view = new EditorView({
-      doc: value,
-      extensions,
-      parent: element
-    });
+    // Add theme extensions
+    extensions.push(notepadPlusPlusTheme);
+    extensions.push(syntaxHighlighting(notepadPlusPlusHighlight));
+    
+    // Add custom theme with higher specificity
+    extensions.push(EditorView.theme({
+      '&': { height: '100%' },
+      '.cm-scroller': { overflow: 'auto' },
+      '.cm-content': { whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+      '.cm-content.cm-focused': { outline: 'none' },
+      '.cm-editor.cm-focused': { 
+        outline: '3px solid #0066cc',
+        outlineOffset: '2px'
+      },
+      '.cm-line': { wordWrap: 'break-word' }
+    }));
+    
+    // Add line wrapping
+    extensions.push(EditorView.lineWrapping);
+    
+    // Add update listener
+    extensions.push(EditorView.updateListener.of((v) => {
+      if (v.docChanged) {
+        const newValue = v.state.doc.toString();
+        value = newValue;
+        onChange(newValue);
+        
+        // Check if "[f(" was typed in HTML mode
+        if (language === 'html' && newValue.includes('[f(')) {
+          dispatch('convertToDynamic', { content: newValue });
+        }
+      }
+    }));
+    
+    try {
+      const state = EditorState.create({
+        doc: value,
+        extensions
+      });
+      
+      view = new EditorView({
+        state,
+        parent: element
+      });
+    } catch (error) {
+      console.error('CodeMirror initialization error:', error);
+      console.error('Extensions that caused the error:', extensions);
+      
+      // Fallback: try with minimal extensions
+      try {
+        console.log('Attempting fallback with minimal extensions...');
+        const fallbackState = EditorState.create({
+          doc: value,
+          extensions: [
+            ...basicSetup,
+            EditorView.lineWrapping,
+            language === 'javascript' ? javascript({ jsx: true }) : html(),
+            EditorView.updateListener.of((v) => {
+              if (v.docChanged) {
+                const newValue = v.state.doc.toString();
+                value = newValue;
+                onChange(newValue);
+                
+                if (language === 'html' && newValue.includes('[f(')) {
+                  dispatch('convertToDynamic', { content: newValue });
+                }
+              }
+            })
+          ]
+        });
+        
+        view = new EditorView({
+          state: fallbackState,
+          parent: element
+        });
+        console.log('Fallback successful');
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        // Create a simple textarea as last resort
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.style.width = '100%';
+        textarea.style.height = '100%';
+        textarea.style.border = 'none';
+        textarea.style.resize = 'none';
+        textarea.addEventListener('input', (e) => {
+          value = e.target.value;
+          onChange(e.target.value);
+        });
+        element.appendChild(textarea);
+      }
+    }
     
     // Add accessibility attributes to the editor
     const editorElement = element.querySelector('.cm-editor');
@@ -129,13 +195,22 @@
   
   $effect(() => {
     if (view && value !== view.state.doc.toString()) {
-      view.dispatch({
-        changes: {
-          from: 0,
-          to: view.state.doc.length,
-          insert: value
+      try {
+        view.dispatch({
+          changes: {
+            from: 0,
+            to: view.state.doc.length,
+            insert: value
+          }
+        });
+      } catch (error) {
+        console.error('CodeMirror update error:', error);
+        // If we have a textarea fallback, update it directly
+        const textarea = element.querySelector('textarea');
+        if (textarea) {
+          textarea.value = value;
         }
-      });
+      }
     }
   });
 </script>

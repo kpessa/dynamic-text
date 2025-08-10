@@ -18,6 +18,9 @@
   import ValidationStatus from './lib/ValidationStatus.svelte';
   import SelectiveApply from './lib/SelectiveApply.svelte';
   import PreferencesModal from './lib/PreferencesModal.svelte';
+  import KPTReference from './lib/KPTReference.svelte';
+  import KPTManager from './lib/KPTManager.svelte';
+  import { initializeKPTCustomFunctions, createKPTNamespace } from './lib/kptNamespace.ts';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
@@ -85,6 +88,8 @@
   let showExportModal = $state(false);
   let showSelectiveApply = $state(false);
   let pendingReferenceData = $state(null);
+  let showKPTReference = $state(false);
+  let showKPTManager = $state(false);
   
   // Active config state
   let activeConfigId = $state(null);
@@ -94,6 +99,11 @@
   let showPopulationDropdown = $state(false);
   let availablePopulations = $state([]);
   let loadingPopulations = $state(false);
+  
+  // Initialize KPT custom functions on app start
+  $effect(() => {
+    initializeKPTCustomFunctions();
+  });
   
   // Initialize Firebase authentication
   $effect(() => {
@@ -271,9 +281,12 @@
       // Always create the me object for consistent API
       const me = createMockMe(testVariables);
       
-      // Create function with 'me' in scope
-      const func = new Function('me', transpiledCode);
-      const result = func(me);
+      // Create KPT namespace
+      const kpt = createKPTNamespace(me);
+      
+      // Create function with 'me' and 'kpt' in scope
+      const func = new Function('me', 'kpt', transpiledCode);
+      const result = func(me, kpt);
       
       return result !== undefined ? String(result) : '';
     } catch (error) {
@@ -1324,6 +1337,8 @@
         }
       }}
       copied={copied}
+      bind:showKPTReference
+      onOpenKPTManager={() => showKPTManager = true}
     />
     
     <div class="editor-container {previewCollapsed ? 'preview-collapsed' : ''}">
@@ -1886,6 +1901,25 @@
       onKeySelect={handleKeyInsert}
     />
   {/if}
+  
+  <!-- KPT Reference Panel -->
+  <KPTReference 
+    bind:isExpanded={showKPTReference}
+    onFunctionSelect={(funcName) => {
+      // Insert function call at cursor position in active editor
+      const snippet = `${funcName}()`;
+      navigator.clipboard.writeText(snippet).then(() => {
+        console.log(`Copied KPT function: ${snippet}`);
+      });
+    }}
+    onClose={() => showKPTReference = false}
+  />
+  
+  <!-- KPT Manager Modal -->
+  <KPTManager 
+    bind:isVisible={showKPTManager}
+    onClose={() => showKPTManager = false}
+  />
   
   <!-- Firebase components -->
   {#if showIngredientManager}

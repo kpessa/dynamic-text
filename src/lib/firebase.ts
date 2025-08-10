@@ -1,8 +1,9 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { 
   connectFirestoreEmulator,
-  enableIndexedDbPersistence,
   initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
   CACHE_SIZE_UNLIMITED,
   type Firestore
 } from 'firebase/firestore';
@@ -32,23 +33,39 @@ let db: Firestore | undefined;
 let auth: Auth | undefined;
 
 try {
-  app = initializeApp(firebaseConfig);
-  
-  // Initialize Firestore with offline persistence
-  db = initializeFirestore(app, {
-    cacheSizeBytes: CACHE_SIZE_UNLIMITED
-  });
-  
-  // Enable offline persistence
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Persistence failed: Multiple tabs open');
-    } else if (err.code === 'unimplemented') {
-      console.warn('Persistence not available in this browser');
+  // Check if Firebase app is already initialized
+  const existingApps = getApps();
+  if (existingApps.length > 0) {
+    // Use existing app
+    app = existingApps[0];
+    db = getFirestore(app);
+    auth = getAuth(app);
+  } else {
+    // Initialize new app
+    app = initializeApp(firebaseConfig);
+    
+    // Initialize Firestore with offline persistence using the new API
+    try {
+      db = initializeFirestore(app, {
+        // Use the new cache configuration (replaces both cacheSizeBytes and enableIndexedDbPersistence)
+        localCache: persistentLocalCache({
+          cacheSizeBytes: CACHE_SIZE_UNLIMITED
+        })
+      });
+    } catch (cacheError) {
+      // If persistentLocalCache is not available, try without it
+      try {
+        db = initializeFirestore(app, {
+          // No cache configuration - will use default memory cache
+        });
+      } catch (fallbackError) {
+        // If already initialized, just get the existing instance
+        db = getFirestore(app);
+      }
     }
-  });
-  
-  auth = getAuth(app);
+    
+    auth = getAuth(app);
+  }
   
   // Connect to Firebase Emulator if enabled
   if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
@@ -90,6 +107,10 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
 };
 
 export const signInAnonymouslyUser = async (): Promise<User> => {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized. Check Firebase configuration.');
+  }
+  
   try {
     const userCredential = await signInAnonymously(auth);
     return userCredential.user;

@@ -4,14 +4,108 @@
   let { 
     onFunctionSelect = (func) => {},
     isExpanded = false,
-    onClose = () => {}
+    onClose = () => {},
+    position = 'bottom-right' // 'bottom-right', 'bottom-left', 'sidebar'
   } = $props();
   
   let searchQuery = $state('');
   let selectedCategory = $state('ALL');
   
-  // KPT function documentation
-  const kptFunctions = [
+  // Import the KPT functions from the namespace
+  import { getAllKPTFunctions } from './kptNamespace.js';
+  
+  // Get all functions (built-in + custom)
+  let allKPTFunctions = $derived(() => {
+    try {
+      const { builtin, custom } = getAllKPTFunctions();
+      
+      // Convert built-in functions to the same format as the reference
+      const builtInFormatted = Object.entries(builtin).map(([name, info]) => ({
+        category: getCategoryFromName(name),
+        name,
+        description: info.description,
+        example: `${name}(${getExampleParams(name)})`,
+        params: info.params
+      }));
+      
+      // Convert custom functions to reference format
+      const customFormatted = custom.map(func => ({
+        category: 'CUSTOM',
+        name: func.name,
+        description: func.description || 'Custom function',
+        example: `${func.name}(${func.parameters})`,
+        params: func.parameters || ''
+      }));
+      
+      // Filter out custom functions that duplicate built-in names
+      const builtInNames = new Set(builtInFormatted.map(f => f.name));
+      const uniqueCustom = customFormatted.filter(func => !builtInNames.has(func.name));
+      
+      return [...builtInFormatted, ...uniqueCustom];
+    } catch (error) {
+      console.warn('Failed to load KPT functions:', error);
+      return legacyKptFunctions;
+    }
+  });
+  
+  // Helper functions
+  function getCategoryFromName(name) {
+    if (['redText', 'greenText', 'blueText', 'boldText', 'italicText', 'highlightText'].includes(name)) return 'TEXT_FORMATTING';
+    if (['roundTo', 'formatNumber', 'formatPercent', 'formatCurrency'].includes(name)) return 'NUMBER_FORMATTING';
+    if (['formatWeight', 'formatVolume', 'formatDose', 'formatConcentration'].includes(name)) return 'TPN_FORMATTING';
+    if (['showIf', 'hideIf', 'whenAbove', 'whenBelow', 'whenInRange'].includes(name)) return 'CONDITIONAL';
+    if (['checkRange', 'isNormal', 'isCritical'].includes(name)) return 'VALIDATION';
+    if (['createTable', 'createList', 'createAlert'].includes(name)) return 'HTML_BUILDERS';
+    if (['capitalize', 'pluralize', 'abbreviate'].includes(name)) return 'UTILITIES';
+    if (['clamp', 'percentage', 'ratio'].includes(name)) return 'MATH';
+    if (['weight', 'age', 'volume', 'protein', 'calories'].includes(name)) return 'ALIASES';
+    return 'OTHER';
+  }
+  
+  function getExampleParams(name) {
+    const examples = {
+      redText: '"Critical Value"',
+      greenText: '"Normal Range"',
+      blueText: '"Information"',
+      boldText: '"Important"',
+      italicText: '"Note"',
+      highlightText: '"Alert", "#ffcc00"',
+      roundTo: '3.14159, 2',
+      formatNumber: '123.456, 1',
+      formatPercent: '85.5',
+      formatCurrency: '45.50, "$"',
+      formatWeight: 'kpt.weight',
+      formatVolume: 'kpt.volume',
+      formatDose: '2.5',
+      formatConcentration: '0.125',
+      showIf: 'kpt.weight > 10, "Adult dosing"',
+      hideIf: 'kpt.age < 18, "Pediatric only"',
+      whenAbove: 'kpt.volume, 1000, "High volume"',
+      whenBelow: 'kpt.protein, 2.0, "Low protein"',
+      whenInRange: 'kpt.calories, 20, 30, "Normal range"',
+      checkRange: 'kpt.volume, [100, 200], [50, 300]',
+      isNormal: 'kpt.weight, 10, 100',
+      isCritical: 'kpt.volume, 0, 500',
+      createTable: '[[1,2],[3,4]], ["A","B"]',
+      createList: '["Item 1", "Item 2"], true',
+      createAlert: '"Warning message", "warning"',
+      capitalize: '"hello world"',
+      pluralize: '2, "item", "items"',
+      abbreviate: '"Long text here", 10',
+      clamp: '150, 0, 100',
+      percentage: '25, 100',
+      ratio: '6, 9',
+      weight: '',
+      age: '',
+      volume: '',
+      protein: '',
+      calories: ''
+    };
+    return examples[name] || '';
+  }
+  
+  // Legacy KPT function documentation (keep for reference)
+  const legacyKptFunctions = [
     // Text formatting functions
     { category: 'TEXT_FORMATTING', name: 'redText', description: 'Display text in red with bold styling', example: 'redText("Critical Value")', params: 'text: string | number' },
     { category: 'TEXT_FORMATTING', name: 'greenText', description: 'Display text in green with bold styling', example: 'greenText("Normal Range")', params: 'text: string | number' },
@@ -67,12 +161,12 @@
     { category: 'ALIASES', name: 'calories', description: 'Total calories', example: 'kpt.calories', params: 'number (calculated)' }
   ];
   
-  // Get all categories
-  const categories = ['ALL', ...Array.from(new Set(kptFunctions.map(f => f.category)))];
+  // Get all categories from all functions
+  let categories = $derived(() => ['ALL', ...Array.from(new Set(allKPTFunctions().map(f => f.category)))]);
   
   // Filter functions based on search and category
   let filteredFunctions = $derived.by(() => {
-    let functions = kptFunctions;
+    let functions = allKPTFunctions();
     
     // Filter by category
     if (selectedCategory !== 'ALL') {
@@ -123,24 +217,19 @@
   }
 </script>
 
-<div class="kpt-reference-panel {isExpanded ? 'expanded' : ''}">
+{#if isExpanded}
+<div class="kpt-reference-panel">
   <div class="panel-header">
+    <h3>KPT Function Reference</h3>
     <button 
-      class="expand-toggle"
-      onclick={() => onClose()}
-      aria-expanded={isExpanded}
+      class="close-btn"
+      onclick={onClose}
+      aria-label="Close reference panel"
     >
-      <span class="toggle-icon">{isExpanded ? '×' : '🛠️'}</span>
-      {#if !isExpanded}
-        <span class="collapsed-title">KPT Functions</span>
-      {/if}
+      ×
     </button>
-    {#if isExpanded}
-      <h3>KPT Function Reference</h3>
-    {/if}
   </div>
   
-  {#if isExpanded}
     <div class="panel-content">
       <div class="search-section">
         <input 
@@ -162,11 +251,12 @@
       </div>
       
       <div class="usage-hint">
-        <strong>Usage:</strong> Add <code>let &#123; functionName &#125; = kpt;</code> at the start of your dynamic sections
+        <strong>Usage:</strong> Add <code>let &#123; functionName &#125; = kpt;</code> at the start of your dynamic sections<br>
+        <small>Custom functions are automatically available via <code>kpt.customFunctionName()</code></small>
       </div>
       
       <div class="functions-list">
-        {#each filteredFunctions as func (func.name)}
+        {#each filteredFunctions as func, index (func.category + '-' + func.name + '-' + index)}
           <div class="function-item">
             <div class="function-header">
               <button 
@@ -210,43 +300,69 @@
         {/if}
       </div>
     </div>
-  {/if}
 </div>
+{/if}
 
 <style>
   .kpt-reference-panel {
     background: white;
     border: 1px solid #e1e5e9;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: fixed;
+    width: 350px;
+    max-height: 500px;
+    right: 20px;
+    bottom: 20px;
+    z-index: 100; /* Lower z-index to not block important UI */
   }
 
-  .kpt-reference-panel:not(.expanded) {
-    width: 200px;
-    position: fixed;
-    right: 20px;
-    top: 100px;
-    z-index: 1000;
-  }
-
-  .kpt-reference-panel.expanded {
-    width: 400px;
-    height: 600px;
-    position: fixed;
-    right: 20px;
-    top: 20px;
-    z-index: 1000;
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .kpt-reference-panel {
+      width: calc(100% - 40px);
+      left: 20px;
+      right: 20px;
+      max-height: 400px;
+    }
   }
 
   .panel-header {
     background: #f8f9fa;
     border-bottom: 1px solid #e9ecef;
-    padding: 12px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .panel-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #343a40;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .close-btn:hover {
+    background: #e9ecef;
+    color: #343a40;
   }
 
   .expand-toggle {

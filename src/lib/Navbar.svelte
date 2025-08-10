@@ -6,6 +6,7 @@
     outputMode = $bindable('json'),
     showKeyReference = $bindable(false),
     showKPTReference = $bindable(false),
+    onOpenKPTManager = () => {},
     currentReferenceName = '',
     currentIngredient = '',
     hasUnsavedChanges = false,
@@ -20,6 +21,112 @@
     copied = false,
     firebaseEnabled = false
   } = $props();
+  
+  let showMoreMenu = $state(false);
+  let currentMenuIndex = $state(-1);
+  let menuContainer;
+  
+  // Close dropdown when clicking outside
+  $effect(() => {
+    if (showMoreMenu) {
+      const handleClickOutside = (e) => {
+        if (!e.target.closest('.more-menu-group')) {
+          closeMenu();
+        }
+      };
+      
+      const handleKeyDown = (e) => {
+        if (!showMoreMenu) return;
+        
+        switch (e.key) {
+          case 'Escape':
+            e.preventDefault();
+            closeMenu();
+            // Focus the more button
+            menuContainer?.querySelector('.more-btn')?.focus();
+            break;
+          case 'ArrowDown':
+            e.preventDefault();
+            navigateMenu(1);
+            break;
+          case 'ArrowUp':
+            e.preventDefault();
+            navigateMenu(-1);
+            break;
+          case 'Enter':
+          case ' ':
+            e.preventDefault();
+            activateMenuItem();
+            break;
+          case 'Home':
+            e.preventDefault();
+            setMenuIndex(0);
+            break;
+          case 'End':
+            e.preventDefault();
+            const menuItems = getMenuItems();
+            setMenuIndex(menuItems.length - 1);
+            break;
+        }
+      };
+      
+      document.addEventListener('click', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  });
+  
+  function closeMenu() {
+    showMoreMenu = false;
+    currentMenuIndex = -1;
+  }
+  
+  function getMenuItems() {
+    return menuContainer?.querySelectorAll('.dropdown-item:not([disabled])') || [];
+  }
+  
+  function navigateMenu(direction) {
+    const menuItems = getMenuItems();
+    if (menuItems.length === 0) return;
+    
+    currentMenuIndex = Math.max(0, Math.min(menuItems.length - 1, currentMenuIndex + direction));
+    setMenuIndex(currentMenuIndex);
+  }
+  
+  function setMenuIndex(index) {
+    const menuItems = getMenuItems();
+    currentMenuIndex = index;
+    
+    // Remove previous focus
+    menuItems.forEach(item => item.classList.remove('menu-focused'));
+    
+    // Set new focus
+    if (menuItems[index]) {
+      menuItems[index].classList.add('menu-focused');
+      menuItems[index].focus();
+    }
+  }
+  
+  function activateMenuItem() {
+    const menuItems = getMenuItems();
+    if (menuItems[currentMenuIndex]) {
+      menuItems[currentMenuIndex].click();
+    }
+  }
+  
+  // Initialize focus when menu opens
+  $effect(() => {
+    if (showMoreMenu) {
+      // Wait for DOM to update
+      setTimeout(() => {
+        setMenuIndex(0);
+      }, 0);
+    }
+  });
   
   const modes = [
     { id: 'editor', label: 'Editor', icon: '✏️' },
@@ -50,6 +157,7 @@
       </button>
       
       <h1 class="app-title" id="app-title">TPN Dynamic Text Editor</h1>
+      <h1 class="app-title-mobile" id="app-title-mobile"></h1>
       
       {#if currentReferenceName}
         <div class="document-info">
@@ -68,15 +176,19 @@
             <input 
               type="checkbox" 
               bind:checked={tpnMode}
+              aria-describedby="mode-description"
               onchange={() => {
                 if (tpnMode && !showKeyReference) {
                   showKeyReference = true;
                 }
               }}
             />
-            <span class="toggle-slider"></span>
+            <span class="toggle-slider" aria-hidden="true"></span>
             <span class="mode-label">{tpnMode ? 'TPN Mode' : 'Normal Mode'}</span>
           </label>
+          <div id="mode-description" class="sr-only">
+            {tpnMode ? 'TPN mode enabled with medical calculations' : 'Normal editing mode'}
+          </div>
         </div>
         
         {#if tpnMode && currentIngredient}
@@ -94,111 +206,158 @@
           <button 
             class="view-toggle {showKeyReference ? 'active' : ''}"
             onclick={() => showKeyReference = !showKeyReference}
-            title="Toggle key reference"
+            title="Toggle key reference panel"
+            aria-label="Toggle key reference panel"
+            aria-pressed={showKeyReference}
+            aria-controls="key-reference-panel"
           >
-            🔑 Keys
+            <span aria-hidden="true">🔑</span> Keys
           </button>
         {/if}
         
         <button 
           class="view-toggle {showKPTReference ? 'active' : ''}"
           onclick={() => showKPTReference = !showKPTReference}
-          title="Toggle KPT function reference"
+          title="Toggle KPT function reference panel"
+          aria-label="Toggle KPT function reference panel"
+          aria-pressed={showKPTReference}
+          aria-controls="kpt-reference-panel"
         >
-          🛠️ KPT
+          <span aria-hidden="true">📚</span> KPT Ref
         </button>
       </div>
       
       <div class="navbar-actions">
-        {#if firebaseEnabled}
+        <!-- Primary Actions -->
+        <div class="action-group primary-actions">
           <button 
-            class="action-btn ingredients-btn"
-            onclick={onOpenIngredientManager}
-            title="Open Ingredient Manager"
-            aria-label="Open ingredient manager"
-            data-action="ingredients"
+            class="action-btn new-btn"
+            onclick={onNewDocument}
+            title="Start new document"
+            aria-label="Create new document"
+            data-action="new"
           >
-            <span class="btn-icon" aria-hidden="true">📦</span>
-            <span class="btn-text">Ingredients</span>
+            <span class="btn-icon" aria-hidden="true">➕</span>
+            <span class="btn-text">New</span>
           </button>
           
-          {#if currentIngredient}
+          {#if hasUnsavedChanges && firebaseEnabled}
             <button 
-              class="action-btn diff-btn"
-              onclick={onOpenDiffViewer}
-              title="Compare versions of {currentIngredient}"
+              class="action-btn save-btn"
+              onclick={onSave}
+              title="Save changes (Ctrl+S)"
+              aria-label="Save changes (Ctrl+S)"
+              data-action="save"
             >
-              <span class="btn-icon">🔍</span>
-              <span class="btn-text">Compare</span>
+              <span class="btn-icon" aria-hidden="true">💾</span>
+              <span class="btn-text">Save</span>
             </button>
           {/if}
           
           <button 
-            class="action-btn migration-btn"
-            onclick={onOpenMigrationTool}
-            title="Migrate localStorage to Firebase"
+            class="action-btn export-btn {copied ? 'copied' : ''}"
+            onclick={onExport}
+            title="Export to clipboard"
+            aria-label="{copied ? 'Successfully copied to clipboard' : 'Export content to clipboard'}"
+            data-action="export"
           >
-            <span class="btn-icon">🚀</span>
-            <span class="btn-text">Migrate</span>
+            <span class="btn-icon" aria-hidden="true">{copied ? '✓' : '📋'}</span>
+            <span class="btn-text">{copied ? 'Copied!' : 'Export'}</span>
           </button>
-        {/if}
+        </div>
         
-        <button 
-          class="action-btn new-btn"
-          onclick={onNewDocument}
-          title="Start new document"
-          aria-label="Create new document"
-          data-action="new"
-        >
-          <span class="btn-icon" aria-hidden="true">➕</span>
-          <span class="btn-text">New</span>
-        </button>
-        
-        {#if hasUnsavedChanges && firebaseEnabled}
+        <!-- Secondary Actions -->
+        <div class="action-group secondary-actions">
           <button 
-            class="action-btn save-btn"
-            onclick={onSave}
-            title="Save changes (Ctrl+S)"
-            aria-label="Save changes (Ctrl+S)"
-            data-action="save"
+            class="action-btn kpt-manager-btn"
+            onclick={onOpenKPTManager}
+            title="Manage KPT Functions"
+            aria-label="Open KPT function manager"
+            data-action="kpt-manager"
           >
-            <span class="btn-icon" aria-hidden="true">💾</span>
-            <span class="btn-text">Save</span>
+            <span class="btn-icon" aria-hidden="true">🛠️</span>
+            <span class="btn-text">KPT Manager</span>
           </button>
-        {/if}
+          
+          {#if firebaseEnabled}
+            <button 
+              class="action-btn ingredients-btn"
+              onclick={onOpenIngredientManager}
+              title="Open Ingredient Manager"
+              aria-label="Open ingredient manager"
+              data-action="ingredients"
+            >
+              <span class="btn-icon" aria-hidden="true">📦</span>
+              <span class="btn-text">Ingredients</span>
+            </button>
+            
+            {#if currentIngredient}
+              <button 
+                class="action-btn diff-btn"
+                onclick={onOpenDiffViewer}
+                title="Compare versions"
+                aria-label="Compare versions of {currentIngredient}"
+              >
+                <span class="btn-icon">🔍</span>
+                <span class="btn-text">Compare</span>
+              </button>
+            {/if}
+          {/if}
+        </div>
         
-        <button 
-          class="action-btn export-btn {copied ? 'copied' : ''}"
-          onclick={onExport}
-          title="Export to clipboard"
-          aria-label="{copied ? 'Successfully copied to clipboard' : 'Export content to clipboard'}"
-          data-action="export"
-        >
-          <span class="btn-icon" aria-hidden="true">{copied ? '✓' : '📋'}</span>
-          <span class="btn-text">{copied ? 'Copied!' : 'Export'}</span>
-        </button>
-        
-        <button 
-          class="action-btn preferences-btn"
-          onclick={onOpenPreferences}
-          title="Preferences"
-          aria-label="Open preferences"
-          data-action="preferences"
-        >
-          <span class="btn-icon" aria-hidden="true">⚙️</span>
-          <span class="btn-text">Preferences</span>
-        </button>
-        
-        <button 
-          class="action-btn shortcuts-btn"
-          onclick={() => document.dispatchEvent(new CustomEvent('show-shortcuts'))}
-          title="Keyboard Shortcuts (Press ? key)"
-          aria-label="Show keyboard shortcuts"
-          data-action="shortcuts"
-        >
-          <span class="btn-icon" aria-hidden="true">⌨️</span>
-          <span class="btn-text">Shortcuts</span>
-        </button>
+        <!-- More Menu (Desktop) -->
+        <div class="action-group more-menu-group" bind:this={menuContainer}>
+          <button 
+            class="action-btn more-btn"
+            onclick={() => showMoreMenu = !showMoreMenu}
+            title="More options"
+            aria-label="Show more options"
+            aria-expanded={showMoreMenu}
+            aria-haspopup="menu"
+          >
+            <span class="btn-icon">⋮</span>
+            <span class="btn-text">More</span>
+          </button>
+          
+          {#if showMoreMenu}
+            <div 
+              class="dropdown-menu"
+              role="menu"
+              aria-labelledby="more-menu-button"
+            >
+              <button 
+                class="dropdown-item"
+                role="menuitem"
+                tabindex="-1"
+                onclick={() => { onOpenPreferences(); closeMenu(); }}
+              >
+                <span aria-hidden="true">⚙️</span> Preferences
+              </button>
+              
+              {#if firebaseEnabled}
+                <button 
+                  class="dropdown-item"
+                  role="menuitem"
+                  tabindex="-1"
+                  onclick={() => { onOpenMigrationTool(); closeMenu(); }}
+                >
+                  <span aria-hidden="true">🚀</span> Migrate Data
+                </button>
+              {/if}
+              
+              <div class="dropdown-divider" role="separator"></div>
+              
+              <button 
+                class="dropdown-item"
+                role="menuitem"
+                tabindex="-1"
+                onclick={() => { document.dispatchEvent(new CustomEvent('show-shortcuts')); closeMenu(); }}
+              >
+                <span aria-hidden="true">⌨️</span> Keyboard Shortcuts
+              </button>
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
   </div>
@@ -395,7 +554,23 @@
   
   .navbar-actions {
     display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  
+  .action-group {
+    display: flex;
     gap: 0.5rem;
+    align-items: center;
+  }
+  
+  .action-group:not(:last-child)::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 24px;
+    background-color: #dee2e6;
+    margin-left: 0.5rem;
   }
   
   .action-btn {
@@ -486,6 +661,78 @@
     background-color: #343a40;
   }
   
+  .kpt-manager-btn {
+    background-color: #6f42c1;
+    color: white;
+  }
+  
+  .kpt-manager-btn:hover {
+    background-color: #5a32a3;
+  }
+  
+  /* Dropdown Menu Styles */
+  .more-menu-group {
+    position: relative;
+  }
+  
+  .more-btn {
+    background-color: #6c757d;
+    color: white;
+  }
+  
+  .more-btn:hover {
+    background-color: #5a6268;
+  }
+  
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 180px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0;
+  }
+  
+  .dropdown-item {
+    padding: 0.5rem 1rem;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s;
+  }
+  
+  .dropdown-item:hover,
+  .dropdown-item.menu-focused {
+    background-color: #e9ecef;
+    color: #495057;
+  }
+  
+  .dropdown-item:focus {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+    background-color: #e9ecef;
+    color: #495057;
+  }
+  
+  .dropdown-divider {
+    height: 1px;
+    background-color: #dee2e6;
+    margin: 0.25rem 0;
+  }
+  
   /* Mobile-first responsive design */
   @media (max-width: 767px) {
     .navbar {
@@ -508,6 +755,25 @@
     
     .app-title {
       display: none;
+    }
+    
+    /* Show abbreviated title on very narrow screens */
+    .app-title-mobile {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #646cff;
+    }
+    
+    .app-title-mobile::after {
+      content: "TPN Editor";
+    }
+    
+    /* Hide full title on desktop */
+    @media (min-width: 768px) {
+      .app-title-mobile {
+        display: none;
+      }
     }
     
     .document-info {
@@ -537,15 +803,77 @@
     }
     
     .navbar-actions {
-      gap: 0.25rem;
-      flex-wrap: wrap;
+      gap: 0.5rem;
+      flex-wrap: nowrap;
       justify-content: flex-end;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .action-group {
+      flex-shrink: 0;
+      gap: 0.25rem;
+    }
+    
+    .action-group:not(:last-child)::after {
+      display: none;
+    }
+    
+    /* Create mobile-specific action overflow */
+    .secondary-actions {
+      display: none;
+    }
+    
+    /* Mobile action overflow menu */
+    .mobile-overflow {
+      display: flex;
+      position: relative;
+    }
+    
+    .mobile-overflow-btn {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem;
+      cursor: pointer;
+      min-width: var(--min-touch-target);
+      min-height: var(--min-touch-target);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .mobile-overflow-menu {
+      position: fixed;
+      top: auto;
+      bottom: 60px;
+      right: 1rem;
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      padding: 1rem 0;
+      min-width: 200px;
+      z-index: 1000;
+    }
+    
+    .mobile-overflow-menu .dropdown-item {
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+    }
+    
+    /* Show only primary and settings on mobile */
+    @media (max-width: 480px) {
+      .settings-actions .preferences-btn {
+        display: none;
+      }
     }
     
     .action-btn {
       padding: 0.5rem;
-      min-width: var(--touch-target-medium);
-      min-height: var(--touch-target-medium);
+      min-width: var(--min-touch-target);
+      min-height: var(--min-touch-target);
       border-radius: 8px;
     }
     
@@ -565,8 +893,8 @@
     .sidebar-toggle {
       padding: 0.5rem;
       font-size: 1.1rem;
-      min-width: var(--touch-target-medium);
-      min-height: var(--touch-target-medium);
+      min-width: var(--min-touch-target);
+      min-height: var(--min-touch-target);
     }
   }
   
@@ -587,6 +915,16 @@
     
     .btn-text {
       font-size: 0.8rem;
+    }
+    
+    /* Show secondary actions on tablet */
+    .secondary-actions {
+      display: flex !important;
+    }
+    
+    /* Hide dropdown on tablet and above */
+    .more-menu-group {
+      display: flex;
     }
   }
   

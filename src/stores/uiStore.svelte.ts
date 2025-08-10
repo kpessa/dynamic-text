@@ -22,6 +22,7 @@ class UIStore {
   private _showExportModal = $state<boolean>(false);
   private _showSelectiveApply = $state<boolean>(false);
   private _showKPTReference = $state<boolean>(false);
+  private _showKPTManager = $state<boolean>(false);
 
   // Population dropdown
   private _showPopulationDropdown = $state<boolean>(false);
@@ -47,6 +48,7 @@ class UIStore {
   get showExportModal() { return this._showExportModal; }
   get showSelectiveApply() { return this._showSelectiveApply; }
   get showKPTReference() { return this._showKPTReference; }
+  get showKPTManager() { return this._showKPTManager; }
   get showPopulationDropdown() { return this._showPopulationDropdown; }
   get loadingPopulations() { return this._loadingPopulations; }
   get copied() { return this._copied; }
@@ -63,7 +65,8 @@ class UIStore {
       this._showCommitMessageDialog ||
       this._showExportModal ||
       this._showSelectiveApply ||
-      this._showKPTReference;
+      this._showKPTReference ||
+      this._showKPTManager;
   }
   
   get isOutputVisible() { return this._showOutput || this._previewMode === 'output'; }
@@ -86,6 +89,7 @@ class UIStore {
   setShowExportModal(show: boolean) { this._showExportModal = show; }
   setShowSelectiveApply(show: boolean) { this._showSelectiveApply = show; }
   setShowKPTReference(show: boolean) { this._showKPTReference = show; }
+  setShowKPTManager(show: boolean) { this._showKPTManager = show; }
   setShowPopulationDropdown(show: boolean) { this._showPopulationDropdown = show; }
   setLoadingPopulations(loading: boolean) { this._loadingPopulations = loading; }
   setCopied(copied: boolean) { this._copied = copied; }
@@ -100,6 +104,7 @@ class UIStore {
     this._showTestGeneratorModal = false;
     this._showAIWorkflowInspector = false;
     this._showKPTReference = false;
+    this._showKPTManager = false;
     this._showIngredientManager = false;
     this._showDiffViewer = false;
     this._showMigrationTool = false;
@@ -119,7 +124,7 @@ class UIStore {
   }
 
   // Batch modal operations
-  openModal(modalType: 'testSummary' | 'testGenerator' | 'aiWorkflow' | 'ingredientManager' | 'diffViewer' | 'migrationTool' | 'preferences' | 'commitMessage' | 'export' | 'selectiveApply' | 'kptReference') {
+  openModal(modalType: 'testSummary' | 'testGenerator' | 'aiWorkflow' | 'ingredientManager' | 'diffViewer' | 'migrationTool' | 'preferences' | 'commitMessage' | 'export' | 'selectiveApply' | 'kptReference' | 'kptManager') {
     // Close all other modals first for better UX
     this.closeAllModals();
     
@@ -157,6 +162,9 @@ class UIStore {
         break;
       case 'kptReference':
         this._showKPTReference = true;
+        break;
+      case 'kptManager':
+        this._showKPTManager = true;
         break;
     }
   }

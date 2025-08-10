@@ -570,7 +570,14 @@ self.addEventListener('message', event => {
       break
     
     default:
-      console.log('[SW] Unknown message type:', type, event.data)
+      // Silently ignore unknown message types (likely from Firebase or other libraries)
+      // Common Firebase messages: ping, keyChanged, etc.
+      if (!['ping', 'keyChanged'].includes(event.data?.eventType)) {
+        // Only log unexpected messages in debug mode
+        if (DEBUG_MODE) {
+          console.log('[SW] Unknown message type:', type, event.data)
+        }
+      }
   }
 })
 

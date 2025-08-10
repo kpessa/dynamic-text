@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete KPT Function Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+        #results, #window-kpt {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .function-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Complete KPT Function System Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Test Function Creation & Persistence</h2>
+        <button onclick="createTestFunction()">Create Test Function</button>
+        <button onclick="loadAndDisplay()">Load & Display Functions</button>
+        <button onclick="clearAll()">Clear All Functions</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test Window.kpt Namespace</h2>
+        <button onclick="checkWindowKPT()">Check window.kpt</button>
+        <button onclick="testFunctionExecution()">Test Function Execution</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Multi-Tab Sync</h2>
+        <button onclick="simulateOtherTab()">Simulate Other Tab Save</button>
+        <p class="info">Open this page in another tab and create functions there to test sync!</p>
+    </div>
+    
+    <div id="results"></div>
+    <div id="window-kpt"></div>
+    
+    <script type="module">
+        // Import the KPT modules
+        const KPT_STORAGE_KEY = 'kpt_custom_functions';
+        
+        window.createTestFunction = function() {
+            const timestamp = Date.now();
+            const testFunction = {
+                name: 'testFunc_' + timestamp,
+                parameters: 'text, value',
+                body: 'return `Result: ${text} = ${value * 2}`;',
+                description: 'Test function created at ' + new Date().toISOString(),
+                category: 'CUSTOM',
+                createdAt: new Date().toISOString(),
+                modifiedAt: new Date().toISOString()
+            };
+            
+            // Get existing functions
+            const existing = JSON.parse(localStorage.getItem(KPT_STORAGE_KEY) || '[]');
+            existing.push(testFunction);
+            
+            // Save to localStorage
+            localStorage.setItem(KPT_STORAGE_KEY, JSON.stringify(existing));
+            
+            // Dispatch storage event for other tabs
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: KPT_STORAGE_KEY,
+                newValue: JSON.stringify(existing),
+                url: window.location.href
+            }));
+            
+            showResult('success', `✅ Created function: ${testFunction.name}`);
+            
+            // Also update window.kpt if it exists
+            if (window.kpt) {
+                try {
+                    const func = new Function('return (' + testFunction.parameters + ') => { ' + testFunction.body + ' }')();
+                    window.kpt[testFunction.name] = func;
+                    showResult('info', `✅ Added to window.kpt.${testFunction.name}`);
+                } catch (e) {
+                    showResult('error', `❌ Failed to add to window.kpt: ${e.message}`);
+                }
+            }
+            
+            loadAndDisplay();
+        };
+        
+        window.loadAndDisplay = function() {
+            const functions = JSON.parse(localStorage.getItem(KPT_STORAGE_KEY) || '[]');
+            
+            if (functions.length === 0) {
+                showResult('info', 'ℹ️ No functions found in localStorage');
+            } else {
+                const html = functions.map(f => `
+                    <div class="function-item">
+                        <strong>${f.name}</strong> (${f.category})
+                        <br>📝 ${f.description || 'No description'}
+                        <br>⚙️ Parameters: ${f.parameters || 'none'}
+                        <br>🕐 Created: ${new Date(f.createdAt).toLocaleString()}
+                    </div>
+                `).join('');
+                
+                showResult('success', `Found ${functions.length} function(s):<br>${html}`);
+            }
+        };
+        
+        window.checkWindowKPT = function() {
+            if (!window.kpt) {
+                showKPT('error', '❌ window.kpt is not defined');
+                return;
+            }
+            
+            const customFunctions = [];
+            for (const key in window.kpt) {
+                if (typeof window.kpt[key] === 'function' && key.startsWith('testFunc_')) {
+                    customFunctions.push(key);
+                }
+            }
+            
+            if (customFunctions.length > 0) {
+                showKPT('success', `✅ window.kpt contains ${customFunctions.length} test functions:<br>` + 
+                    customFunctions.map(name => `• ${name}`).join('<br>'));
+            } else {
+                showKPT('info', 'ℹ️ window.kpt exists but no test functions found');
+            }
+        };
+        
+        window.testFunctionExecution = function() {
+            const functions = JSON.parse(localStorage.getItem(KPT_STORAGE_KEY) || '[]');
+            if (functions.length === 0) {
+                showResult('error', '❌ No functions to test');
+                return;
+            }
+            
+            const func = functions[0];
+            try {
+                const testFunc = new Function('return (' + func.parameters + ') => { ' + func.body + ' }')();
+                const result = testFunc('Hello', 21);
+                showResult('success', `✅ Function ${func.name} executed successfully:<br>Result: ${result}`);
+            } catch (e) {
+                showResult('error', `❌ Function execution failed: ${e.message}`);
+            }
+        };
+        
+        window.simulateOtherTab = function() {
+            const timestamp = Date.now();
+            const otherTabFunction = {
+                name: 'otherTab_' + timestamp,
+                parameters: 'x',
+                body: 'return x * x;',
+                description: 'Function from simulated other tab',
+                category: 'CUSTOM',
+                createdAt: new Date().toISOString(),
+                modifiedAt: new Date().toISOString()
+            };
+            
+            const existing = JSON.parse(localStorage.getItem(KPT_STORAGE_KEY) || '[]');
+            existing.push(otherTabFunction);
+            localStorage.setItem(KPT_STORAGE_KEY, JSON.stringify(existing));
+            
+            // Trigger storage event
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: KPT_STORAGE_KEY,
+                newValue: JSON.stringify(existing),
+                url: window.location.href
+            }));
+            
+            showResult('info', `📡 Simulated save from other tab: ${otherTabFunction.name}`);
+            setTimeout(loadAndDisplay, 100);
+        };
+        
+        window.clearAll = function() {
+            localStorage.removeItem(KPT_STORAGE_KEY);
+            if (window.kpt) {
+                // Clear custom functions from window.kpt
+                for (const key in window.kpt) {
+                    if (key.startsWith('testFunc_') || key.startsWith('otherTab_')) {
+                        delete window.kpt[key];
+                    }
+                }
+            }
+            showResult('success', '✅ All test functions cleared');
+            showKPT('', '');
+        };
+        
+        function showResult(type, message) {
+            document.getElementById('results').innerHTML = `
+                <div class="${type}">
+                    ${message}
+                </div>
+            `;
+        }
+        
+        function showKPT(type, message) {
+            document.getElementById('window-kpt').innerHTML = message ? `
+                <div class="${type}">
+                    <h3>Window.kpt Status:</h3>
+                    ${message}
+                </div>
+            ` : '';
+        }
+        
+        // Listen for storage events
+        window.addEventListener('storage', (e) => {
+            if (e.key === KPT_STORAGE_KEY) {
+                console.log('Storage event detected:', e);
+                showResult('info', '📡 Storage event detected from another source!');
+                setTimeout(loadAndDisplay, 100);
+            }
+        });
+        
+        // Initialize window.kpt if not exists
+        if (!window.kpt) {
+            window.kpt = {};
+            console.log('Initialized window.kpt');
+        }
+        
+        // Load on page load
+        window.onload = () => {
+            loadAndDisplay();
+            checkWindowKPT();
+        };
+    </script>
+</body>
+</html>

@@ -18,3 +18,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Extend Window interface to include KPT namespace
+interface Window {
+  kpt?: {
+    [key: string]: any;
+  };
+}

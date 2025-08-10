@@ -83,7 +83,7 @@
   
   "protocol_handlers": [
     {
-      "protocol": "tpn",
+      "protocol": "web+tpn",
       "url": "/?protocol=%s"
     }
   ],

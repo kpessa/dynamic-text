@@ -548,6 +548,552 @@ label {
   overflow: hidden;
 }
 
+/* KPT Function Reference Design System */
+:root {
+  /* KPT Reference Panel Variables */
+  --kpt-reference-width-collapsed: 200px;
+  --kpt-reference-width-expanded: 420px;
+  --kpt-reference-height-expanded: 600px;
+  --kpt-reference-position-right: 20px;
+  --kpt-reference-position-top-collapsed: 100px;
+  --kpt-reference-position-top-expanded: 20px;
+  
+  /* KPT Reference Colors - integrated with app design */
+  --kpt-reference-bg: var(--color-background);
+  --kpt-reference-surface: #ffffff;
+  --kpt-reference-surface-elevated: #f8f9fa;
+  --kpt-reference-border: var(--color-border);
+  --kpt-reference-border-hover: #646cff;
+  --kpt-reference-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --kpt-reference-shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.18);
+  
+  /* KPT Reference Text Colors */
+  --kpt-reference-text-primary: var(--color-text);
+  --kpt-reference-text-secondary: var(--color-text-muted);
+  --kpt-reference-text-accent: #646cff;
+  --kpt-reference-text-success: var(--color-success);
+  
+  /* KPT Reference Component Colors */
+  --kpt-reference-code-bg: #f1f3f4;
+  --kpt-reference-code-text: #d63384;
+  --kpt-reference-category-bg: #6c757d;
+  --kpt-reference-usage-bg: #e7f3ff;
+  --kpt-reference-usage-border: #b3d9ff;
+  --kpt-reference-usage-text: #0c5aa6;
+  
+  /* Animation and transitions */
+  --kpt-reference-transition: all 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  --kpt-reference-transition-fast: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Z-index management */
+  --kpt-reference-z: calc(var(--z-modal) + 20);
+  
+  /* CodeMirror theme integration */
+  --kpt-codemirror-bg: #fafafa;
+  --kpt-codemirror-selection: rgba(100, 108, 255, 0.1);
+  --kpt-codemirror-cursor: #646cff;
+  --kpt-codemirror-line-number: var(--color-text-muted);
+  --kpt-codemirror-focus-ring: rgba(100, 108, 255, 0.15);
+}
+
+/* Dark mode adjustments for KPT Reference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --kpt-reference-bg: #1a1a1a;
+    --kpt-reference-surface: #2d2d2d;
+    --kpt-reference-surface-elevated: #3a3a3a;
+    --kpt-reference-border: #444444;
+    --kpt-reference-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    --kpt-reference-shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --kpt-reference-text-primary: #ffffff;
+    --kpt-reference-text-secondary: #cccccc;
+    --kpt-reference-code-bg: #2d2d2d;
+    --kpt-reference-category-bg: #495057;
+    --kpt-reference-usage-bg: #1a2332;
+    --kpt-reference-usage-border: #2d4a6b;
+    --kpt-codemirror-bg: #1e1e1e;
+    --kpt-codemirror-selection: rgba(100, 108, 255, 0.2);
+  }
+}
+
+/* Enhanced KPT Reference Panel Styles */
+.kpt-reference-panel {
+  position: fixed;
+  right: var(--kpt-reference-position-right);
+  top: var(--kpt-reference-position-top-collapsed);
+  z-index: var(--kpt-reference-z);
+  background: var(--kpt-reference-surface);
+  border: 2px solid var(--kpt-reference-border);
+  border-radius: 12px;
+  box-shadow: var(--kpt-reference-shadow);
+  overflow: hidden;
+  transition: var(--kpt-reference-transition);
+  will-change: transform, width, height, top;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.kpt-reference-panel:not(.expanded) {
+  width: var(--kpt-reference-width-collapsed);
+  cursor: pointer;
+}
+
+.kpt-reference-panel:not(.expanded):hover {
+  transform: translateY(-2px);
+  box-shadow: var(--kpt-reference-shadow-elevated);
+  border-color: var(--kpt-reference-border-hover);
+}
+
+.kpt-reference-panel.expanded {
+  width: var(--kpt-reference-width-expanded);
+  height: var(--kpt-reference-height-expanded);
+  top: var(--kpt-reference-position-top-expanded);
+  box-shadow: var(--kpt-reference-shadow-elevated);
+  cursor: default;
+}
+
+/* Enhanced Panel Header */
+.kpt-reference-panel .panel-header {
+  background: var(--kpt-reference-surface-elevated);
+  border-bottom: 1px solid var(--kpt-reference-border);
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.kpt-reference-panel .panel-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: var(--spacing-md);
+  right: var(--spacing-md);
+  height: 2px;
+  background: linear-gradient(90deg, var(--kpt-reference-text-accent), transparent);
+  opacity: 0;
+  transition: var(--kpt-reference-transition-fast);
+}
+
+.kpt-reference-panel.expanded .panel-header::after {
+  opacity: 1;
+}
+
+.kpt-reference-panel .expand-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--kpt-reference-text-primary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 6px;
+  transition: var(--kpt-reference-transition-fast);
+  font-weight: 500;
+  min-height: var(--min-touch-target);
+}
+
+.kpt-reference-panel .expand-toggle:hover {
+  background: rgba(100, 108, 255, 0.1);
+  color: var(--kpt-reference-text-accent);
+}
+
+.kpt-reference-panel .expand-toggle:focus {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.kpt-reference-panel .toggle-icon {
+  font-size: var(--font-size-lg);
+  transition: var(--kpt-reference-transition-fast);
+}
+
+.kpt-reference-panel.expanded .toggle-icon {
+  transform: rotate(180deg);
+}
+
+.kpt-reference-panel h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--kpt-reference-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.kpt-reference-panel h3::before {
+  content: '⚡';
+  font-size: var(--font-size-base);
+  color: var(--kpt-reference-text-accent);
+}
+
+/* Enhanced Panel Content */
+.kpt-reference-panel .panel-content {
+  padding: var(--spacing-lg);
+  height: calc(100% - 60px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Enhanced Search Section */
+.kpt-reference-panel .search-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.kpt-reference-panel .search-input,
+.kpt-reference-panel .category-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--kpt-reference-border);
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+  background: var(--kpt-reference-surface);
+  color: var(--kpt-reference-text-primary);
+  transition: var(--kpt-reference-transition-fast);
+}
+
+.kpt-reference-panel .search-input:focus,
+.kpt-reference-panel .category-select:focus {
+  outline: none;
+  border-color: var(--kpt-reference-text-accent);
+  box-shadow: 0 0 0 3px var(--kpt-codemirror-focus-ring);
+}
+
+.kpt-reference-panel .search-input::placeholder {
+  color: var(--kpt-reference-text-secondary);
+}
+
+.kpt-reference-panel .copy-all-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--kpt-reference-text-accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  transition: var(--kpt-reference-transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-height: var(--min-touch-target);
+}
+
+.kpt-reference-panel .copy-all-btn:hover {
+  background: #5a52d5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(100, 108, 255, 0.3);
+}
+
+/* Enhanced Usage Hint */
+.kpt-reference-panel .usage-hint {
+  background: var(--kpt-reference-usage-bg);
+  border: 1px solid var(--kpt-reference-usage-border);
+  border-radius: 8px;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-xs);
+  color: var(--kpt-reference-usage-text);
+  line-height: 1.5;
+}
+
+.kpt-reference-panel .usage-hint code {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--kpt-reference-text-accent);
+}
+
+/* Enhanced Functions List */
+.kpt-reference-panel .functions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.kpt-reference-panel .function-item {
+  background: var(--kpt-reference-surface);
+  border: 1px solid var(--kpt-reference-border);
+  border-radius: 8px;
+  padding: var(--spacing-md);
+  transition: var(--kpt-reference-transition-fast);
+  position: relative;
+}
+
+.kpt-reference-panel .function-item:hover {
+  border-color: var(--kpt-reference-border-hover);
+  box-shadow: 0 2px 8px rgba(100, 108, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.kpt-reference-panel .function-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+  gap: var(--spacing-sm);
+}
+
+.kpt-reference-panel .function-name {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--kpt-reference-text-accent);
+  transition: var(--kpt-reference-transition-fast);
+  text-align: left;
+}
+
+.kpt-reference-panel .function-name:hover {
+  color: #5a52d5;
+}
+
+.kpt-reference-panel .function-name:focus {
+  outline: 2px solid var(--kpt-reference-text-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.kpt-reference-panel .function-category {
+  font-size: var(--font-size-xs);
+  background: var(--kpt-reference-category-bg);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kpt-reference-panel .function-description {
+  font-size: var(--font-size-xs);
+  color: var(--kpt-reference-text-secondary);
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.4;
+}
+
+.kpt-reference-panel .function-params {
+  font-size: var(--font-size-xs);
+  color: var(--kpt-reference-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.kpt-reference-panel .function-params code {
+  background: var(--kpt-reference-code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--kpt-reference-code-text);
+  font-weight: 500;
+}
+
+.kpt-reference-panel .function-example {
+  font-size: var(--font-size-xs);
+  color: var(--kpt-reference-text-primary);
+}
+
+.kpt-reference-panel .example-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--kpt-reference-code-bg);
+  border: 1px solid var(--kpt-reference-border);
+  border-radius: 6px;
+  padding: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+  transition: var(--kpt-reference-transition-fast);
+}
+
+.kpt-reference-panel .example-code:hover {
+  border-color: var(--kpt-reference-border-hover);
+}
+
+.kpt-reference-panel .example-code code {
+  background: none;
+  padding: 0;
+  font-size: var(--font-size-xs);
+  color: var(--kpt-reference-code-text);
+  flex: 1;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.kpt-reference-panel .copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs);
+  color: var(--kpt-reference-text-secondary);
+  border-radius: 4px;
+  transition: var(--kpt-reference-transition-fast);
+  flex-shrink: 0;
+}
+
+.kpt-reference-panel .copy-btn:hover {
+  background: rgba(100, 108, 255, 0.1);
+  color: var(--kpt-reference-text-accent);
+}
+
+.kpt-reference-panel .no-results {
+  text-align: center;
+  color: var(--kpt-reference-text-secondary);
+  font-style: italic;
+  padding: var(--spacing-xl);
+  font-size: var(--font-size-sm);
+}
+
+/* Enhanced Scrollbar */
+.kpt-reference-panel .panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kpt-reference-panel .panel-content::-webkit-scrollbar-track {
+  background: var(--kpt-reference-surface-elevated);
+  border-radius: 3px;
+}
+
+.kpt-reference-panel .panel-content::-webkit-scrollbar-thumb {
+  background: var(--kpt-reference-border);
+  border-radius: 3px;
+  transition: var(--kpt-reference-transition-fast);
+}
+
+.kpt-reference-panel .panel-content::-webkit-scrollbar-thumb:hover {
+  background: var(--kpt-reference-text-accent);
+}
+
+/* CodeMirror Theme Integration */
+.kpt-codemirror-theme {
+  background: var(--kpt-codemirror-bg) !important;
+}
+
+.kpt-codemirror-theme .cm-editor {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.kpt-codemirror-theme .cm-focused {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--kpt-codemirror-focus-ring);
+}
+
+.kpt-codemirror-theme .cm-cursor {
+  border-left-color: var(--kpt-codemirror-cursor);
+}
+
+.kpt-codemirror-theme .cm-selectionBackground {
+  background: var(--kpt-codemirror-selection) !important;
+}
+
+.kpt-codemirror-theme .cm-gutters {
+  background: var(--kpt-reference-surface-elevated);
+  border-right: 1px solid var(--kpt-reference-border);
+  color: var(--kpt-codemirror-line-number);
+}
+
+.kpt-codemirror-theme .cm-lineNumbers {
+  color: var(--kpt-codemirror-line-number);
+}
+
+/* Animations */
+@keyframes kpt-reference-float-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes kpt-reference-expand {
+  from {
+    width: var(--kpt-reference-width-collapsed);
+    height: auto;
+    top: var(--kpt-reference-position-top-collapsed);
+  }
+  to {
+    width: var(--kpt-reference-width-expanded);
+    height: var(--kpt-reference-height-expanded);
+    top: var(--kpt-reference-position-top-expanded);
+  }
+}
+
+.kpt-reference-animate-in {
+  animation: kpt-reference-float-in 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .kpt-reference-panel {
+    right: 10px;
+    --kpt-reference-width-collapsed: 180px;
+    --kpt-reference-width-expanded: 90vw;
+    --kpt-reference-position-top-expanded: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .kpt-reference-panel.expanded {
+    width: 95vw;
+    height: 80vh;
+    right: 2.5vw;
+    top: 10vh;
+  }
+  
+  .kpt-reference-panel .search-section {
+    flex-direction: column;
+  }
+  
+  .kpt-reference-panel .function-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .kpt-reference-panel {
+    border-width: 3px;
+  }
+  
+  .kpt-reference-panel .function-item {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .kpt-reference-panel {
+    transition: none;
+  }
+  
+  .kpt-reference-panel:not(.expanded):hover {
+    transform: none;
+  }
+  
+  .kpt-reference-panel .function-item:hover {
+    transform: none;
+  }
+  
+  .kpt-reference-animate-in {
+    animation: none;
+  }
+}
+
 /* Card component */
 .card {
   background: var(--color-background);
