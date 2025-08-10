@@ -5,6 +5,7 @@
     showOutput = $bindable(false),
     outputMode = $bindable('json'),
     showKeyReference = $bindable(false),
+    showKPTReference = $bindable(false),
     currentReferenceName = '',
     currentIngredient = '',
     hasUnsavedChanges = false,
@@ -33,18 +34,22 @@
   ];
 </script>
 
-<nav class="navbar">
+<nav class="navbar" role="banner" aria-label="Main navigation">
   <div class="navbar-top">
     <div class="navbar-left">
       <button 
         class="sidebar-toggle"
         onclick={() => showSidebar = !showSidebar}
         title="{showSidebar ? 'Hide' : 'Show'} Sidebar"
+        aria-label="{showSidebar ? 'Hide' : 'Show'} sidebar navigation"
+        aria-expanded={showSidebar}
+        aria-controls="sidebar-panel"
       >
-        {showSidebar ? '◀' : '▶'}
+        <span aria-hidden="true">{showSidebar ? '◀' : '▶'}</span>
+        <span class="sr-only">{showSidebar ? 'Hide' : 'Show'} sidebar</span>
       </button>
       
-      <h1 class="app-title">Dynamic Text Editor</h1>
+      <h1 class="app-title" id="app-title">TPN Dynamic Text Editor</h1>
       
       {#if currentReferenceName}
         <div class="document-info">
@@ -94,6 +99,14 @@
             🔑 Keys
           </button>
         {/if}
+        
+        <button 
+          class="view-toggle {showKPTReference ? 'active' : ''}"
+          onclick={() => showKPTReference = !showKPTReference}
+          title="Toggle KPT function reference"
+        >
+          🛠️ KPT
+        </button>
       </div>
       
       <div class="navbar-actions">
@@ -102,8 +115,10 @@
             class="action-btn ingredients-btn"
             onclick={onOpenIngredientManager}
             title="Open Ingredient Manager"
+            aria-label="Open ingredient manager"
+            data-action="ingredients"
           >
-            <span class="btn-icon">📦</span>
+            <span class="btn-icon" aria-hidden="true">📦</span>
             <span class="btn-text">Ingredients</span>
           </button>
           
@@ -132,8 +147,10 @@
           class="action-btn new-btn"
           onclick={onNewDocument}
           title="Start new document"
+          aria-label="Create new document"
+          data-action="new"
         >
-          <span class="btn-icon">➕</span>
+          <span class="btn-icon" aria-hidden="true">➕</span>
           <span class="btn-text">New</span>
         </button>
         
@@ -142,8 +159,10 @@
             class="action-btn save-btn"
             onclick={onSave}
             title="Save changes (Ctrl+S)"
+            aria-label="Save changes (Ctrl+S)"
+            data-action="save"
           >
-            <span class="btn-icon">💾</span>
+            <span class="btn-icon" aria-hidden="true">💾</span>
             <span class="btn-text">Save</span>
           </button>
         {/if}
@@ -152,8 +171,10 @@
           class="action-btn export-btn {copied ? 'copied' : ''}"
           onclick={onExport}
           title="Export to clipboard"
+          aria-label="{copied ? 'Successfully copied to clipboard' : 'Export content to clipboard'}"
+          data-action="export"
         >
-          <span class="btn-icon">{copied ? '✓' : '📋'}</span>
+          <span class="btn-icon" aria-hidden="true">{copied ? '✓' : '📋'}</span>
           <span class="btn-text">{copied ? 'Copied!' : 'Export'}</span>
         </button>
         
@@ -161,9 +182,22 @@
           class="action-btn preferences-btn"
           onclick={onOpenPreferences}
           title="Preferences"
+          aria-label="Open preferences"
+          data-action="preferences"
         >
-          <span class="btn-icon">⚙️</span>
+          <span class="btn-icon" aria-hidden="true">⚙️</span>
           <span class="btn-text">Preferences</span>
+        </button>
+        
+        <button 
+          class="action-btn shortcuts-btn"
+          onclick={() => document.dispatchEvent(new CustomEvent('show-shortcuts'))}
+          title="Keyboard Shortcuts (Press ? key)"
+          aria-label="Show keyboard shortcuts"
+          data-action="shortcuts"
+        >
+          <span class="btn-icon" aria-hidden="true">⌨️</span>
+          <span class="btn-text">Shortcuts</span>
         </button>
       </div>
     </div>
@@ -443,18 +477,155 @@
     font-size: 0.9rem;
   }
   
+  .shortcuts-btn {
+    background-color: #495057;
+    color: white;
+  }
   
-  @media (max-width: 1024px) {
+  .shortcuts-btn:hover {
+    background-color: #343a40;
+  }
+  
+  /* Mobile-first responsive design */
+  @media (max-width: 767px) {
+    .navbar {
+      background-color: rgba(248, 249, 250, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding-top: max(0.75rem, env(safe-area-inset-top));
+    }
+    
     .navbar-top {
       flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+    }
+    
+    .navbar-left {
+      flex: 0 1 auto;
+      gap: 0.5rem;
     }
     
     .app-title {
       display: none;
     }
     
+    .document-info {
+      font-size: 0.8rem;
+      padding: 0.125rem 0.5rem;
+    }
+    
+    .navbar-center {
+      order: 3;
+      flex-basis: 100%;
+      justify-content: center;
+      margin-top: 0.5rem;
+    }
+    
+    .mode-toggle {
+      transform: scale(0.9);
+    }
+    
+    .current-ingredient {
+      font-size: 0.8rem;
+      padding: 0.125rem 0.5rem;
+    }
+    
+    .navbar-right {
+      flex: 1;
+      justify-content: flex-end;
+    }
+    
+    .navbar-actions {
+      gap: 0.25rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    
+    .action-btn {
+      padding: 0.5rem;
+      min-width: var(--touch-target-medium);
+      min-height: var(--touch-target-medium);
+      border-radius: 8px;
+    }
+    
     .btn-text {
       display: none;
+    }
+    
+    .btn-icon {
+      font-size: 1.1rem;
+    }
+    
+    .view-toggle {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+    }
+    
+    .sidebar-toggle {
+      padding: 0.5rem;
+      font-size: 1.1rem;
+      min-width: var(--touch-target-medium);
+      min-height: var(--touch-target-medium);
+    }
+  }
+  
+  /* Tablet optimization */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .navbar-top {
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    
+    .app-title {
+      font-size: 1.1rem;
+    }
+    
+    .action-btn {
+      padding: 0.5rem 0.75rem;
+    }
+    
+    .btn-text {
+      font-size: 0.8rem;
+    }
+  }
+  
+  /* Desktop */
+  @media (min-width: 1025px) {
+    .navbar-top {
+      flex-wrap: nowrap;
+    }
+  }
+  
+  /* Landscape phone adjustments */
+  @media (max-width: 767px) and (orientation: landscape) {
+    .navbar {
+      padding-top: max(0.5rem, env(safe-area-inset-top));
+    }
+    
+    .navbar-top {
+      padding: 0.25rem 1rem;
+    }
+    
+    .navbar-center {
+      margin-top: 0.25rem;
+    }
+  }
+  
+  /* Touch-friendly hover states */
+  @media (hover: none) and (pointer: coarse) {
+    .action-btn:hover,
+    .sidebar-toggle:hover,
+    .view-toggle:hover {
+      transform: scale(1.05);
+      transition: transform 0.1s ease;
+    }
+    
+    .action-btn:active,
+    .sidebar-toggle:active,
+    .view-toggle:active {
+      transform: scale(0.95);
+      transition: transform 0.05s ease;
     }
   }
 </style>

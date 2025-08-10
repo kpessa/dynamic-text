@@ -6,9 +6,11 @@
   import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
   import { tags as t } from '@lezer/highlight';
   
-  export let value = '';
-  export let language = 'javascript';
-  export let onChange = (newValue: string) => {};
+  let { 
+    value = '', 
+    language = 'javascript', 
+    onChange = (newValue: string) => {} 
+  } = $props();
   
   const dispatch = createEventDispatcher();
   
@@ -72,7 +74,10 @@
         '.cm-scroller': { overflow: 'auto' },
         '.cm-content': { whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
         '.cm-content.cm-focused': { outline: 'none' },
-        '.cm-editor.cm-focused': { outline: '2px solid #0066cc' },
+        '.cm-editor.cm-focused': { 
+          outline: '3px solid #0066cc',
+          outlineOffset: '2px'
+        },
         '.cm-line': { wordWrap: 'break-word' }
       }),
       EditorView.lineWrapping,
@@ -101,6 +106,19 @@
       extensions,
       parent: element
     });
+    
+    // Add accessibility attributes to the editor
+    const editorElement = element.querySelector('.cm-editor');
+    if (editorElement) {
+      editorElement.setAttribute('role', 'textbox');
+      editorElement.setAttribute('aria-multiline', 'true');
+      editorElement.setAttribute('aria-label', `${language} code editor`);
+      if (language === 'javascript') {
+        editorElement.setAttribute('aria-describedby', 'js-editor-help');
+      } else if (language === 'html') {
+        editorElement.setAttribute('aria-describedby', 'html-editor-help');
+      }
+    }
   });
   
   onDestroy(() => {
@@ -109,18 +127,28 @@
     }
   });
   
-  $: if (view && value !== view.state.doc.toString()) {
-    view.dispatch({
-      changes: {
-        from: 0,
-        to: view.state.doc.length,
-        insert: value
-      }
-    });
-  }
+  $effect(() => {
+    if (view && value !== view.state.doc.toString()) {
+      view.dispatch({
+        changes: {
+          from: 0,
+          to: view.state.doc.length,
+          insert: value
+        }
+      });
+    }
+  });
 </script>
 
-<div bind:this={element} class="code-editor"></div>
+<div bind:this={element} class="code-editor">
+  <!-- Hidden helper text for screen readers -->
+  <div id="js-editor-help" class="sr-only">
+    JavaScript code editor. Use me.getValue('keyname') to access TPN values. Press Tab to move to next element.
+  </div>
+  <div id="html-editor-help" class="sr-only">
+    HTML code editor. Type [f( to convert to dynamic JavaScript section. Press Tab to move to next element.
+  </div>
+</div>
 
 <style>
   .code-editor {

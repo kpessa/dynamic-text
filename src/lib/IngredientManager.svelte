@@ -1187,8 +1187,20 @@
 </div>
 
 {#if showBaselineComparison && baselineComparisonData}
-  <div class="modal-overlay" onclick={() => showBaselineComparison = false}>
-    <div class="modal-content baseline-comparison" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="modal-overlay" 
+    onclick={() => showBaselineComparison = false}
+    onkeydown={(e) => e.key === 'Enter' && (showBaselineComparison = false)}
+    role="button"
+    tabindex="0"
+    aria-label="Close baseline comparison">
+    <div 
+      class="modal-content baseline-comparison" 
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="0">
       <div class="modal-header">
         <h3>Baseline Comparison: {baselineComparisonData.ingredient.name}</h3>
         <button class="close-btn" onclick={() => showBaselineComparison = false}>×</button>
@@ -1248,8 +1260,20 @@
 {/if}
 
 {#if showBulkOperations}
-  <div class="modal-backdrop" onclick={() => showBulkOperations = false}>
-    <div class="modal-content bulk-operations-modal" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="modal-backdrop" 
+    onclick={() => showBulkOperations = false}
+    onkeydown={(e) => e.key === 'Enter' && (showBulkOperations = false)}
+    role="button"
+    tabindex="0"
+    aria-label="Close bulk operations">
+    <div 
+      class="modal-content bulk-operations-modal" 
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="0">
       <div class="modal-header">
         <h2>Bulk Operations</h2>
         <button class="close-btn" onclick={() => showBulkOperations = false}>✕</button>

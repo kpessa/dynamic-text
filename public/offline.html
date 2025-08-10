@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>TPN Editor - Offline</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+    }
+    
+    .container {
+      background: white;
+      padding: 3rem;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 500px;
+      margin: 2rem;
+    }
+    
+    .icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+    
+    h1 {
+      margin: 0 0 1rem 0;
+      color: #2c3e50;
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+    
+    p {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+    
+    .features {
+      text-align: left;
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+    }
+    
+    .features h3 {
+      margin-top: 0;
+      color: #495057;
+      font-size: 1.1rem;
+    }
+    
+    .features ul {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    
+    .features li {
+      margin-bottom: 0.5rem;
+      color: #666;
+    }
+    
+    .retry-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .retry-btn:hover {
+      background: #0056b3;
+    }
+    
+    .status {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+    
+    .online {
+      color: #28a745;
+    }
+    
+    .offline {
+      color: #dc3545;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="icon">🏥</span>
+    <h1>TPN Dynamic Text Editor</h1>
+    <p>You're currently offline, but don't worry - your medical calculations and content are still accessible.</p>
+    
+    <div class="features">
+      <h3>Available Offline:</h3>
+      <ul>
+        <li>View and edit cached TPN references</li>
+        <li>Perform TPN calculations with existing data</li>
+        <li>Access previously loaded medical content</li>
+        <li>Continue working with saved sections</li>
+      </ul>
+    </div>
+    
+    <button class="retry-btn" onclick="retryConnection()">Retry Connection</button>
+    
+    <div class="status" id="status">
+      Status: <span class="offline">Offline</span>
+    </div>
+  </div>
+  
+  <script>
+    // Check connection status
+    function updateStatus() {
+      const statusEl = document.getElementById('status')
+      if (navigator.onLine) {
+        statusEl.innerHTML = 'Status: <span class="online">Online</span>'
+      } else {
+        statusEl.innerHTML = 'Status: <span class="offline">Offline</span>'
+      }
+    }
+    
+    function retryConnection() {
+      if (navigator.onLine) {
+        window.location.href = '/'
+      } else {
+        alert('Still offline. Please check your internet connection.')
+      }
+    }
+    
+    // Listen for online/offline events
+    window.addEventListener('online', updateStatus)
+    window.addEventListener('offline', updateStatus)
+    
+    // Auto-redirect when back online
+    window.addEventListener('online', () => {
+      setTimeout(() => {
+        if (navigator.onLine) {
+          window.location.href = '/'
+        }
+      }, 1000)
+    })
+    
+    // Update status on load
+    updateStatus()
+    
+    // Listen for service worker messages
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'CACHE_UPDATED') {
+          // Show notification that app is ready
+          const notice = document.createElement('div')
+          notice.innerHTML = '✅ App updated and ready!'
+          notice.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 1rem;
+            border-radius: 6px;
+            z-index: 1000;
+          `
+          document.body.appendChild(notice)
+          setTimeout(() => notice.remove(), 3000)
+        }
+      })
+    }
+  </script>
+</body>
+</html>

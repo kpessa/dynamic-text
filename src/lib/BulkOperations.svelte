@@ -202,7 +202,7 @@
   </div>
   
   <div class="operation-select">
-    <label>Select Operation:</label>
+    <span class="operation-label">Select Operation:</span>
     <div class="operation-grid">
       {#each operations as op}
         <button
@@ -320,7 +320,7 @@
     margin-bottom: 1.5rem;
   }
   
-  .operation-select label {
+  .operation-select .operation-label {
     display: block;
     margin-bottom: 0.75rem;
     font-weight: 500;

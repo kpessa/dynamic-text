@@ -54,8 +54,9 @@
   <!-- Full control view -->
   <div class="validation-status">
     <div class="status-header">
-      <label>Validation Status</label>
+      <label for="validation-status-select">Validation Status</label>
       <select 
+        id="validation-status-select"
         value={status} 
         onchange={(e) => handleStatusChange(e.target.value)}
         class="status-select status-{currentStatus.color}"
@@ -85,7 +86,7 @@
             placeholder="Add validation notes..."
             rows="2"
             onblur={() => onUpdate({ status, validatedBy, validatedAt, notes })}
-          />
+          ></textarea>
         </div>
 
         {#if testResults}

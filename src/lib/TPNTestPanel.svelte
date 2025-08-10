@@ -1,6 +1,7 @@
 <script>
   import { TPNLegacySupport, extractKeysFromCode, isValidKey, getKeyUnit, getDefaultValues, getKeyCategory } from './tpnLegacy.js';
   import TPNIngredientInput from './TPNIngredientInput.svelte';
+  import { screenReader } from './utils/accessibility.js';
   
   let { 
     dynamicSections = [],
@@ -78,6 +79,16 @@
       DexPercent: tpn.getValue('DexPercent'),
       OsmoValue: tpn.getValue('OsmoValue')
     };
+    
+    // Announce critical warnings
+    if (calculatedValues.OsmoValue > 800 && inputValues.IVAdminSite === 'Peripheral') {
+      screenReader.announceTPNCalculation(
+        'Osmolarity warning', 
+        calculatedValues.OsmoValue, 
+        'mOsm/L - Exceeds peripheral limit', 
+        true
+      );
+    }
     
     // Notify parent of value changes
     onValuesChange(tpn);
@@ -203,29 +214,39 @@
   }
 </script>
 
-<div class="tpn-test-panel {isExpanded ? 'expanded' : 'collapsed'}">
+<div class="tpn-test-panel {isExpanded ? 'expanded' : 'collapsed'}" role="region" aria-labelledby="tpn-panel-title">
   <div class="panel-header">
     <button 
       class="expand-toggle"
-      onclick={() => isExpanded = !isExpanded}
+      onclick={() => {
+        isExpanded = !isExpanded;
+        screenReader.announce(`TPN test panel ${isExpanded ? 'expanded' : 'collapsed'}`, 'polite');
+      }}
       aria-expanded={isExpanded}
+      aria-controls="tpn-panel-content"
+      aria-label="{isExpanded ? 'Collapse' : 'Expand'} TPN test values panel"
     >
-      <span class="toggle-icon">{isExpanded ? '▼' : '◀'}</span>
-      <h3>TPN Test Values</h3>
+      <span class="toggle-icon" aria-hidden="true">{isExpanded ? '▼' : '◀'}</span>
+      <h3 id="tpn-panel-title">TPN Test Values</h3>
     </button>
     {#if referencedKeys.length > 0}
-      <span class="key-count">{referencedKeys.length} keys</span>
+      <span class="key-count" aria-label="{referencedKeys.length} keys referenced">{referencedKeys.length} keys</span>
     {/if}
   </div>
   
   {#if isExpanded}
-    <div class="panel-content">
+    <div class="panel-content" id="tpn-panel-content">
       {#if invalidKeys.length > 0}
-        <div class="validation-warnings">
-          <h4>⚠️ Invalid Keys Found</h4>
-          <ul>
+        <div class="validation-warnings" role="alert" aria-live="polite">
+          <h4 id="invalid-keys-title">
+            <span aria-hidden="true">⚠️</span>
+            Invalid Keys Found
+          </h4>
+          <ul aria-labelledby="invalid-keys-title">
             {#each invalidKeys as key}
-              <li class="invalid-key">{key}</li>
+              <li class="invalid-key">
+                <code>{key}</code>
+              </li>
             {/each}
           </ul>
           <p class="warning-hint">These keys are not recognized by the TPN system.</p>
@@ -240,12 +261,48 @@
       {/if}
       
       {#if validKeys.length > 0}
-        <div class="test-scenarios">
-          <span>Quick Load:</span>
-          <button onclick={() => loadTestScenario('adult')}>Adult Standard</button>
-          <button onclick={() => loadTestScenario('child')}>Child</button>
-          <button onclick={() => loadTestScenario('peripheral')}>Peripheral</button>
-          <button onclick={() => loadTestScenario('critical')}>Critical Care</button>
+        <div class="test-scenarios" role="group" aria-labelledby="scenarios-label">
+          <span id="scenarios-label">Quick Load:</span>
+          <button 
+            onclick={() => {
+              loadTestScenario('adult');
+              screenReader.announce('Loaded adult standard TPN scenario', 'polite');
+            }}
+            aria-describedby="adult-description"
+          >
+            Adult Standard
+            <span id="adult-description" class="sr-only">Standard adult TPN parameters for 70kg patient</span>
+          </button>
+          <button 
+            onclick={() => {
+              loadTestScenario('child');
+              screenReader.announce('Loaded pediatric TPN scenario', 'polite');
+            }}
+            aria-describedby="child-description"
+          >
+            Child
+            <span id="child-description" class="sr-only">Pediatric TPN parameters for 10kg patient</span>
+          </button>
+          <button 
+            onclick={() => {
+              loadTestScenario('peripheral');
+              screenReader.announce('Loaded peripheral TPN scenario', 'polite');
+            }}
+            aria-describedby="peripheral-description"
+          >
+            Peripheral
+            <span id="peripheral-description" class="sr-only">Low osmolarity TPN for peripheral access</span>
+          </button>
+          <button 
+            onclick={() => {
+              loadTestScenario('critical');
+              screenReader.announce('Loaded critical care TPN scenario', 'polite');
+            }}
+            aria-describedby="critical-description"
+          >
+            Critical Care
+            <span id="critical-description" class="sr-only">High protein TPN for critically ill patients</span>
+          </button>
         </div>
         
         <div class="input-sections">

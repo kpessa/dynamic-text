@@ -9,7 +9,8 @@
       "Bash(mv src/main.js src/main.ts)",
       "Bash(curl:*)",
       "Bash(pnpm add:*)",
-      "Bash(pnpm storybook:*)"
+      "Bash(pnpm storybook:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

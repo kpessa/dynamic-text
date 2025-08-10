@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PWA Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1rem;
+      line-height: 1.6;
+    }
+    .status {
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 6px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+    }
+    .success { background: #d1edff; border-color: #0ea5e9; }
+    .error { background: #fee2e2; border-color: #ef4444; }
+    .warning { background: #fef3c7; border-color: #f59e0b; }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0.25rem;
+    }
+    button:hover { background: #0056b3; }
+    pre {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏥 TPN PWA Test</h1>
+  
+  <div id="service-worker-status" class="status">
+    <strong>Service Worker:</strong> <span id="sw-status">Checking...</span>
+  </div>
+  
+  <div id="install-status" class="status">
+    <strong>PWA Install:</strong> <span id="install-text">Checking...</span>
+  </div>
+  
+  <div class="controls">
+    <button onclick="testServiceWorker()">Test Service Worker</button>
+    <button onclick="testCache()">Test Cache</button>
+    <button onclick="clearCaches()">Clear Caches</button>
+    <button onclick="getCacheInfo()">Get Cache Info</button>
+    <button onclick="goOffline()">Simulate Offline</button>
+  </div>
+  
+  <div id="test-results"></div>
+  
+  <script>
+    let swRegistration = null;
+    
+    // Check service worker support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          swRegistration = registration;
+          console.log('SW registered:', registration);
+          document.getElementById('sw-status').textContent = 'Registered ✅';
+          document.getElementById('service-worker-status').classList.add('success');
+          
+          // Listen for messages
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            console.log('Message from SW:', event.data);
+            addTestResult('SW Message', JSON.stringify(event.data, null, 2));
+          });
+        })
+        .catch(error => {
+          console.error('SW registration failed:', error);
+          document.getElementById('sw-status').textContent = 'Failed ❌: ' + error.message;
+          document.getElementById('service-worker-status').classList.add('error');
+        });
+    } else {
+      document.getElementById('sw-status').textContent = 'Not supported ❌';
+      document.getElementById('service-worker-status').classList.add('error');
+    }
+    
+    // Check PWA install capability
+    let installPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      installPrompt = e;
+      document.getElementById('install-text').innerHTML = 'Ready to install <button onclick="installPWA()">Install</button>';
+      document.getElementById('install-status').classList.add('success');
+    });
+    
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      document.getElementById('install-text').textContent = 'Already installed ✅';
+      document.getElementById('install-status').classList.add('success');
+    } else {
+      setTimeout(() => {
+        if (!installPrompt) {
+          document.getElementById('install-text').textContent = 'Install criteria not met';
+          document.getElementById('install-status').classList.add('warning');
+        }
+      }, 2000);
+    }
+    
+    function installPWA() {
+      if (installPrompt) {
+        installPrompt.prompt();
+        installPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            addTestResult('Install', 'User accepted installation');
+          } else {
+            addTestResult('Install', 'User dismissed installation');
+          }
+          installPrompt = null;
+        });
+      }
+    }
+    
+    function addTestResult(title, content) {
+      const resultsDiv = document.getElementById('test-results');
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'status';
+      resultDiv.innerHTML = `<strong>${title}:</strong><br><pre>${content}</pre>`;
+      resultsDiv.appendChild(resultDiv);
+    }
+    
+    async function testServiceWorker() {
+      if (!swRegistration) {
+        addTestResult('SW Test', 'Service Worker not registered');
+        return;
+      }
+      
+      try {
+        // Send message to SW
+        const messageChannel = new MessageChannel();
+        messageChannel.port1.onmessage = (event) => {
+          addTestResult('SW Version', JSON.stringify(event.data, null, 2));
+        };
+        
+        swRegistration.active.postMessage(
+          { type: 'GET_VERSION' },
+          [messageChannel.port2]
+        );
+      } catch (error) {
+        addTestResult('SW Test', 'Error: ' + error.message);
+      }
+    }
+    
+    async function testCache() {
+      try {
+        const response = await fetch('/manifest.json');
+        const text = await response.text();
+        addTestResult('Cache Test', `Manifest loaded: ${text.length} bytes`);
+      } catch (error) {
+        addTestResult('Cache Test', 'Error: ' + error.message);
+      }
+    }
+    
+    async function clearCaches() {
+      if (!swRegistration) {
+        addTestResult('Clear Cache', 'Service Worker not available');
+        return;
+      }
+      
+      try {
+        const messageChannel = new MessageChannel();
+        messageChannel.port1.onmessage = (event) => {
+          addTestResult('Clear Cache', JSON.stringify(event.data, null, 2));
+        };
+        
+        swRegistration.active.postMessage(
+          { type: 'CLEAR_CACHE' },
+          [messageChannel.port2]
+        );
+      } catch (error) {
+        addTestResult('Clear Cache', 'Error: ' + error.message);
+      }
+    }
+    
+    async function getCacheInfo() {
+      if (!swRegistration) {
+        addTestResult('Cache Info', 'Service Worker not available');
+        return;
+      }
+      
+      try {
+        const messageChannel = new MessageChannel();
+        messageChannel.port1.onmessage = (event) => {
+          addTestResult('Cache Info', JSON.stringify(event.data, null, 2));
+        };
+        
+        swRegistration.active.postMessage(
+          { type: 'GET_CACHE_INFO' },
+          [messageChannel.port2]
+        );
+      } catch (error) {
+        addTestResult('Cache Info', 'Error: ' + error.message);
+      }
+    }
+    
+    function goOffline() {
+      // Simulate offline by intercepting fetch requests
+      addTestResult('Offline Test', 'Try navigating to /offline.html or refresh the page with network disabled');
+    }
+    
+    // Test network status
+    window.addEventListener('online', () => {
+      addTestResult('Network', 'Back online');
+    });
+    
+    window.addEventListener('offline', () => {
+      addTestResult('Network', 'Gone offline');
+    });
+    
+    // Initial network status
+    addTestResult('Network Status', navigator.onLine ? 'Online' : 'Offline');
+  </script>
+</body>
+</html>

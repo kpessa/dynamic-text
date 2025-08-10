@@ -15,25 +15,54 @@ import {
   writeBatch,
   arrayUnion,
   arrayRemove,
-  increment
+  increment,
+  type DocumentData,
+  type QuerySnapshot,
+  type DocumentSnapshot,
+  type WriteBatch,
+  type Unsubscribe,
+  type Timestamp
 } from 'firebase/firestore';
 import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from './firebase';
 import { getKeyCategory } from './tpnLegacy.js';
 import { generateIngredientHash, findDuplicates, areIngredientsIdentical } from './contentHashing';
 import { getPreferences } from './preferencesService.js';
 import { createSharedIngredient, addToSharedIngredient, getSharedIngredientByHash } from './sharedIngredientService.js';
+import type {
+  PopulationType,
+  POPULATION_TYPES as PopulationTypesType,
+  IngredientData,
+  ReferenceData,
+  ImportedIngredient,
+  ConfigData,
+  ConfigMetadata,
+  ImportedConfig,
+  DuplicateReport,
+  ImportStats,
+  AutoDedupeAction,
+  SharedIngredient,
+  User,
+  FirebaseTimestamp,
+  Section,
+  NoteItem,
+  ServiceResponse,
+  ComparisonResult,
+  ImportResult,
+  MigrationResult,
+  AuditLogEntry
+} from './types.js';
 
 // Population types
-export const POPULATION_TYPES = {
-  NEONATAL: 'neonatal',
-  PEDIATRIC: 'child',
-  ADOLESCENT: 'adolescent',
-  ADULT: 'adult'
-};
+export const POPULATION_TYPES: typeof PopulationTypesType = {
+  NEONATAL: 'neonatal' as const,
+  PEDIATRIC: 'child' as const,
+  ADOLESCENT: 'adolescent' as const,
+  ADULT: 'adult' as const
+} as const;
 
 // Helper functions for ID normalization
 // Convert camelCase or PascalCase to proper spaced name
-export function formatIngredientName(name) {
+export function formatIngredientName(name: string): string {
   if (!name) return '';
   
   // First, check if it contains known patterns that need special handling
@@ -90,7 +119,7 @@ export function formatIngredientName(name) {
   };
   
   // Check if it's a special case (check original name)
-  if (specialCases[name]) {
+  if (name in specialCases) {
     return specialCases[name];
   }
   
@@ -104,7 +133,7 @@ export function formatIngredientName(name) {
 }
 
 // Validate if a string is a valid Firestore document ID
-function isValidFirestoreId(id) {
+function isValidFirestoreId(id: string): boolean {
   if (!id || typeof id !== 'string') return false;
   
   // Firebase document ID restrictions:
@@ -120,7 +149,7 @@ function isValidFirestoreId(id) {
          !/^__.*__$/.test(id);
 }
 
-export function normalizeIngredientId(name) {
+export function normalizeIngredientId(name: string): string {
   if (!name || typeof name !== 'string') {
     console.warn('normalizeIngredientId called with invalid name:', name);
     return '';
@@ -154,28 +183,28 @@ export function normalizeIngredientId(name) {
   return normalized;
 }
 
-export function normalizeConfigId(healthSystem, domain, subdomain, version) {
+export function normalizeConfigId(healthSystem: string, domain: string, subdomain: string, version: string): string {
   const parts = [healthSystem, domain, subdomain, version]
     .filter(Boolean) // Remove empty values
     .map(part => part.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
   return parts.join('-');
 }
 
-export function generateReferenceId(referenceData) {
+export function generateReferenceId(referenceData: Partial<ReferenceData>): string {
   // Generate a meaningful reference ID based on health system and population type
   const parts = [
     referenceData.healthSystem,
     referenceData.domain,
     referenceData.subdomain,
     referenceData.populationType || referenceData.version
-  ].filter(Boolean).map(part => part.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+  ].filter(Boolean).map(part => part!.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
   
   return parts.join('-');
 }
 
 // Helper function to map version names to population types
-export function versionToPopulationType(version) {
-  const mapping = {
+export function versionToPopulationType(version?: string): PopulationType {
+  const mapping: Record<string, PopulationType> = {
     'neonatal': POPULATION_TYPES.NEONATAL,
     'child': POPULATION_TYPES.PEDIATRIC,
     'pediatric': POPULATION_TYPES.PEDIATRIC,
@@ -183,20 +212,21 @@ export function versionToPopulationType(version) {
     'adult': POPULATION_TYPES.ADULT
   };
   
-  return mapping[version?.toLowerCase()] || POPULATION_TYPES.ADULT;
+  return mapping[version?.toLowerCase() || ''] || POPULATION_TYPES.ADULT;
 }
 
 // Convert clinical notes TEXT to sections format
-function convertNotesToSections(notes) {
+function convertNotesToSections(notes?: NoteItem[]): Section[] {
   if (!notes || !Array.isArray(notes)) {
     return [];
   }
   
-  const sections = [];
+  const sections: Section[] = [];
   let currentStaticContent = '';
   let inDynamicBlock = false;
   let dynamicContent = '';
   let dynamicStarted = false;
+  let sectionId = 1;
   
   notes.forEach(note => {
     if (!note.TEXT) return;
@@ -208,7 +238,7 @@ function convertNotesToSections(notes) {
       // First, save any accumulated static content as a single section
       if (currentStaticContent.trim() && !dynamicStarted) {
         sections.push({ 
-          id: sections.length + 1,
+          id: sectionId++,
           type: 'static', 
           content: currentStaticContent.trim() 
         });
@@ -297,7 +327,7 @@ function convertNotesToSections(notes) {
 // Ingredient service
 export const ingredientService = {
   // Create or update an ingredient with version tracking
-  async saveIngredient(ingredientData, commitMessage = null) {
+  async saveIngredient(ingredientData: IngredientData, commitMessage: string | null = null): Promise<string> {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
@@ -309,22 +339,22 @@ export const ingredientService = {
       const currentDoc = await getDoc(ingredientRef);
       const currentVersion = currentDoc.exists() ? (currentDoc.data().version || 0) : 0;
       
-      const data = {
+      const data: IngredientData = {
         ...ingredientData,
         name: ingredientData.name, // IMPORTANT: Explicitly preserve original name with parentheses
         id: ingredientId, // Ensure ID is stored in the document
         version: currentVersion + 1,
-        lastModified: serverTimestamp(),
+        lastModified: serverTimestamp() as unknown as FirebaseTimestamp,
         modifiedBy: user.uid,
         contentHash: generateIngredientHash(ingredientData), // Add content hash
         commitMessage: commitMessage || null, // Store commit message if provided
         // Keep legacy fields for compatibility
-        updatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp() as unknown as FirebaseTimestamp,
         updatedBy: user.uid
       };
       
       if (!ingredientData.id || !currentDoc.exists()) {
-        data.createdAt = serverTimestamp();
+        data.createdAt = serverTimestamp() as unknown as FirebaseTimestamp;
         data.createdBy = user.uid;
         data.version = 1;
       }
@@ -332,8 +362,8 @@ export const ingredientService = {
       // Save current version to history before updating
       if (currentDoc.exists() && currentDoc.data()) {
         await this.saveVersionHistory(ingredientId, {
-          ...currentDoc.data(),
-          commitMessage: currentDoc.data().commitMessage || null
+          ...currentDoc.data() as IngredientData,
+          commitMessage: (currentDoc.data() as IngredientData).commitMessage || null
         });
       }
       
@@ -346,7 +376,7 @@ export const ingredientService = {
   },
   
   // Save version history
-  async saveVersionHistory(ingredientId, versionData) {
+  async saveVersionHistory(ingredientId: string, versionData: IngredientData): Promise<void> {
     try {
       const versionRef = doc(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions')
@@ -364,7 +394,7 @@ export const ingredientService = {
   },
   
   // Get version history for an ingredient
-  async getVersionHistory(ingredientId) {
+  async getVersionHistory(ingredientId: string): Promise<IngredientData[]> {
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions'),
@@ -375,7 +405,7 @@ export const ingredientService = {
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as IngredientData[];
     } catch (error) {
       console.error('Error fetching version history:', error);
       return [];

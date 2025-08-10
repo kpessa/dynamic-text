@@ -17,6 +17,55 @@ Dynamic Text Editor - A specialized web application for creating and testing dyn
 ### Package Management
 Uses pnpm (fallback to npm if unavailable).
 
+## Available Subagents
+
+Claude Code can invoke specialized subagents via the Task tool for specific development tasks. Use these agents to leverage domain expertise:
+
+### Core Development Agents
+- **svelte-developer**: Svelte 5 and SvelteKit expert. Use for component architecture, runes API (`$state`, `$derived`, `$effect`), stores, and Svelte-specific optimizations.
+- **firebase-specialist**: Firebase expert for Firestore, Authentication, Cloud Functions, and Storage. Essential for database operations and Firebase service integration.
+- **react-developer**: React/Next.js specialist (if migrating components or patterns from React).
+
+### Code Quality & Testing
+- **testing-qa**: Testing specialist for implementing unit tests, integration tests, and E2E tests. Knows when to prioritize smoke tests vs comprehensive testing.
+- **refactor-specialist**: Expert in code refactoring and technical debt management. Balances code quality with development speed.
+- **code-reviewer**: Comprehensive code review for quality, security, and best practices.
+
+### Performance & Optimization
+- **performance-optimizer**: Progressive performance optimization. Knows when "good enough" is perfect for prototypes vs when to optimize for scale.
+- **state-persistence-sync**: Expert in local state persistence, offline-first architecture, IndexedDB, and service workers for PWAs.
+
+### UI/UX & Accessibility
+- **ui-ux-accessibility**: UI/UX specialist for functional design, interaction coherence, and accessibility compliance.
+- **design-theming-specialist**: Design expert for color systems, typography, animations, and dark/light mode implementation.
+- **ios-optimizer**: iOS and Safari specialist for optimal iPhone/iPad experience and PWA capabilities.
+
+### Infrastructure & Debugging
+- **debug-troubleshooter**: Expert debugger for finding root causes, tracing errors, and solving complex bugs.
+- **api-integration**: API integration specialist for mock-first development and flexible authentication patterns.
+- **deployment-cicd**: Deployment specialist for CI/CD, feature flags, and progressive deployment strategies.
+- **data-flow-architect**: Data flow architecture specialist for managing complex state patterns.
+
+### Usage Examples
+```
+# Use svelte-developer for Svelte 5 runes migration
+"Please use the svelte-developer agent to refactor this component to use Svelte 5 runes"
+
+# Use firebase-specialist for Firestore operations
+"Use the firebase-specialist agent to optimize these Firestore queries"
+
+# Use testing-qa for test implementation
+"Have the testing-qa agent create unit tests for the TPN calculation functions"
+```
+
+### Recommended Agents for This Project
+1. **Component work**: svelte-developer
+2. **Firebase/Firestore**: firebase-specialist  
+3. **TPN calculations**: testing-qa (for test coverage), refactor-specialist (for cleaning up legacy code)
+4. **Performance**: performance-optimizer, state-persistence-sync
+5. **Debugging**: debug-troubleshooter
+6. **API/Vercel Functions**: api-integration
+
 ## Architecture
 
 Svelte 5 SPA with Firebase integration and AI-powered test generation.

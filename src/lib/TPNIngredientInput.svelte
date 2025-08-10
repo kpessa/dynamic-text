@@ -1,6 +1,7 @@
 <script>
   import { getIngredientConfig, getIngredientNotes, processDynamicNote } from './tpnIngredientConfig.js';
   import { tpnValidator } from './tpnReferenceRanges.js';
+  import { screenReader, AccessibleValidation } from './utils/accessibility.js';
   
   let { 
     keyname,
@@ -91,10 +92,25 @@
       value = result.acceptedValue;
       inputElement.value = tpnValidator.formatValue(value, precision);
       hasWarning = result.validation.severity === 'firm' || result.validation.severity === 'soft';
+      
+      // Announce validation results to screen readers
+      if (result.validation.messages && result.validation.messages.length > 0) {
+        const isValid = result.validation.severity !== 'firm';
+        const message = result.validation.messages.join('. ');
+        screenReader.announceValidationResult(isValid, display, message);
+        
+        // Set up accessible error messages
+        if (!isValid) {
+          AccessibleValidation.createFieldError(inputElement.id || `${keyname}-input`, message);
+        } else {
+          AccessibleValidation.clearFieldError(inputElement.id || `${keyname}-input`);
+        }
+      }
     } else {
       // No validation needed
       value = newValue;
       hasWarning = false;
+      AccessibleValidation.clearFieldError(inputElement.id || `${keyname}-input`);
     }
     
     // Notify parent
@@ -118,11 +134,11 @@
   const isTextArea = keyname.includes('Comments') || keyname === 'OtherAdditives';
 </script>
 
-<div class="ingredient-container">
+<div class="ingredient-container" role="group" aria-labelledby="{keyname}-label">
   <!-- Box 0: Name and Notes -->
   <dl class="box b0">
-    <dt>{display}</dt>
-    <dd>
+    <dt id="{keyname}-label">{display}</dt>
+    <dd id="{keyname}-description">
       {@html processedNotes}
     </dd>
   </dl>
@@ -137,28 +153,38 @@
             bind:value={value}
             onchange={() => onchange(value)}
             class="ingredient-input"
+            id="{keyname}-input"
+            aria-labelledby="{keyname}-label"
+            aria-describedby="{keyname}-description"
+            aria-required="true"
           >
-            <option value="Central">Central</option>
-            <option value="Peripheral">Peripheral</option>
+            <option value="Central">Central Line Access</option>
+            <option value="Peripheral">Peripheral Line Access</option>
           </select>
         {:else if keyname === 'prefKNa'}
           <select 
             bind:value={value}
             onchange={() => onchange(value)}
             class="ingredient-input"
+            id="{keyname}-input"
+            aria-labelledby="{keyname}-label"
+            aria-describedby="{keyname}-description"
           >
-            <option value="Potassium">Potassium</option>
-            <option value="Sodium">Sodium</option>
+            <option value="Potassium">Potassium Preference</option>
+            <option value="Sodium">Sodium Preference</option>
           </select>
         {:else if keyname === 'ratioCLAc'}
           <select 
             bind:value={value}
             onchange={() => onchange(value)}
             class="ingredient-input"
+            id="{keyname}-input"
+            aria-labelledby="{keyname}-label"
+            aria-describedby="{keyname}-description"
           >
-            <option value="1ac:1ch">1:1</option>
-            <option value="2ac:1ch">2:1</option>
-            <option value="1ac:2ch">1:2</option>
+            <option value="1ac:1ch">1:1 Ratio (Acetate to Chloride)</option>
+            <option value="2ac:1ch">2:1 Ratio (Acetate to Chloride)</option>
+            <option value="1ac:2ch">1:2 Ratio (Acetate to Chloride)</option>
           </select>
         {/if}
       {:else if isTextArea}
@@ -166,7 +192,11 @@
           bind:value={value}
           onchange={() => onchange(value)}
           class="ingredient-input"
-          rows="2"
+          id="{keyname}-input"
+          aria-labelledby="{keyname}-label"
+          aria-describedby="{keyname}-description"
+          rows="3"
+          placeholder="Enter {display.toLowerCase()}"
         ></textarea>
       {:else}
         <input
@@ -181,8 +211,17 @@
           data-keyname={keyname}
           data-precision={precision}
           data-uom={unit}
+          id="{keyname}-input"
+          aria-labelledby="{keyname}-label"
+          aria-describedby="{keyname}-description {unit ? keyname + '-unit' : ''}"
+          aria-required="true"
+          aria-invalid={hasWarning ? 'true' : 'false'}
+          inputmode="decimal"
+          min="0"
         />
-        <span class="uom">{unit}</span>
+        {#if unit}
+          <span class="uom" id="{keyname}-unit" aria-label="Unit: {unit}">{unit}</span>
+        {/if}
       {/if}
     </dd>
   </dl>

@@ -105,6 +105,7 @@
       role="dialog"
       aria-modal="true"
       aria-label="Version History"
+      tabindex="0"
     >
       <div class="modal-header">
         <h2>Version History</h2>

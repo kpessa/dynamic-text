@@ -96,8 +96,20 @@
 </script>
 
 {#if isOpen}
-  <div class="modal-overlay" onclick={() => isOpen = false}>
-    <div class="modal-content" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="modal-overlay" 
+    onclick={() => isOpen = false}
+    onkeydown={(e) => e.key === 'Enter' && (isOpen = false)}
+    role="button"
+    tabindex="0"
+    aria-label="Close variation detector">
+    <div 
+      class="modal-content" 
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="0">
       <div class="modal-header">
         <h2>
           {targetIngredient ? `Variations of "${targetIngredient.name}"` : 'Ingredient Variations'}

@@ -786,8 +786,9 @@
               </div>
               <div class="config-selectors">
                 <div class="config-selector">
-                  <label>Config 1:</label>
+                  <label for="config-1-select">Config 1:</label>
                   <select 
+                    id="config-1-select"
                     bind:value={selectedVersion1Index}
                     onchange={() => processReferences()}
                     class="config-select"
@@ -802,8 +803,9 @@
                 </div>
                 <span class="vs">vs</span>
                 <div class="config-selector">
-                  <label>Config 2:</label>
+                  <label for="config-2-select">Config 2:</label>
                   <select 
+                    id="config-2-select"
                     bind:value={selectedVersion2Index}
                     onchange={() => processReferences()}
                     class="config-select"
