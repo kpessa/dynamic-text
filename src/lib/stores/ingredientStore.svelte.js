@@ -1,9 +1,9 @@
 import { ingredientService } from '../firebaseDataService.js';
 
-// Core ingredient data using Svelte 5 module-level state
-let ingredients = $state([]);
-let loading = $state(false);
-let error = $state(null);
+// Core ingredient data - using plain variables since this is a store module
+let ingredients = [];
+let loading = false;
+let error = null;
 let unsubscribe = null;
 
 // Initialize the store and subscribe to Firebase
@@ -23,6 +23,13 @@ async function init() {
     error = err.message;
     loading = false;
   }
+}
+
+// Initialize with empty state (when Firebase not available)
+function initEmpty() {
+  ingredients = [];
+  loading = false;
+  error = null;
 }
 
 // Clean up subscription
@@ -70,6 +77,7 @@ export const ingredientStore = {
   get error() { return error; },
   
   init,
+  initEmpty,
   destroy,
   getById,
   updateLocal,

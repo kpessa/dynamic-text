@@ -1,12 +1,15 @@
 // SCSS Mixins - Reusable patterns
 // Medical-grade design system mixins
 
+@use 'sass:map';
+@use 'sass:math';
+@use 'sass:color';
 @use 'variables' as vars;
 
 // Responsive breakpoint mixin
 @mixin breakpoint($breakpoint) {
-  @if map-has-key(vars.$breakpoints, $breakpoint) {
-    @media (min-width: map-get(vars.$breakpoints, $breakpoint)) {
+  @if map.has-key(vars.$breakpoints, $breakpoint) {
+    @media (min-width: map.get(vars.$breakpoints, $breakpoint)) {
       @content;
     }
   } @else {
@@ -16,19 +19,19 @@
 
 // Mobile-first responsive
 @mixin mobile {
-  @media (max-width: #{map-get(vars.$breakpoints, md) - 1px}) {
+  @media (max-width: #{map.get(vars.$breakpoints, md) - 1px}) {
     @content;
   }
 }
 
 @mixin tablet {
-  @media (min-width: #{map-get(vars.$breakpoints, md)}) and (max-width: #{map-get(vars.$breakpoints, lg) - 1px}) {
+  @media (min-width: #{map.get(vars.$breakpoints, md)}) and (max-width: #{map.get(vars.$breakpoints, lg) - 1px}) {
     @content;
   }
 }
 
 @mixin desktop {
-  @media (min-width: #{map-get(vars.$breakpoints, lg)}) {
+  @media (min-width: #{map.get(vars.$breakpoints, lg)}) {
     @content;
   }
 }
@@ -122,8 +125,8 @@
 
 // Transition mixin
 @mixin transition($properties: all, $duration: normal, $easing: out) {
-  $duration-value: map-get(vars.$transitions, $duration);
-  $easing-value: map-get(vars.$easings, $easing);
+  $duration-value: map.get(vars.$transitions, $duration);
+  $easing-value: map.get(vars.$easings, $easing);
   transition: $properties $duration-value $easing-value;
 }
 
@@ -196,28 +199,28 @@
   padding-right: var(--space-4);
   
   @include breakpoint(sm) {
-    max-width: map-get(vars.$breakpoints, sm);
+    max-width: map.get(vars.$breakpoints, sm);
   }
   
   @include breakpoint(md) {
-    max-width: map-get(vars.$breakpoints, md);
+    max-width: map.get(vars.$breakpoints, md);
   }
   
   @include breakpoint(lg) {
-    max-width: map-get(vars.$breakpoints, lg);
+    max-width: map.get(vars.$breakpoints, lg);
   }
   
   @include breakpoint(xl) {
-    max-width: map-get(vars.$breakpoints, xl);
+    max-width: map.get(vars.$breakpoints, xl);
   }
 }
 
 // Medical badge mixin
 @mixin medical-badge($type) {
-  $color: map-get(vars.$population-types, $type);
+  $color: map.get(vars.$population-types, $type);
   background-color: $color;
-  color: darken($color, 50%);
-  border: 1px solid darken($color, 10%);
+  color: color.adjust($color, $lightness: -50%);
+  border: 1px solid color.adjust($color, $lightness: -10%);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);

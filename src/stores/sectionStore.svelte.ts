@@ -1,13 +1,13 @@
 import type { Section, TestCase } from '../types/section.js';
 
-// Section store using Svelte 5 runes
+// Section store using plain variables (Svelte 4 compatible)
 class SectionStore {
-  private _sections = $state<Section[]>([]);
-  private _nextSectionId = $state<number>(1);
-  private _activeTestCase = $state<Record<number, TestCase>>({});
-  private _expandedTestCases = $state<Record<number, boolean>>({});
-  private _editingSection = $state<number | null>(null);
-  private _draggedSection = $state<Section | null>(null);
+  private _sections: Section[] = [];
+  private _nextSectionId: number = 1;
+  private _activeTestCase: Record<number, TestCase> = {};
+  private _expandedTestCases: Record<number, boolean> = {};
+  private _editingSection: number | null = null;
+  private _draggedSection: Section | null = null;
 
   // Getters
   get sections() {

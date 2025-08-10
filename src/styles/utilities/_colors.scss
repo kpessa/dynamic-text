@@ -1,6 +1,8 @@
 // Color Utilities
 // Generated using SCSS loops for all color variants
 
+@use 'sass:math';
+@use 'sass:color';
 @use '../abstracts/variables' as vars;
 
 // Text colors
@@ -51,7 +53,7 @@
 $opacities: (0, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 100);
 
 @each $opacity in $opacities {
-  .opacity-#{$opacity} { opacity: $opacity / 100; }
+  .opacity-#{$opacity} { opacity: math.div($opacity, 100); }
 }
 
 // Gradient utilities
@@ -76,5 +78,5 @@ $opacities: (0, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 100);
 // Population type colors
 @each $type, $color in vars.$population-types {
   .bg-#{$type} { background-color: $color; }
-  .border-#{$type} { border-color: darken($color, 10%); }
+  .border-#{$type} { border-color: color.adjust($color, $lightness: -10%); }
 }

@@ -7,13 +7,13 @@ interface EvaluationContext {
   kpt: any;
 }
 
-// TPN store using Svelte 5 runes
+// TPN store using plain variables (Svelte 4 compatible)
 class TPNStore {
-  private _tpnMode = $state<boolean>(false);
-  private _currentTPNInstance = $state<TPNInstance | null>(null);
-  private _showKeyReference = $state<boolean>(false);
-  private _tpnPanelExpanded = $state<boolean>(true);
-  private _currentIngredientValues = $state<Record<string, any>>({});
+  private _tpnMode: boolean = false;
+  private _currentTPNInstance: TPNInstance | null = null;
+  private _showKeyReference: boolean = false;
+  private _tpnPanelExpanded: boolean = true;
+  private _currentIngredientValues: Record<string, any> = {};
   private _calculationTPNInstance: TPNLegacySupport;
 
   constructor() {

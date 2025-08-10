@@ -1,5 +1,5 @@
 <script>
-  import Icon from './Icons.svelte';
+  import Icons from './Icons.svelte';
   
   let {
     hasUnsavedChanges = false,
@@ -9,6 +9,34 @@
     onSave = () => {},
     onExport = () => {}
   } = $props();
+  
+  // Wrapper functions with error logging
+  function handleNewDocument() {
+    try {
+      console.log('NavbarActions: New Document clicked');
+      onNewDocument();
+    } catch (error) {
+      console.error('NavbarActions: Error in onNewDocument:', error);
+    }
+  }
+  
+  function handleSave() {
+    try {
+      console.log('NavbarActions: Save clicked');
+      onSave();
+    } catch (error) {
+      console.error('NavbarActions: Error in onSave:', error);
+    }
+  }
+  
+  function handleExport() {
+    try {
+      console.log('NavbarActions: Export clicked');
+      onExport();
+    } catch (error) {
+      console.error('NavbarActions: Error in onExport:', error);
+    }
+  }
   
   function formatTime(date) {
     if (!date) return '';
@@ -35,32 +63,32 @@
 <div class="navbar-actions">
   <button 
     class="action-btn new-btn"
-    onclick={onNewDocument}
+    onclick={handleNewDocument}
     title="Create new document"
     aria-label="Create new document"
   >
-    <span class="btn-icon"><Icon icon="new-document" size={18} /></span>
+    <span class="btn-icon"><Icons icon="new-document" size={18} /></span>
     <span class="btn-text">New</span>
   </button>
   
   <button 
     class={getSaveButtonClass()}
-    onclick={onSave}
+    onclick={handleSave}
     disabled={!hasUnsavedChanges}
     title={hasUnsavedChanges ? 'Save changes' : 'No changes to save'}
     aria-label="Save document"
   >
-    <span class="btn-icon"><Icon icon={hasUnsavedChanges ? 'save' : 'check'} size={18} /></span>
+    <span class="btn-icon"><Icons icon={hasUnsavedChanges ? 'save' : 'check'} size={18} /></span>
     <span class="btn-text">{getSaveButtonText()}</span>
   </button>
   
   <button 
     class="action-btn export-btn {copied ? 'copied' : ''}"
-    onclick={onExport}
+    onclick={handleExport}
     title="Export to clipboard"
     aria-label="Export document to clipboard"
   >
-    <span class="btn-icon"><Icon icon={copied ? 'check' : 'export'} size={18} /></span>
+    <span class="btn-icon"><Icons icon={copied ? 'check' : 'export'} size={18} /></span>
     <span class="btn-text">{copied ? 'Copied!' : 'Export'}</span>
   </button>
 </div>

@@ -3,6 +3,7 @@
   
   let { 
     onKeySelect = (key) => {},
+    onClose = () => {},
     isExpanded = $bindable(false)
   } = $props();
   
@@ -77,26 +78,39 @@
     const example = `me.getValue('${key}')`;
     navigator.clipboard.writeText(example);
   }
+  
+  // Handle escape key to close panel
+  $effect(() => {
+    if (!isExpanded) return;
+    
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+        isExpanded = false;
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  });
 </script>
 
-<div class="key-reference-panel {isExpanded ? 'expanded' : ''}">
-  <div class="panel-header">
-    <button 
-      class="expand-toggle"
-      onclick={() => isExpanded = !isExpanded}
-      aria-expanded={isExpanded}
-    >
-      <span class="toggle-icon">{isExpanded ? '×' : '📚'}</span>
-      {#if !isExpanded}
-        <span class="collapsed-title">Key Reference</span>
-      {/if}
-    </button>
-    {#if isExpanded}
-      <h3>TPN Key Reference</h3>
-    {/if}
-  </div>
-  
-  {#if isExpanded}
+{#if isExpanded}
+  <div class="key-reference-panel">
+    <div class="panel-header">
+      <h3>
+        <span class="header-icon">📚</span>
+        TPN Key Reference
+      </h3>
+      <button 
+        class="close-btn"
+        onclick={() => { onClose(); isExpanded = false; }}
+        aria-label="Close key reference"
+      >
+        ×
+      </button>
+    </div>
+    
     <div class="panel-content">
       <div class="search-controls">
         <input
@@ -157,103 +171,182 @@
         </p>
       </div>
     </div>
-  {/if}
-</div>
+  </div>
+{/if}
 
-<style>
-  .key-reference-panel {
-    position: fixed;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background-color: #1e1e1e;
-    border: 2px solid #444;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
-    z-index: 100;
-    max-height: 80vh;
-    width: 60px;
-  }
+<style lang="scss">
+  @use '../styles/abstracts/variables' as *;
+  @use '../styles/abstracts/mixins' as *;
   
-  .key-reference-panel.expanded {
-    width: 320px;
+  .key-reference-panel {
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-2xl);
+    overflow: hidden;
+    transition: all var(--transition-base);
+    position: fixed;
+    width: 380px;
+    max-height: 600px;
+    right: var(--spacing-lg);
+    bottom: var(--spacing-lg);
+    z-index: 8500; /* Below KPT Reference (9000) but above most UI */
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    animation: key-panel-enter var(--transition-base);
+    
+    @include mobile {
+      width: calc(100% - 40px);
+      left: 20px;
+      right: 20px;
+      max-height: 400px;
+    }
+    
+    // Gradient border effect
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      padding: 2px;
+      background: linear-gradient(135deg, var(--color-success), transparent);
+      border-radius: inherit;
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: subtract;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: source-out;
+      z-index: -1;
+    }
   }
   
   .panel-header {
+    background: linear-gradient(135deg, 
+      var(--color-surface) 0%, 
+      var(--color-success-light) 100%);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--spacing-md) var(--spacing-lg);
     display: flex;
     align-items: center;
-    padding: 0.75rem;
-    border-bottom: 1px solid #444;
-    background-color: #2a2a2a;
+    justify-content: space-between;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: var(--spacing-md);
+      right: var(--spacing-md);
+      height: 2px;
+      background: linear-gradient(90deg, 
+        var(--color-success) 0%, 
+        var(--color-success-light) 100%);
+      border-radius: var(--radius-full);
+    }
+    
+    h3 {
+      margin: 0;
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      
+      .header-icon {
+        font-size: var(--font-size-base);
+        filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.3));
+      }
+    }
   }
   
-  .expand-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: none;
-    border: none;
-    color: inherit;
+  .close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--color-border);
+    font-size: var(--font-size-lg);
+    color: var(--color-text-muted);
     cursor: pointer;
-    padding: 0;
-    font-size: 1.2rem;
-  }
-  
-  .toggle-icon {
-    width: 24px;
-    height: 24px;
+    padding: var(--spacing-sm);
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-  
-  .collapsed-title {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    font-size: 0.8rem;
-    color: #999;
-    margin-left: 0.25rem;
-  }
-  
-  .panel-header h3 {
-    margin: 0;
-    font-size: 1rem;
-    color: #17a2b8;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      color: var(--color-text);
+      transform: scale(1.05);
+    }
+    
+    &:focus-visible {
+      outline: 2px solid var(--color-focus);
+      outline-offset: 2px;
+    }
   }
   
   .panel-content {
-    display: flex;
-    flex-direction: column;
-    height: calc(80vh - 60px);
+    padding: var(--spacing-lg);
+    max-height: 500px;
+    overflow-y: auto;
+    
+    // Custom scrollbar
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: var(--color-surface);
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-border-strong);
+      border-radius: var(--radius-sm);
+      
+      &:hover {
+        background: var(--color-text-muted);
+      }
+    }
   }
   
   .search-controls {
-    padding: 0.75rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    border-bottom: 1px solid #333;
-  }
-  
-  .search-input {
-    width: 100%;
-    padding: 0.5rem;
-    background-color: #1a1a1a;
-    border: 1px solid #444;
-    border-radius: 4px;
-    color: #d4d4d4;
-    font-size: 0.9rem;
-  }
-  
-  .category-filter {
-    width: 100%;
-    padding: 0.5rem;
-    background-color: #1a1a1a;
-    border: 1px solid #444;
-    border-radius: 4px;
-    color: #d4d4d4;
-    font-size: 0.9rem;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    
+    .search-input {
+      width: 100%;
+      padding: var(--spacing-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      background: var(--color-background);
+      transition: all var(--transition-fast);
+      
+      &:focus {
+        outline: none;
+        border-color: var(--color-success);
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+      }
+    }
+    
+    .category-filter {
+      padding: var(--spacing-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-background);
+      font-size: var(--font-size-sm);
+      cursor: pointer;
+      
+      &:focus {
+        outline: none;
+        border-color: var(--color-success);
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+      }
+    }
   }
   
   .key-list {
@@ -387,6 +480,18 @@
     .panel-footer {
       background-color: #fff;
       border-top-color: #ddd;
+    }
+  }
+  
+  // Animation
+  @keyframes key-panel-enter {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
 </style>

@@ -9,17 +9,22 @@
 // 2. Base styles
 @use 'styles/base/reset';
 
-// 3. Utilities
+// 3. Layout
+@use 'styles/layout/containers';
+@use 'styles/layout/grid';
+
+// 4. Utilities
 @use 'styles/utilities/spacing';
 @use 'styles/utilities/colors';
 @use 'styles/utilities/typography';
 
-// 4. Components
+// 5. Components
 @use 'styles/components/buttons';
 @use 'styles/components/forms';
 @use 'styles/components/cards';
 @use 'styles/components/modals';
 @use 'styles/components/alerts';
+@use 'styles/components/codemirror';
+@use 'styles/components/medical';
+@use 'styles/components/sidebar';
 
-// Import the existing CSS temporarily while we migrate
-@import 'app.css';

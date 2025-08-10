@@ -46,6 +46,9 @@
     
     if (!isFirebaseConfigured()) {
       console.warn('Firebase is not configured. Ingredient management will not be available.');
+      // Still initialize stores with empty state for reactivity to work
+      ingredientStore.initEmpty();
+      ingredientUIStore.reset();
       return;
     }
     

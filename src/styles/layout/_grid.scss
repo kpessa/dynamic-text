@@ -1,0 +1,259 @@
+// Grid System
+// Responsive CSS Grid utilities with medical-grade precision
+
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+
+// Base Grid Container
+.grid {
+  display: grid;
+  gap: var(--space-4);
+  
+  // Column configurations
+  &--cols-1 {
+    grid-template-columns: 1fr;
+  }
+  
+  &--cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  &--cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  &--cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  &--cols-auto {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+  
+  &--cols-auto-sm {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  
+  &--cols-auto-lg {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  }
+  
+  // Sidebar layouts
+  &--sidebar-left {
+    grid-template-columns: 280px 1fr;
+    
+    @include breakpoint(md) {
+      grid-template-columns: 320px 1fr;
+    }
+  }
+  
+  &--sidebar-right {
+    grid-template-columns: 1fr 280px;
+    
+    @include breakpoint(md) {
+      grid-template-columns: 1fr 320px;
+    }
+  }
+  
+  &--sidebar-both {
+    grid-template-columns: 250px 1fr 250px;
+    
+    @include breakpoint(lg) {
+      grid-template-columns: 280px 1fr 280px;
+    }
+  }
+  
+  // Gap variants
+  &--gap-none {
+    gap: 0;
+  }
+  
+  &--gap-sm {
+    gap: var(--space-2);
+  }
+  
+  &--gap-lg {
+    gap: var(--space-6);
+  }
+  
+  &--gap-xl {
+    gap: var(--space-8);
+  }
+  
+  // Alignment
+  &--align-start {
+    align-items: start;
+  }
+  
+  &--align-center {
+    align-items: center;
+  }
+  
+  &--align-end {
+    align-items: end;
+  }
+  
+  &--align-stretch {
+    align-items: stretch;
+  }
+}
+
+// Responsive Grid
+.responsive-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+  
+  @include breakpoint(md) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  @include breakpoint(lg) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  @include breakpoint(xl) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+// Dashboard Grid
+.dashboard-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+  
+  @include breakpoint(md) {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: auto;
+    
+    // Featured item spans full width
+    > .featured {
+      grid-column: 1 / -1;
+    }
+  }
+  
+  @include breakpoint(lg) {
+    grid-template-columns: repeat(3, 1fr);
+    
+    // Main content area
+    > .main-content {
+      grid-column: 1 / 3;
+      grid-row: 1 / 3;
+    }
+    
+    // Sidebar content
+    > .sidebar-content {
+      grid-column: 3;
+      grid-row: 1 / 4;
+    }
+  }
+}
+
+// Medical Layout Grid (for TPN panels)
+.medical-grid {
+  display: grid;
+  gap: var(--space-3);
+  
+  // Test panel layout
+  &--test-panel {
+    grid-template-columns: 1fr;
+    
+    @include breakpoint(md) {
+      grid-template-columns: 200px 1fr;
+      align-items: start;
+    }
+  }
+  
+  // Ingredient grid
+  &--ingredients {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+  }
+  
+  // Reference grid
+  &--references {
+    grid-template-columns: 1fr;
+    
+    @include breakpoint(lg) {
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+    }
+  }
+}
+
+// Grid Item Utilities
+.grid-item {
+  &--span-2 {
+    grid-column: span 2;
+  }
+  
+  &--span-3 {
+    grid-column: span 3;
+  }
+  
+  &--span-full {
+    grid-column: 1 / -1;
+  }
+  
+  &--row-span-2 {
+    grid-row: span 2;
+  }
+  
+  &--row-span-3 {
+    grid-row: span 3;
+  }
+  
+  &--sticky {
+    position: sticky;
+    top: var(--space-4);
+    align-self: start;
+  }
+}
+
+// Bento Grid Layout
+.bento-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: minmax(120px, auto);
+  
+  > * {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+  }
+  
+  // Large feature
+  .bento-large {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+  
+  // Wide feature
+  .bento-wide {
+    grid-column: span 3;
+  }
+  
+  // Tall feature
+  .bento-tall {
+    grid-row: span 2;
+  }
+  
+  // Full width
+  .bento-full {
+    grid-column: 1 / -1;
+  }
+  
+  @include mobile {
+    grid-template-columns: 1fr;
+    
+    .bento-large,
+    .bento-wide,
+    .bento-tall {
+      grid-column: 1;
+      grid-row: span 1;
+    }
+  }
+}

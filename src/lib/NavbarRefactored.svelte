@@ -236,14 +236,16 @@
   </div>
 </nav>
 
-<style>
+<style lang="scss">
+  @use '../styles/abstracts/variables' as *;
+  
   .navbar {
     background: var(--color-background);
     border-bottom: 1px solid var(--color-border);
     box-shadow: var(--shadow-sm);
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: map-get($z-indices, fixed); /* Above sidebar, below modals */
   }
   
   .navbar-container {
@@ -400,7 +402,7 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-lg);
     min-width: 200px;
-    z-index: 1000;
+    z-index: map-get($z-indices, popover); /* Above navbar */
   }
   
   .menu-item {

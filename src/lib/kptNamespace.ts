@@ -80,11 +80,36 @@ export function initializeKPTCustomFunctions(): void {
 /**
  * Get all available KPT functions (built-in + custom)
  */
-export function getAllKPTFunctions(): { builtin: any; custom: KPTFunction[] } {
+export function getAllKPTFunctions(): { builtin: KPTFunction[]; custom: KPTFunction[] } {
+  const builtinObj = getBuiltInFunctions();
+  
+  // Transform built-in functions to match custom function format
+  const builtin = Object.entries(builtinObj).map(([name, meta]) => ({
+    name,
+    description: meta.description,
+    parameters: meta.params,
+    body: `// Built-in function: ${name}`,
+    category: getCategoryForFunction(name),
+    createdAt: new Date(),
+    modifiedAt: new Date()
+  }));
+  
   return {
-    builtin: getBuiltInFunctions(),
+    builtin,
     custom: KPTPersistence.loadFunctions()
   };
+}
+
+/**
+ * Get category for built-in functions
+ */
+function getCategoryForFunction(name: string): string {
+  if (name.includes('Text') || name.includes('highlight')) return 'formatting';
+  if (name.startsWith('format')) return 'formatting';
+  if (name.includes('round') || name.includes('Number')) return 'calculations';
+  if (name.includes('show') || name.includes('when') || name.includes('check')) return 'validation';
+  if (name.includes('create')) return 'utilities';
+  return 'utilities';
 }
 
 /**

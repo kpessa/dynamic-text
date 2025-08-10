@@ -358,35 +358,81 @@
   {/if}
 </div>
 
-<style>
+<style lang="scss">
+  @use '../styles/abstracts/variables' as *;
+  @use '../styles/abstracts/mixins' as *;
+  
   .tpn-test-panel {
-    background-color: #f5f5f5;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    margin-bottom: 1rem;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-sm);
+    
+    &:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--color-primary-light);
+    }
+    
+    &.expanded {
+      .panel-header {
+        background: linear-gradient(135deg, 
+          var(--color-primary-bg) 0%, 
+          var(--color-surface) 100%);
+        border-bottom-color: var(--color-primary-light);
+      }
+    }
+    
+    @include mobile {
+      margin-bottom: var(--spacing-md);
+      border-radius: var(--radius-md);
+    }
   }
   
   .panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
-    border-bottom: 1px solid #ddd;
-    background-color: #fff;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background);
+    transition: all var(--transition-fast);
+    
+    @include mobile {
+      padding: var(--spacing-md);
+    }
   }
   
   .expand-toggle {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
     background: none;
     border: none;
-    color: inherit;
+    color: var(--color-text);
     cursor: pointer;
-    padding: 0;
-    font-size: inherit;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      background: var(--color-surface-hover);
+      transform: scale(1.02);
+    }
+    
+    &:focus-visible {
+      outline: 2px solid var(--color-focus);
+      outline-offset: 2px;
+    }
+    
+    .toggle-icon {
+      transition: transform var(--transition-fast);
+      color: var(--color-primary);
+    }
   }
   
   .expand-toggle:hover {

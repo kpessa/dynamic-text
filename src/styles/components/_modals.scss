@@ -10,7 +10,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: map-get(vars.$z-indices, modal-backdrop);
+  z-index: map.get(vars.$z-indices, modal-backdrop);
   width: 100vw;
   height: 100vh;
   background-color: var(--color-overlay);
@@ -32,7 +32,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: map-get(vars.$z-indices, modal);
+  z-index: map.get(vars.$z-indices, modal);
   display: none;
   width: 100%;
   height: 100%;

@@ -3,10 +3,6 @@
     tpnMode = $bindable(false),
     label = "TPN Mode"
   } = $props();
-  
-  function toggleMode() {
-    tpnMode = !tpnMode;
-  }
 </script>
 
 <div class="mode-toggle-container">
@@ -16,7 +12,6 @@
       type="checkbox" 
       id="tpn-mode-toggle"
       bind:checked={tpnMode}
-      onchange={toggleMode}
       aria-label="Toggle {label}"
       aria-checked={tpnMode}
     />

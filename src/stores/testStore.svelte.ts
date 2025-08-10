@@ -13,11 +13,11 @@ interface EvaluationResult {
 
 // Test store for managing test execution and results
 class TestStore {
-  private _testSummary = $state<TestSummary | null>(null);
-  private _currentGeneratedTests = $state<any>(null);
-  private _targetSectionId = $state<number | null>(null);
-  private _inspectorCurrentSection = $state<number | null>(null);
-  private _isRunningTests = $state<boolean>(false);
+  private _testSummary : TestSummary | null = null;
+  private _currentGeneratedTests : any = null;
+  private _targetSectionId : number | null = null;
+  private _inspectorCurrentSection : number | null = null;
+  private _isRunningTests : boolean = false;
 
   // Getters
   get testSummary() { return this._testSummary; }

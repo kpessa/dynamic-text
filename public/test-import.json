@@ -1,0 +1,36 @@
+{
+  "name": "Sample TPN Configuration",
+  "description": "Test configuration with common TPN ingredients",
+  "INGREDIENTS": {
+    "ACETATE": {
+      "KEYNAME": "ACETATE",
+      "DISPLAY": "Acetate",
+      "TYPE": "Salt",
+      "NOTES": "<h3>Acetate Information</h3><p>Acetate is used to help maintain acid-base balance in TPN solutions.</p>[f(var total = me.getValue(\"acetateTotal\"); return total > 0 ? \"Acetate present: \" + total + \" mmol\" : \"No acetate detected\";)]"
+    },
+    "CALCIUM": {
+      "KEYNAME": "CALCIUM", 
+      "DISPLAY": "Calcium",
+      "TYPE": "Micronutrient",
+      "NOTES": "<p><strong>Calcium dosing information:</strong></p><p>Essential mineral for bone health and cellular function.</p>[f(var calcium = me.getValue(\"calciumAmount\"); return \"Calcium dose: \" + me.maxP(calcium, 1) + \" mg\";)]"
+    },
+    "DEXTROSE": {
+      "KEYNAME": "DEXTROSE",
+      "DISPLAY": "Dextrose", 
+      "TYPE": "Macronutrient",
+      "NOTES": "<h4>Carbohydrate Source</h4><p>Primary energy source in TPN providing glucose for cellular metabolism.</p>[f(var glucose = me.getValue(\"dextroseRate\"); return glucose > 0 ? \"Glucose rate: \" + glucose + \" mg/kg/min\" : \"No dextrose\";)]"
+    },
+    "AMINOACIDS": {
+      "KEYNAME": "AMINOACIDS",
+      "DISPLAY": "Amino Acids",
+      "TYPE": "Macronutrient", 
+      "NOTES": "<h4>Protein Source</h4><p>Essential and non-essential amino acids for protein synthesis.</p>[f(var protein = me.getValue(\"proteinAmount\"); return \"Protein: \" + me.maxP(protein, 0.5) + \" g/kg/day\";)]"
+    },
+    "LIPIDS": {
+      "KEYNAME": "LIPIDS",
+      "DISPLAY": "Lipid Emulsion",
+      "TYPE": "Macronutrient",
+      "NOTES": "<h4>Fat Source</h4><p>Essential fatty acids and concentrated energy source.</p>[f(var fat = me.getValue(\"lipidAmount\"); return \"Fat: \" + me.maxP(fat, 1) + \" g/kg/day\";)]"
+    }
+  }
+}

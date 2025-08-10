@@ -1,11 +1,11 @@
 import { getKeyCategory } from '../tpnLegacy.js';
 
-// Filter state using Svelte 5 module-level state
-let searchQuery = $state('');
-let selectedCategory = $state('ALL');
-let selectedHealthSystem = $state('ALL');
-let showOnlyWithDiffs = $state(false);
-let debouncedSearchQuery = $state('');
+// Create module-level state variables - using plain variables since this is a store module
+let searchQuery = '';
+let selectedCategory = 'ALL';
+let selectedHealthSystem = 'ALL';
+let showOnlyWithDiffs = false;
+let debouncedSearchQuery = '';
 let searchTimeout = null;
 
 // Method to update search with debouncing
@@ -29,39 +29,21 @@ function applyFilters(ingredients, ingredientReferences = {}) {
     
     // Category filter
     if (selectedCategory !== 'ALL') {
-      const category = getKeyCategory(ingredient.name);
+      const category = getKeyCategory(ingredient.key);
       if (category !== selectedCategory) {
         return false;
       }
     }
     
     // Health system filter
-    if (selectedHealthSystem !== 'ALL') {
-      const refs = ingredientReferences[ingredient.id];
-      if (!refs) return false;
-      
-      let hasHealthSystem = false;
-      for (const popType in refs) {
-        if (refs[popType].some(ref => ref.healthSystem === selectedHealthSystem)) {
-          hasHealthSystem = true;
-          break;
-        }
-      }
-      if (!hasHealthSystem) return false;
+    if (selectedHealthSystem !== 'ALL' && ingredient.healthSystem !== selectedHealthSystem) {
+      return false;
     }
     
-    // Differences filter
+    // Show only with diffs filter
     if (showOnlyWithDiffs) {
-      const refs = ingredientReferences[ingredient.id];
-      if (!refs) return false;
-      
-      // Check if there are differences across populations
-      const allRefs = Object.values(refs).flat();
-      if (allRefs.length <= 1) return false;
-      
-      // Simple check: if any reference is marked as modified
-      const hasDiffs = allRefs.some(ref => ref.status === 'MODIFIED');
-      if (!hasDiffs) return false;
+      const refs = ingredientReferences[ingredient.id] || [];
+      if (refs.length === 0) return false;
     }
     
     return true;
@@ -77,35 +59,45 @@ function reset() {
   debouncedSearchQuery = '';
 }
 
-// Check if any filters are active
-function hasActiveFilters() {
-  return searchQuery !== '' ||
-         selectedCategory !== 'ALL' ||
-         selectedHealthSystem !== 'ALL' ||
-         showOnlyWithDiffs;
+// Get current filter state
+function getState() {
+  return {
+    searchQuery,
+    selectedCategory,
+    selectedHealthSystem,
+    showOnlyWithDiffs,
+    debouncedSearchQuery
+  };
+}
+
+// Set filter state
+function setState(state) {
+  if (state.searchQuery !== undefined) searchQuery = state.searchQuery;
+  if (state.selectedCategory !== undefined) selectedCategory = state.selectedCategory;
+  if (state.selectedHealthSystem !== undefined) selectedHealthSystem = state.selectedHealthSystem;
+  if (state.showOnlyWithDiffs !== undefined) showOnlyWithDiffs = state.showOnlyWithDiffs;
+  if (state.debouncedSearchQuery !== undefined) debouncedSearchQuery = state.debouncedSearchQuery;
 }
 
 // Export store interface
 export const ingredientFiltersStore = {
   get searchQuery() { return searchQuery; },
-  set searchQuery(val) { 
-    searchQuery = val;
-    updateSearch(val);
-  },
+  set searchQuery(value) { searchQuery = value; },
   
   get selectedCategory() { return selectedCategory; },
-  set selectedCategory(val) { selectedCategory = val; },
+  set selectedCategory(value) { selectedCategory = value; },
   
   get selectedHealthSystem() { return selectedHealthSystem; },
-  set selectedHealthSystem(val) { selectedHealthSystem = val; },
+  set selectedHealthSystem(value) { selectedHealthSystem = value; },
   
   get showOnlyWithDiffs() { return showOnlyWithDiffs; },
-  set showOnlyWithDiffs(val) { showOnlyWithDiffs = val; },
+  set showOnlyWithDiffs(value) { showOnlyWithDiffs = value; },
   
   get debouncedSearchQuery() { return debouncedSearchQuery; },
   
   updateSearch,
   applyFilters,
   reset,
-  hasActiveFilters
+  getState,
+  setState
 };

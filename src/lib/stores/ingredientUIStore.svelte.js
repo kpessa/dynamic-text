@@ -1,25 +1,25 @@
 import { referenceService } from '../firebaseDataService.js';
 
-// UI state using Svelte 5 module-level state
-let expandedIngredients = $state(new Map());
-let selectionMode = $state(false);
-let selectedIngredients = $state(new Set());
-let currentIngredient = $state(null);
-let referenceLoadingStates = $state(new Map());
-let referenceCache = $state.raw(new Map());
-let ingredientReferences = $state({});
-let sharedStatuses = $state({});
+// UI state - using plain variables since this is a store module
+let expandedIngredients = new Map();
+let selectionMode = false;
+let selectedIngredients = new Set();
+let currentIngredient = null;
+let referenceLoadingStates = new Map();
+let referenceCache = new Map();
+let ingredientReferences = {};
+let sharedStatuses = {};
 
 // Modal states
-let showVersionHistory = $state(false);
-let versionHistoryIngredientId = $state(null);
-let showSharedManager = $state(false);
-let sharedManagerIngredient = $state(null);
-let showVariationDetector = $state(false);
-let variationTargetIngredient = $state(null);
-let showBaselineComparison = $state(false);
-let baselineComparisonData = $state(null);
-let showBulkOperations = $state(false);
+let showVersionHistory = false;
+let versionHistoryIngredientId = null;
+let showSharedManager = false;
+let sharedManagerIngredient = null;
+let showVariationDetector = false;
+let variationTargetIngredient = null;
+let showBaselineComparison = false;
+let baselineComparisonData = null;
+let showBulkOperations = false;
 
 // Toggle ingredient expansion
 function toggleExpanded(ingredientId) {

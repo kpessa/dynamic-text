@@ -268,14 +268,17 @@
   </div>
 </div>
 
-<style>
+<style lang="scss">
+  @use '../styles/abstracts/variables' as *;
+  @use '../styles/abstracts/mixins' as *;
+
   .medical-code-editor {
     width: 100%;
     height: 100%;
     min-height: 300px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace);
+    font-family: var(--font-mono);
     background-color: var(--color-surface);
     box-shadow: var(--shadow-sm);
     transition: 
@@ -283,54 +286,101 @@
       box-shadow var(--transition-fast);
     position: relative;
     overflow: hidden;
+    
+    &:hover {
+      border-color: var(--color-border-hover);
+      box-shadow: var(--shadow-md);
+    }
+    
+    &:focus-within {
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-lg);
+      outline: 2px solid var(--color-primary);
+      outline-offset: -1px;
+    }
+    
+    // Mobile optimization
+    @include mobile {
+      min-height: 200px;
+      
+      :global(.cm-content) {
+        padding: var(--space-3) !important;
+        min-height: 180px !important;
+      }
+      
+      :global(.cm-editor) {
+        font-size: 16px !important; // Prevent iOS zoom
+      }
+    }
   }
   
-  .medical-code-editor:hover {
-    border-color: var(--color-border-medium);
-    box-shadow: var(--shadow-base);
+  // Global CodeMirror overrides using our design system
+  :global(.medical-code-editor) {
+    .cm-editor {
+      height: 100% !important;
+      font-size: var(--font-size-sm) !important;
+      line-height: 1.6 !important;
+      
+      &.cm-focused {
+        outline: none !important;
+      }
+    }
+    
+    .cm-content {
+      padding: var(--space-4) !important;
+      min-height: 250px !important;
+      font-family: var(--font-mono) !important;
+    }
+    
+    .cm-gutters {
+      font-family: var(--font-mono) !important;
+      background: var(--color-surface-alt);
+      border-right: 1px solid var(--color-border);
+    }
+    
+    .cm-lineNumbers {
+      font-family: var(--font-mono) !important;
+      user-select: none;
+      
+      .cm-gutterElement {
+        padding: 0 var(--space-2);
+      }
+    }
+    
+    // Scrollbar styling
+    .cm-scroller {
+      font-family: var(--font-mono);
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border) transparent;
+      
+      &::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      &::-webkit-scrollbar-thumb {
+        background: var(--color-border);
+        border-radius: var(--radius-sm);
+        
+        &:hover {
+          background: var(--color-border-hover);
+        }
+      }
+    }
+    
+    // Error indication for medical safety
+    .cm-diagnostic-error {
+      border-left: 3px solid var(--color-danger);
+      background-color: var(--color-danger-alpha-10);
+      padding-left: var(--space-2);
+    }
   }
   
-  .medical-code-editor:focus-within {
-    border-color: var(--color-primary);
-    box-shadow: 
-      var(--shadow-md),
-      0 0 0 3px var(--color-focus-ring);
-  }
-  
-  /* Global CodeMirror overrides for medical theme */
-  :global(.medical-code-editor .cm-editor) {
-    height: 100% !important;
-    font-size: var(--font-size-sm) !important;
-    line-height: var(--line-height-relaxed) !important;
-  }
-  
-  :global(.medical-code-editor .cm-content) {
-    padding: var(--space-4) !important;
-    min-height: 250px !important;
-    font-family: inherit !important;
-  }
-  
-  :global(.medical-code-editor .cm-focused) {
-    outline: none !important;
-  }
-  
-  :global(.medical-code-editor .cm-gutters) {
-    font-family: inherit !important;
-  }
-  
-  :global(.medical-code-editor .cm-lineNumbers) {
-    font-family: inherit !important;
-    user-select: none;
-  }
-  
-  /* Error indication for medical safety */
-  :global(.medical-code-editor .cm-diagnostic-error) {
-    border-left: 3px solid var(--color-danger-500);
-    background-color: var(--color-danger-50);
-    padding-left: var(--space-2);
-  }
-  
-  /* Accessibility improvements */
+  // Accessibility improvements
   @media (prefers-reduced-motion: reduce) {
     .medical-code-editor {
       transition: none;
@@ -340,23 +390,7 @@
   @media (prefers-contrast: high) {
     .medical-code-editor {
       border-width: 2px;
-      border-color: var(--color-text-primary);
-    }
-  }
-  
-  /* Mobile optimization */
-  @media (max-width: 767px) {
-    .medical-code-editor {
-      min-height: 200px;
-    }
-    
-    :global(.medical-code-editor .cm-content) {
-      padding: var(--space-3) !important;
-      min-height: 180px !important;
-    }
-    
-    :global(.medical-code-editor .cm-editor) {
-      font-size: 16px !important; /* Prevent iOS zoom */
+      border-color: var(--color-text);
     }
   }
 </style>

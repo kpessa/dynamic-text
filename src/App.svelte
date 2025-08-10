@@ -2,7 +2,7 @@
   import * as Babel from '@babel/standalone';
   import DOMPurify from 'dompurify';
   import CodeEditor from './lib/CodeEditor.svelte';
-  import Sidebar from './lib/Sidebar.svelte';
+  import SidebarRefactored from './lib/SidebarRefactored.svelte';
   import TPNTestPanel from './lib/TPNTestPanel.svelte';
   import TPNKeyReference from './lib/TPNKeyReference.svelte';
   import IngredientInputPanel from './lib/IngredientInputPanel.svelte';
@@ -14,24 +14,21 @@
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
   import DataMigrationTool from './lib/DataMigrationTool.svelte';
   import CommitMessageDialog from './lib/CommitMessageDialog.svelte';
-  import ExportModal from './lib/ExportModal.svelte';
+  import ExportModal from './lib/ExportModalRefactored.svelte';
   import ValidationStatus from './lib/ValidationStatus.svelte';
   import SelectiveApply from './lib/SelectiveApply.svelte';
-  import PreferencesModal from './lib/PreferencesModal.svelte';
-  import KPTReference from './lib/KPTReference.svelte';
+  import PreferencesModal from './lib/PreferencesModalRefactored.svelte';
+  import KPTReference from './lib/KPTReferenceRefactored.svelte';
   import KPTManager from './lib/KPTManager.svelte';
   import { initializeKPTCustomFunctions, createKPTNamespace } from './lib/kptNamespace.ts';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
-  let showSidebar = $state(false);
   let sections = $state([]);
   
   let nextSectionId = $state(1);
   let copied = $state(false);
-  let showOutput = $state(false);
-  let outputMode = $state('json'); // 'json' or 'configurator'
   let previewMode = $state('preview'); // 'preview' or 'output'
   let draggedSection = $state(null);
   let activeTestCase = $state({}); // Track active test case per section
@@ -46,9 +43,7 @@
   let lastSavedTime = $state(null);
   let loadedReferenceId = $state(null);
   let originalSections = $state(null); // To compare for changes
-  let tpnMode = $state(false); // Toggle TPN mode
   let currentTPNInstance = $state(null); // Current TPN instance from test panel
-  let showKeyReference = $state(false); // Show key reference panel
   let tpnPanelExpanded = $state(true); // Track TPN panel expansion state
   let previewCollapsed = $state(false); // Track preview panel collapse state
   let currentIngredientValues = $state({}); // Track ingredient values for quick input
@@ -88,7 +83,6 @@
   let showExportModal = $state(false);
   let showSelectiveApply = $state(false);
   let pendingReferenceData = $state(null);
-  let showKPTReference = $state(false);
   let showKPTManager = $state(false);
   
   // Active config state
@@ -110,24 +104,7 @@
     showKPTReference: false
   });
   
-  // Sync individual states with navbar ui state
-  $effect(() => {
-    showSidebar = navbarUiState.showSidebar;
-    tpnMode = navbarUiState.tpnMode;
-    showOutput = navbarUiState.showOutput;
-    outputMode = navbarUiState.outputMode;
-    showKeyReference = navbarUiState.showKeyReference;
-    showKPTReference = navbarUiState.showKPTReference;
-  });
-  
-  $effect(() => {
-    navbarUiState.showSidebar = showSidebar;
-    navbarUiState.tpnMode = tpnMode;
-    navbarUiState.showOutput = showOutput;
-    navbarUiState.outputMode = outputMode;
-    navbarUiState.showKeyReference = showKeyReference;
-    navbarUiState.showKPTReference = showKPTReference;
-  });
+  // Use navbarUiState as single source of truth - no circular sync needed
   
   // Initialize KPT custom functions on app start
   $effect(() => {
@@ -227,7 +204,7 @@
   
   // Create mock 'me' object for test cases
   function createMockMe(variables = {}) {
-    if (tpnMode && currentTPNInstance) {
+    if (navbarUiState.tpnMode && currentTPNInstance) {
       // In TPN mode, return the actual TPN instance
       return currentTPNInstance;
     }
@@ -863,9 +840,27 @@
   
   // Handle config activation from sidebar
   function handleConfigActivate(configId, ingredients) {
+    console.log('Raw ingredients received:', ingredients);
+    console.log('Ingredients type:', typeof ingredients);
+    
+    // Handle both array and object formats
+    let ingredientsArray = [];
+    if (Array.isArray(ingredients)) {
+      ingredientsArray = ingredients;
+    } else if (ingredients && typeof ingredients === 'object') {
+      // Convert object to array, adding the key as ingredient name
+      ingredientsArray = Object.entries(ingredients).map(([key, data]) => ({
+        ...data,
+        KEYNAME: key,
+        keyname: key
+      }));
+    }
+    
     activeConfigId = configId;
-    activeConfigIngredients = ingredients || [];
+    activeConfigIngredients = ingredientsArray;
     console.log(`Config activated: ${configId} with ${activeConfigIngredients.length} ingredients`);
+    console.log('Sample ingredient:', activeConfigIngredients[0]);
+    console.log('All ingredient keys:', activeConfigIngredients[0] ? Object.keys(activeConfigIngredients[0]) : 'No ingredients');
   }
   
   // Handle TPN value changes
@@ -1153,7 +1148,7 @@
       showMigrationTool = false;
       showAIWorkflowInspector = false;
       showTestGeneratorModal = false;
-      showSidebar = false;
+      navbarUiState.showSidebar = false;
       
       // Ensure preview panel is visible
       previewCollapsed = false;
@@ -1286,12 +1281,13 @@
   
 </script>
 
-<div class="app-container {showSidebar ? 'sidebar-open' : ''}" onkeydown={handleKeyDown}>
-  {#if showSidebar}
-    <Sidebar 
+<div class="app-container {navbarUiState.showSidebar ? 'app-container--with-sidebar' : ''}" onkeydown={handleKeyDown}>
+  {#if navbarUiState.showSidebar}
+    <SidebarRefactored 
       onLoadReference={handleLoadReference}
       onSaveReference={handleSaveReference}
       onConfigActivate={handleConfigActivate}
+      onClose={() => navbarUiState.showSidebar = false}
       currentSections={sections}
       activeConfigId={activeConfigId}
       activeConfigIngredients={activeConfigIngredients}
@@ -1626,7 +1622,7 @@
                     </button>
                     <TestGeneratorButton 
                       section={section}
-                      tpnMode={tpnMode}
+                      tpnMode={navbarUiState.tpnMode}
                       onTestsGenerated={(tests) => handleTestsGenerated(section.id, tests)}
                     />
                     <button 
@@ -1826,7 +1822,7 @@
                 class="view-tab {previewMode === 'output' ? 'active' : ''}"
                 onclick={() => {
                   previewMode = 'output';
-                  showOutput = true;
+                  navbarUiState.showOutput = true;
                 }}
               >
                 📊 Output
@@ -1835,14 +1831,14 @@
             {#if previewMode === 'output'}
               <div class="output-format-selector">
                 <button 
-                  class="format-btn {outputMode === 'json' ? 'active' : ''}"
-                  onclick={() => outputMode = 'json'}
+                  class="format-btn {navbarUiState.outputMode === 'json' ? 'active' : ''}"
+                  onclick={() => navbarUiState.outputMode = 'json'}
                 >
                   JSON
                 </button>
                 <button 
-                  class="format-btn {outputMode === 'configurator' ? 'active' : ''}"
-                  onclick={() => outputMode = 'configurator'}
+                  class="format-btn {navbarUiState.outputMode === 'configurator' ? 'active' : ''}"
+                  onclick={() => navbarUiState.outputMode = 'configurator'}
                 >
                   Configurator
                 </button>
@@ -1859,7 +1855,7 @@
         </button>
       </div>
       
-      {#if referencedIngredients.length > 0 && !tpnMode && previewMode === 'preview'}
+      {#if referencedIngredients.length > 0 && !navbarUiState.tpnMode && previewMode === 'preview'}
         <IngredientInputPanel 
           ingredients={referencedIngredients}
           values={currentIngredientValues}
@@ -1874,7 +1870,7 @@
         </div>
       {:else if previewMode === 'output'}
         <div class="output-view">
-          {#if outputMode === 'json'}
+          {#if navbarUiState.outputMode === 'json'}
             <div class="json-output">
               <pre>{JSON.stringify(jsonOutput, null, 2)}</pre>
             </div>
@@ -1898,7 +1894,7 @@
     </div>
   </div>
   
-  {#if tpnMode}
+  {#if navbarUiState.tpnMode}
     <TPNTestPanel 
       {dynamicSections}
       onValuesChange={handleTPNValuesChange}
@@ -1925,24 +1921,21 @@
     onTestsGenerated={handleAITestsGenerated}
   />
   
-  {#if tpnMode}
-    <TPNKeyReference 
-      bind:isExpanded={showKeyReference}
-      onKeySelect={handleKeyInsert}
-    />
-  {/if}
+  <!-- TPN Key Reference Panel - Always available -->
+  <TPNKeyReference 
+    bind:isExpanded={navbarUiState.showKeyReference}
+    onKeySelect={handleKeyInsert}
+    onClose={() => {
+      navbarUiState.showKeyReference = false;
+    }}
+  />
   
   <!-- KPT Reference Panel -->
   <KPTReference 
-    bind:isExpanded={showKPTReference}
-    onFunctionSelect={(funcName) => {
-      // Insert function call at cursor position in active editor
-      const snippet = `${funcName}()`;
-      navigator.clipboard.writeText(snippet).then(() => {
-        console.log(`Copied KPT function: ${snippet}`);
-      });
+    bind:isOpen={navbarUiState.showKPTReference}
+    onClose={() => {
+      navbarUiState.showKPTReference = false;
     }}
-    onClose={() => showKPTReference = false}
   />
   
   <!-- KPT Manager Modal -->
@@ -2115,16 +2108,24 @@
   {/if}
 </div>
 
-<style>
+<style lang="scss">
+  @use './styles/abstracts/variables' as *;
+  @use './styles/abstracts/mixins' as *;
+
   .app-container {
     display: flex;
     height: 100vh;
     width: 100vw;
     overflow: hidden;
-  }
-  
-  .app-container.sidebar-open main {
-    margin-left: 0;
+    
+    // Sidebar layout - Desktop only uses grid, mobile remains flex
+    &.app-container--with-sidebar {
+      @include breakpoint(lg) {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 0;
+      }
+    }
   }
   
   main {
@@ -2134,6 +2135,14 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    
+    // Ensure main content is visible when sidebar is open
+    .app-container.app-container--with-sidebar & {
+      @include breakpoint(lg) {
+        padding: 0;
+        height: 100vh;
+      }
+    }
   }
   
   
@@ -2373,7 +2382,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 280px;
     max-width: 400px;
-    z-index: 1000;
+    z-index: map-get($z-indices, modal);
     overflow: hidden;
   }
   
@@ -3285,7 +3294,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: map-get($z-indices, modal);
   }
   
   .modal-content {
@@ -3451,7 +3460,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: map-get($z-indices, modal);
   }
   
   .modal-content {

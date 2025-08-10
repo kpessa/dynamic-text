@@ -11,7 +11,8 @@
       "Bash(pnpm add:*)",
       "Bash(pnpm storybook:*)",
       "Bash(rm:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
