@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "_knowledge/00-Overview/project-status.md",
+                "file": "_knowledge/05-Testing/test-suite-complete-2025-08-17.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "project-status"
+              "title": "test-suite-complete-2025-08-17"
             }
           }
         ]
@@ -167,6 +167,17 @@
   },
   "active": "ec44c29aca1b0dba",
   "lastOpenFiles": [
+    "_knowledge/05-Testing/firebase-test-success-2025-08-17.md",
+    "src/lib/__tests__/firebaseDataService.test.ts.tmp.5310.1755415371817",
+    "_knowledge/04-Decisions/firebase-testing-strategy-2025-08-17.md",
+    "_knowledge/04-Decisions",
+    "_knowledge/03-Components/Firebase-Patterns/firebase-service-patterns-2025-08-17.md",
+    "_knowledge/03-Components/Firebase-Patterns",
+    "_knowledge/03-Components",
+    "_knowledge/01-Research/Firebase/firebase-test-fixes-2025-08-17.md",
+    "_knowledge/01-Research/Firebase/firebase-testing-patterns-2025-08-17.md",
+    "_knowledge/05-Testing/test-fix-summary-2025-08-17.md",
+    "_knowledge/00-Overview/project-status.md",
     "_knowledge/05-Testing/test-suite-complete-2025-08-17.md",
     "src/__tests__/startup.test.ts.tmp.5310.1755413379658",
     "tests/stores/sectionStore.test.ts.tmp.5310.1755413167127",
@@ -177,9 +188,7 @@
     "vitest.config.ts.timestamp-1755412601094-2614ce43d8ecb.mjs",
     "vitest.config.ts.timestamp-1755412588208-1b3e9d879934c.mjs",
     "vitest.config.ts.timestamp-1755412575470-3c399c5b605e3.mjs",
-    "_knowledge/00-Overview/project-status.md",
     "TEST_FIX_SUMMARY.md",
-    "_knowledge/05-Testing/test-fix-summary-2025-08-17.md",
     "_knowledge/02-Architecture/refactor-status-2025-08-17.md",
     "REFACTOR_STATUS.md"
   ]
