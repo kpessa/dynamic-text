@@ -11,13 +11,14 @@ interface EvaluationResult {
   actualStyles?: any;
 }
 
-// Test store for managing test execution and results
+// Test store for managing test execution and results using Svelte 5 runes
 class TestStore {
-  private _testSummary : TestSummary | null = null;
-  private _currentGeneratedTests : any = null;
-  private _targetSectionId : number | null = null;
-  private _inspectorCurrentSection : number | null = null;
-  private _isRunningTests : boolean = false;
+  private _testSummary = $state<TestSummary | null>(null);
+  private _currentGeneratedTests = $state<any>(null);
+  private _targetSectionId = $state<number | null>(null);
+  private _inspectorCurrentSection = $state<number | null>(null);
+  private _isRunningTests = $state<boolean>(false);
+  private _showTestSummary = $state<boolean>(false);
 
   // Getters
   get testSummary() { return this._testSummary; }
@@ -25,15 +26,16 @@ class TestStore {
   get targetSectionId() { return this._targetSectionId; }
   get inspectorCurrentSection() { return this._inspectorCurrentSection; }
   get isRunningTests() { return this._isRunningTests; }
+  get showTestSummary() { return this._showTestSummary; }
 
-  // Derived computed values - using getters to prevent reactivity loops
-  get hasTestResults() { return this._testSummary !== null; }
-  get testPassRate() {
+  // Derived computed values using $derived
+  hasTestResults = $derived(this._testSummary !== null);
+  testPassRate = $derived.by(() => {
     if (!this._testSummary) return 0;
     const { passed, total } = this._testSummary.summary;
     return total > 0 ? (passed / total) * 100 : 0;
-  }
-  get isTestingInProgress() { return this._isRunningTests; }
+  });
+  isTestingInProgress = $derived(this._isRunningTests);
 
   // Setters
   setTestSummary(summary: TestSummary | null) {
@@ -55,6 +57,10 @@ class TestStore {
   setIsRunningTests(running: boolean) {
     this._isRunningTests = running;
   }
+  
+  setShowTestSummary(show: boolean) {
+    this._showTestSummary = show;
+  }
 
   // Test execution methods
   async runSingleTest(
@@ -73,13 +79,16 @@ class TestStore {
         testCase.expectedStyles
       );
       
-      return {
+      const testResult: TestResult = {
         passed: result.passed,
         actual: evaluation.actualHTML || String(evaluation.result),
         expected: testCase.expected,
-        error: result.error || undefined,
         testCase
       };
+      if (result.error) {
+        testResult.error = result.error;
+      }
+      return testResult;
     } catch (error) {
       return {
         passed: false,

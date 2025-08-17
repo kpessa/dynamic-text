@@ -1,0 +1,158 @@
+// Dark Mode Theme Variables
+// Medical-grade dark theme optimized for extended viewing
+
+// Dark mode mixin
+@mixin dark-mode {
+  // Core colors
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-secondary: #334155;
+  --color-surface-tertiary: #475569;
+  
+  // Text colors
+  --color-text: #f1f5f9;
+  --color-text-secondary: #cbd5e1;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #1e293b;
+  
+  // Border colors
+  --color-border: #334155;
+  --color-border-light: #475569;
+  --color-border-dark: #1e293b;
+  
+  // Brand colors (adjusted for dark mode)
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-primary-light: rgba(96, 165, 250, 0.1);
+  --color-primary-text: #ffffff;
+  
+  --color-secondary: #a78bfa;
+  --color-secondary-hover: #8b5cf6;
+  --color-secondary-light: rgba(167, 139, 250, 0.1);
+  --color-secondary-text: #ffffff;
+  
+  // Status colors (optimized for dark backgrounds)
+  --color-success: #34d399;
+  --color-success-hover: #10b981;
+  --color-success-light: rgba(52, 211, 153, 0.1);
+  --color-success-300: rgba(52, 211, 153, 0.3);
+  --color-success-700: #10b981;
+  --color-success-text: #ffffff;
+  
+  --color-warning: #fbbf24;
+  --color-warning-hover: #f59e0b;
+  --color-warning-light: rgba(251, 191, 36, 0.1);
+  --color-warning-300: rgba(251, 191, 36, 0.3);
+  --color-warning-700: #d97706;
+  --color-warning-text: #1e293b;
+  
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+  --color-danger-light: rgba(248, 113, 113, 0.1);
+  --color-danger-300: rgba(248, 113, 113, 0.3);
+  --color-danger-700: #dc2626;
+  --color-danger-text: #ffffff;
+  
+  --color-info: #38bdf8;
+  --color-info-hover: #0ea5e9;
+  --color-info-light: rgba(56, 189, 248, 0.1);
+  --color-info-300: rgba(56, 189, 248, 0.3);
+  --color-info-700: #0284c7;
+  --color-info-text: #ffffff;
+  
+  // Shadows (lighter for visibility on dark backgrounds)
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-base: 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+  --shadow-medical: 0 0 20px rgba(96, 165, 250, 0.15);
+  --shadow-medical-hover: 0 0 30px rgba(96, 165, 250, 0.25);
+  
+  // Focus ring (more visible in dark mode)
+  --focus-ring-color: #60a5fa;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  
+  // Medical-specific adjustments
+  --color-medical-critical: #f87171;
+  --color-medical-warning: #fbbf24;
+  --color-medical-normal: #34d399;
+  --color-medical-info: #38bdf8;
+  
+  // Code editor colors
+  --color-code-bg: #0f172a;
+  --color-code-text: #e2e8f0;
+  --color-code-comment: #64748b;
+  --color-code-keyword: #a78bfa;
+  --color-code-string: #34d399;
+  --color-code-number: #38bdf8;
+  --color-code-function: #fbbf24;
+  
+  // Overlay adjustments
+  --overlay-bg: rgba(0, 0, 0, 0.75);
+  
+  // Scrollbar styling for dark mode
+  --scrollbar-track: #1e293b;
+  --scrollbar-thumb: #475569;
+  --scrollbar-thumb-hover: #64748b;
+}
+
+// Auto dark mode based on system preference
+@mixin auto-dark-mode {
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      @include dark-mode;
+    }
+  }
+  
+  :root[data-theme="dark"] {
+    @include dark-mode;
+  }
+}
+
+// Dark mode utility classes
+@mixin dark-mode-utilities {
+  .dark {
+    @include dark-mode;
+  }
+  
+  // Dark mode specific utility overrides
+  [data-theme="dark"],
+  .dark {
+    // Invert certain elements for better visibility
+    .invert-in-dark {
+      filter: invert(1);
+    }
+    
+    // Adjust opacity for better contrast
+    .dim-in-dark {
+      opacity: 0.75;
+    }
+    
+    // Medical status indicators adjustments
+    .status-indicator {
+      &::before {
+        box-shadow: 0 0 8px currentColor;
+      }
+    }
+    
+    // Adjust high contrast mode for dark theme
+    @media (prefers-contrast: high) {
+      --color-border: #64748b;
+      --color-text: #ffffff;
+      --focus-ring-width: 3px;
+    }
+  }
+}
+
+// Smooth transition mixin for theme switching
+@mixin theme-transition {
+  transition: 
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    color 200ms ease-out,
+    box-shadow 200ms ease-out;
+}
+
+// Export handled by file inclusion

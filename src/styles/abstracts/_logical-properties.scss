@@ -1,0 +1,381 @@
+// CSS Logical Properties for Internationalization
+// Supports RTL languages and vertical writing modes
+
+// Logical property mixins for margins
+@mixin margin-inline($value) {
+  margin-inline: $value;
+}
+
+@mixin margin-inline-start($value) {
+  margin-inline-start: $value;
+}
+
+@mixin margin-inline-end($value) {
+  margin-inline-end: $value;
+}
+
+@mixin margin-block($value) {
+  margin-block: $value;
+}
+
+@mixin margin-block-start($value) {
+  margin-block-start: $value;
+}
+
+@mixin margin-block-end($value) {
+  margin-block-end: $value;
+}
+
+// Logical property mixins for padding
+@mixin padding-inline($value) {
+  padding-inline: $value;
+}
+
+@mixin padding-inline-start($value) {
+  padding-inline-start: $value;
+}
+
+@mixin padding-inline-end($value) {
+  padding-inline-end: $value;
+}
+
+@mixin padding-block($value) {
+  padding-block: $value;
+}
+
+@mixin padding-block-start($value) {
+  padding-block-start: $value;
+}
+
+@mixin padding-block-end($value) {
+  padding-block-end: $value;
+}
+
+// Logical property mixins for borders
+@mixin border-inline($width, $style, $color) {
+  border-inline: $width $style $color;
+}
+
+@mixin border-inline-start($width, $style, $color) {
+  border-inline-start: $width $style $color;
+}
+
+@mixin border-inline-end($width, $style, $color) {
+  border-inline-end: $width $style $color;
+}
+
+@mixin border-block($width, $style, $color) {
+  border-block: $width $style $color;
+}
+
+@mixin border-block-start($width, $style, $color) {
+  border-block-start: $width $style $color;
+}
+
+@mixin border-block-end($width, $style, $color) {
+  border-block-end: $width $style $color;
+}
+
+// Logical property mixins for dimensions
+@mixin inline-size($value) {
+  inline-size: $value;
+}
+
+@mixin block-size($value) {
+  block-size: $value;
+}
+
+@mixin min-inline-size($value) {
+  min-inline-size: $value;
+}
+
+@mixin max-inline-size($value) {
+  max-inline-size: $value;
+}
+
+@mixin min-block-size($value) {
+  min-block-size: $value;
+}
+
+@mixin max-block-size($value) {
+  max-block-size: $value;
+}
+
+// Logical property mixins for positioning
+@mixin inset-inline($value) {
+  inset-inline: $value;
+}
+
+@mixin inset-inline-start($value) {
+  inset-inline-start: $value;
+}
+
+@mixin inset-inline-end($value) {
+  inset-inline-end: $value;
+}
+
+@mixin inset-block($value) {
+  inset-block: $value;
+}
+
+@mixin inset-block-start($value) {
+  inset-block-start: $value;
+}
+
+@mixin inset-block-end($value) {
+  inset-block-end: $value;
+}
+
+// Text alignment logical properties
+@mixin text-align-start {
+  text-align: start;
+}
+
+@mixin text-align-end {
+  text-align: end;
+}
+
+// Float logical properties
+@mixin float-inline-start {
+  float: inline-start;
+}
+
+@mixin float-inline-end {
+  float: inline-end;
+}
+
+// Clear logical properties
+@mixin clear-inline-start {
+  clear: inline-start;
+}
+
+@mixin clear-inline-end {
+  clear: inline-end;
+}
+
+// Border radius logical properties
+@mixin border-start-start-radius($value) {
+  border-start-start-radius: $value;
+}
+
+@mixin border-start-end-radius($value) {
+  border-start-end-radius: $value;
+}
+
+@mixin border-end-start-radius($value) {
+  border-end-start-radius: $value;
+}
+
+@mixin border-end-end-radius($value) {
+  border-end-end-radius: $value;
+}
+
+// Utility classes for logical properties
+// Margin utilities
+.m-inline-auto {
+  margin-inline: auto;
+}
+
+.m-block-auto {
+  margin-block: auto;
+}
+
+@each $key, $value in (
+  0: 0,
+  1: var(--space-1),
+  2: var(--space-2),
+  3: var(--space-3),
+  4: var(--space-4),
+  6: var(--space-6),
+  8: var(--space-8)
+) {
+  .m-inline-#{$key} {
+    margin-inline: $value;
+  }
+  
+  .m-inline-start-#{$key} {
+    margin-inline-start: $value;
+  }
+  
+  .m-inline-end-#{$key} {
+    margin-inline-end: $value;
+  }
+  
+  .m-block-#{$key} {
+    margin-block: $value;
+  }
+  
+  .m-block-start-#{$key} {
+    margin-block-start: $value;
+  }
+  
+  .m-block-end-#{$key} {
+    margin-block-end: $value;
+  }
+}
+
+// Padding utilities
+@each $key, $value in (
+  0: 0,
+  1: var(--space-1),
+  2: var(--space-2),
+  3: var(--space-3),
+  4: var(--space-4),
+  6: var(--space-6),
+  8: var(--space-8)
+) {
+  .p-inline-#{$key} {
+    padding-inline: $value;
+  }
+  
+  .p-inline-start-#{$key} {
+    padding-inline-start: $value;
+  }
+  
+  .p-inline-end-#{$key} {
+    padding-inline-end: $value;
+  }
+  
+  .p-block-#{$key} {
+    padding-block: $value;
+  }
+  
+  .p-block-start-#{$key} {
+    padding-block-start: $value;
+  }
+  
+  .p-block-end-#{$key} {
+    padding-block-end: $value;
+  }
+}
+
+// Size utilities
+.inline-full {
+  inline-size: 100%;
+}
+
+.block-full {
+  block-size: 100%;
+}
+
+.inline-auto {
+  inline-size: auto;
+}
+
+.block-auto {
+  block-size: auto;
+}
+
+.min-inline-0 {
+  min-inline-size: 0;
+}
+
+.min-block-0 {
+  min-block-size: 0;
+}
+
+.max-inline-full {
+  max-inline-size: 100%;
+}
+
+.max-block-full {
+  max-block-size: 100%;
+}
+
+// Text alignment utilities
+.text-start {
+  text-align: start;
+}
+
+.text-end {
+  text-align: end;
+}
+
+// Float utilities
+.float-start {
+  float: inline-start;
+}
+
+.float-end {
+  float: inline-end;
+}
+
+// Border utilities
+.border-inline {
+  border-inline: 1px solid var(--color-border);
+}
+
+.border-block {
+  border-block: 1px solid var(--color-border);
+}
+
+.border-inline-start {
+  border-inline-start: 1px solid var(--color-border);
+}
+
+.border-inline-end {
+  border-inline-end: 1px solid var(--color-border);
+}
+
+.border-block-start {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.border-block-end {
+  border-block-end: 1px solid var(--color-border);
+}
+
+// Migration helper mixin
+// Provides fallbacks for browsers that don't support logical properties
+@mixin logical-property-fallback($property, $value, $fallback-ltr, $fallback-rtl: null) {
+  // LTR fallback
+  #{$fallback-ltr}: $value;
+  
+  // RTL fallback if provided
+  @if $fallback-rtl {
+    [dir="rtl"] & {
+      #{$fallback-rtl}: $value;
+      #{$fallback-ltr}: initial;
+    }
+  }
+  
+  // Logical property (will override fallbacks in supporting browsers)
+  #{$property}: $value;
+}
+
+// Example usage in components
+// Instead of: margin-left: 1rem;
+// Use: @include margin-inline-start(1rem);
+// Or with fallback: @include logical-property-fallback(margin-inline-start, 1rem, margin-left, margin-right);
+
+// RTL-aware flex and grid utilities
+.flex-start {
+  justify-content: flex-start;
+  
+  [dir="rtl"] & {
+    justify-content: flex-end;
+  }
+}
+
+.flex-end {
+  justify-content: flex-end;
+  
+  [dir="rtl"] & {
+    justify-content: flex-start;
+  }
+}
+
+// Writing mode utilities
+.writing-horizontal-tb {
+  writing-mode: horizontal-tb;
+}
+
+.writing-vertical-rl {
+  writing-mode: vertical-rl;
+}
+
+.writing-vertical-lr {
+  writing-mode: vertical-lr;
+}
+
+// Export handled by file inclusion

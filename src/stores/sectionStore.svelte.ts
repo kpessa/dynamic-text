@@ -1,46 +1,36 @@
 import type { Section, TestCase } from '../types/section.js';
+import { eventBus } from '../lib/eventBus.ts';
 
-// Section store using plain variables (Svelte 4 compatible)
+// Section store using Svelte 5 runes
 class SectionStore {
-  private _sections: Section[] = [];
-  private _nextSectionId: number = 1;
-  private _activeTestCase: Record<number, TestCase> = {};
-  private _expandedTestCases: Record<number, boolean> = {};
-  private _editingSection: number | null = null;
-  private _draggedSection: Section | null = null;
+  private _sections = $state<Section[]>([]);
+  private _nextSectionId = $state<number>(1);
+  private _activeTestCase = $state<Record<number, TestCase>>({});
+  private _expandedTestCases = $state<Record<number, boolean>>({});
+  private _editingSection = $state<number | null>(null);
+  private _draggedSection = $state<Section | null>(null);
+  private _originalSections = $state<string>('[]');
+  private _hasUnsavedChanges = $state<boolean>(false);
 
-  // Getters
-  get sections() {
-    return this._sections;
-  }
+  // Getters for state
+  get sections() { return this._sections; }
+  get nextSectionId() { return this._nextSectionId; }
+  get activeTestCase() { return this._activeTestCase; }
+  get expandedTestCases() { return this._expandedTestCases; }
+  get editingSection() { return this._editingSection; }
+  get draggedSection() { return this._draggedSection; }
+  get originalSections() { return this._originalSections; }
+  get hasUnsavedChanges() { return this._hasUnsavedChanges; }
 
-  get nextSectionId() {
-    return this._nextSectionId;
-  }
+  // Derived values using Svelte 5 $derived
+  dynamicSections = $derived(this._sections.filter(s => s.type === 'dynamic'));
+  sectionsJSON = $derived(this.sectionsToJSON());
+  lineObjects = $derived(this.sectionsToLineObjects());
 
-  get activeTestCase() {
-    return this._activeTestCase;
-  }
-
-  get expandedTestCases() {
-    return this._expandedTestCases;
-  }
-
-  get editingSection() {
-    return this._editingSection;
-  }
-
-  get draggedSection() {
-    return this._draggedSection;
-  }
-
-  // Derived values - using getters to prevent reactivity loops
-  get dynamicSections() { return this._sections.filter(s => s.type === 'dynamic'); }
-
-  // Computed properties
-  get hasActiveSections() { return this._sections.length > 0; }
-  get dynamicSectionCount() { return this._sections.filter(s => s.type === 'dynamic').length; }
-  get staticSectionCount() { return this._sections.filter(s => s.type === 'static').length; }
+  // Computed properties using $derived
+  hasActiveSections = $derived(this._sections.length > 0);
+  dynamicSectionCount = $derived(this._sections.filter(s => s.type === 'dynamic').length);
+  staticSectionCount = $derived(this._sections.filter(s => s.type === 'static').length);
 
   // Section management methods
   addSection(type: 'static' | 'dynamic') {
@@ -98,6 +88,8 @@ class SectionStore {
         testCases: section.testCases,
         content
       };
+      this.checkForChanges();
+      eventBus.emit('section:updated', { sectionId: id, content });
     }
   }
 
@@ -137,14 +129,17 @@ class SectionStore {
       const section = this._sections[sectionIndex];
       const currentTestCase = section.testCases[index];
       const updatedTestCases = [...section.testCases];
-      updatedTestCases[index] = {
+      const newTestCase: TestCase = {
         name: currentTestCase.name,
         variables: currentTestCase.variables,
         expected: currentTestCase.expected,
         matchType: currentTestCase.matchType,
-        expectedStyles: currentTestCase.expectedStyles,
         ...updates
       };
+      if (currentTestCase.expectedStyles !== undefined || updates.expectedStyles !== undefined) {
+        newTestCase.expectedStyles = updates.expectedStyles ?? currentTestCase.expectedStyles;
+      }
+      updatedTestCases[index] = newTestCase;
       
       this._sections[sectionIndex] = {
         id: section.id,
@@ -223,6 +218,11 @@ class SectionStore {
         }
       }
     });
+    
+    // Store original state for change detection
+    this._originalSections = JSON.stringify(sections);
+    this._hasUnsavedChanges = false;
+    eventBus.emit('sections:loaded', sections);
   }
 
   clearSections() {
@@ -232,6 +232,9 @@ class SectionStore {
     this._expandedTestCases = {};
     this._editingSection = null;
     this._draggedSection = null;
+    this._originalSections = '[]';
+    this._hasUnsavedChanges = false;
+    eventBus.emit('sections:cleared');
   }
 
   // Utility methods
@@ -250,23 +253,98 @@ class SectionStore {
 
   // Convert to dynamic section
   convertToDynamic(sectionId: number, jsContent: string) {
-    const section = this._sections.find(s => s.id === sectionId);
-    if (section && section.type === 'static') {
-      section.type = 'dynamic';
-      section.content = jsContent;
-      section.testCases = [{
-        name: 'Default Test',
-        variables: {},
-        expected: '',
-        matchType: 'contains'
-      }];
+    const sectionIndex = this._sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex !== -1 && this._sections[sectionIndex] && this._sections[sectionIndex].type === 'static') {
+      const section = this._sections[sectionIndex];
+      const newSection: Section = {
+        ...section,
+        type: 'dynamic',
+        content: jsContent,
+        testCases: [{
+          name: 'Default Test',
+          variables: {},
+          expected: '',
+          matchType: 'contains'
+        }]
+      };
       
-      const testCase = section.testCases[0];
+      this._sections[sectionIndex] = newSection;
+      const testCase = newSection.testCases[0];
       if (testCase) {
         this._activeTestCase[section.id] = testCase;
         this._expandedTestCases[section.id] = true;
       }
+      
+      this.checkForChanges();
+      eventBus.emit('section:converted', { sectionId, type: 'dynamic' });
     }
+  }
+  
+  // Change detection
+  checkForChanges() {
+    const currentSections = JSON.stringify(this._sections);
+    this._hasUnsavedChanges = currentSections !== this._originalSections;
+    eventBus.emit('changes:detected', this._hasUnsavedChanges);
+  }
+  
+  // Export methods for JSON output
+  sectionsToJSON(): string {
+    const output: any[] = [];
+    
+    this._sections.forEach(section => {
+      if (section.type === 'static') {
+        output.push({
+          type: 'static',
+          content: section.content
+        });
+      } else if (section.type === 'dynamic') {
+        output.push({
+          type: 'dynamic',
+          content: section.content,
+          testCases: section.testCases || []
+        });
+      }
+    });
+    
+    return JSON.stringify(output, null, 2);
+  }
+  
+  sectionsToLineObjects(): any[] {
+    const lines: any[] = [];
+    
+    this._sections.forEach(section => {
+      if (section.type === 'static') {
+        lines.push({
+          type: 'static',
+          name: section.name,
+          content: section.content
+        });
+      } else if (section.type === 'dynamic') {
+        lines.push({
+          type: 'dynamic',
+          name: section.name,
+          content: section.content,
+          testCases: section.testCases || []
+        });
+      }
+    });
+    
+    return lines;
+  }
+  
+  // Reset to saved state
+  resetToSaved() {
+    if (this._originalSections) {
+      const originalSections = JSON.parse(this._originalSections);
+      this.setSections(originalSections);
+    }
+  }
+  
+  // Mark as saved
+  markAsSaved() {
+    this._originalSections = JSON.stringify(this._sections);
+    this._hasUnsavedChanges = false;
+    eventBus.emit('sections:saved');
   }
 }
 

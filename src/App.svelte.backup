@@ -1,13 +1,6 @@
 <script>
-  // Services
-  import { sanitizeHTML, createMockMe, transpileCode, evaluateCode, stripHTML, validateTestOutput, extractStylesFromHTML, runTestCase } from './services/codeExecutionService';
-  import { sectionsToJSON, sectionsToLineObjects, exportAsHTML, exportAsMarkdown, importFromJSON, validateImportData } from './services/exportService';
-  import { runSectionTests, createDefaultTestCase, validateTestCase, calculateTestStats, formatTestResults } from './services/testingService';
-  import { createSection, updateSectionContent, deleteSection as deleteSectionService, toggleSectionEditing, convertToDynamic, reorderSections, extractUsedKeys, hasUnsavedChanges as checkUnsavedChanges, migrateSections, countSectionsByType, generatePreviewHTML } from './services/sectionService';
-  import { copyToClipboard, copyJSONToClipboard, copyCodeSnippet } from './services/clipboardService';
-  import { getIngredientBadgeColor, getPopulationColor, getPopulationName, formatTimestamp, formatFileSize, debounce, throttle, generateId, sortPopulationTypes } from './services/uiHelpers';
-  
-  // Components
+  import * as Babel from '@babel/standalone';
+  import DOMPurify from 'dompurify';
   import CodeEditor from './lib/CodeEditor.svelte';
   import SidebarRefactored from './lib/SidebarRefactored.svelte';
   import TPNTestPanel from './lib/TPNTestPanel.svelte';
@@ -33,14 +26,10 @@
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
   // New refactored components
-  import AppContainer from './components/AppContainer.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import TestSummaryModal from './components/TestSummaryModal.svelte';
   import IngredientContextBar from './components/IngredientContextBar.svelte';
   import EditorWorkspace from './components/EditorWorkspace.svelte';
-  import PreviewPanel from './components/PreviewPanel.svelte';
-  import SectionList from './components/SectionList.svelte';
-  import TestCaseManager from './components/TestCaseManager.svelte';
   
   // Import stores
   import { sectionStore } from './stores/sectionStore.svelte.ts';
@@ -210,10 +199,19 @@
   });
   
   
-  // Removed - now using imported sanitizeHTML from services
+  // Sanitize HTML to prevent XSS
+  function sanitizeHTML(html) {
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'strong', 'em', 'u', 'i', 'b', 
+                     'ul', 'ol', 'li', 'a', 'img', 'div', 'span', 'code', 'pre', 'blockquote', 'table', 
+                     'thead', 'tbody', 'tr', 'th', 'td', 'style'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'class', 'id', 'target', 'rel'],
+      ALLOW_DATA_ATTR: false
+    });
+  }
   
-  // Enhanced wrapper that adds TPN-specific functionality
-  function createMockMeWithTPN(variables = {}) {
+  // Create mock 'me' object for test cases
+  function createMockMe(variables = {}) {
     if (navbarUiState.tpnMode && currentTPNInstance) {
       // In TPN mode, return the actual TPN instance
       return currentTPNInstance;
@@ -263,8 +261,8 @@
     return mockMe;
   }
   
-  // Removed - now using imported transpileCode
-  function transpileCodeOld(code) {
+  // Transpile modern JS to ES5 using Babel
+  function transpileCode(code) {
     try {
       // Wrap the code in a function to handle return statements
       const wrappedCode = `(function() { ${code} })`;
@@ -289,11 +287,15 @@
     }
   }
   
-  // Enhanced wrapper that adds KPT namespace support
-  function evaluateCodeWithKPT(code, testVariables = null) {
+  // Evaluate dynamic code with optional test variables
+  function evaluateCode(code, testVariables = null) {
     try {
       const transpiledCode = transpileCode(code);
-      const me = createMockMeWithTPN(testVariables);
+      
+      // Always create the me object for consistent API
+      const me = createMockMe(testVariables);
+      
+      // Create KPT namespace
       const kpt = createKPTNamespace(me);
       
       // Create function with 'me' and 'kpt' in scope
@@ -306,8 +308,8 @@
     }
   }
   
-  // OLD - Remove duplicate function
-  function sectionsToJSONOld() {
+  // Convert sections to JSON format
+  function sectionsToJSON() {
     const result = [];
     
     sections.forEach(section => {
@@ -320,7 +322,7 @@
       } else if (section.type === 'dynamic') {
         // Dynamic text: wrap with [f( and )]
         result.push({ TEXT: '[f(' });
-        const transpiledCode = transpileCodeOld(section.content);
+        const transpiledCode = transpileCode(section.content);
         const lines = transpiledCode.split('\n');
         lines.forEach(line => {
           result.push({ TEXT: line });
@@ -332,8 +334,8 @@
     return result;
   }
   
-  // OLD - Remove duplicate function
-  function sectionsToLineObjectsOld() {
+  // Convert sections to line objects for configurator
+  function sectionsToLineObjects() {
     const objects = [];
     let lineId = 1;
     
@@ -398,7 +400,7 @@
         return sanitizeHTML(section.content.replace(/\n/g, '<br>'));
       } else if (section.type === 'dynamic') {
         const testCase = activeTestCase[section.id];
-        const evaluated = evaluateCodeWithKPT(section.content, testCase?.variables);
+        const evaluated = evaluateCode(section.content, testCase?.variables);
         // Also handle line breaks in dynamic content
         const evalString = evaluated || '';
         return sanitizeHTML(evalString.replace(/\n/g, '<br>'));
@@ -407,8 +409,8 @@
     }).join('<br>');
   });
   
-  let jsonOutput = $derived(sectionsToJSON(sections));
-  let lineObjects = $derived(sectionsToLineObjects(sections));
+  let jsonOutput = $derived(sectionsToJSON());
+  let lineObjects = $derived(sectionsToLineObjects());
   
   // Helper to set sections using the store
   function setSections(newSections) {
@@ -442,8 +444,7 @@
     sectionStore.deleteSection(id);
   }
   
-  // Wrapper to update using the store
-  function updateSectionContentWrapper(id, content) {
+  function updateSectionContent(id, content) {
     sectionStore.updateSectionContent(id, content);
   }
   
@@ -499,8 +500,7 @@
   }
   
   // Extract styles from HTML string
-  // OLD - Remove duplicate function
-  function extractStylesFromHTMLOld(htmlString) {
+  function extractStylesFromHTML(htmlString) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = htmlString;
     const styles = {};
@@ -524,16 +524,14 @@
   }
   
   // Remove HTML tags to get plain text
-  // OLD - Remove duplicate function
-  function stripHTMLOld(html) {
+  function stripHTML(html) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
     return tempDiv.textContent || tempDiv.innerText || '';
   }
   
   // Validate test output against expectations
-  // OLD - Remove duplicate function
-  function validateTestOutputOld(actual, expected, matchType = 'contains') {
+  function validateTestOutput(actual, expected, matchType = 'contains') {
     const actualText = stripHTML(actual).trim();
     const expectedText = (expected || '').trim();
     
@@ -582,7 +580,7 @@
     if (!section || section.type !== 'dynamic') return;
     
     // Evaluate the code with test variables
-    const output = evaluateCodeWithKPT(section.content, testCase.variables);
+    const output = evaluateCode(section.content, testCase.variables);
     const actualText = stripHTML(output);
     const actualStyles = extractStylesFromHTML(output);
     
@@ -621,8 +619,7 @@
   }
   
   // Run all tests for a section
-  // OLD - Remove duplicate function
-  function runSectionTestsOld(sectionId) {
+  function runSectionTests(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (!section || !section.testCases) return;
     
@@ -702,8 +699,7 @@
   }
   
   // Clipboard
-  // OLD - Remove duplicate function
-  async function copyToClipboardOld() {
+  async function copyToClipboard() {
     try {
       const jsonString = JSON.stringify(jsonOutput, null, 2);
       await navigator.clipboard.writeText(jsonString);
@@ -794,8 +790,7 @@
   }
   
   // Get badge color for ingredient category
-  // OLD - Remove duplicate function
-  function getIngredientBadgeColorOld(key) {
+  function getIngredientBadgeColor(key) {
     const category = getKeyCategory(key);
     const colors = {
       'BASIC_PARAMETERS': '#007bff',
@@ -1097,8 +1092,7 @@
   }
   
   // Helper functions for population types
-  // OLD - Remove duplicate function
-  function getPopulationColorOld(populationType) {
+  function getPopulationColor(populationType) {
     const colors = {
       [POPULATION_TYPES.NEONATAL]: '#ff6b6b',
       [POPULATION_TYPES.PEDIATRIC]: '#4ecdc4',
@@ -1114,8 +1108,7 @@
     return colors[populationType] || '#666';
   }
   
-  // OLD - Remove duplicate function
-  function getPopulationNameOld(populationType) {
+  function getPopulationName(populationType) {
     const names = {
       [POPULATION_TYPES.NEONATAL]: 'Neonatal',
       [POPULATION_TYPES.PEDIATRIC]: 'Child',
@@ -1190,7 +1183,6 @@
   
 </script>
 
-<!-- Main App Container with proper component structure -->
 <div class="app-container {navbarUiState.showSidebar ? 'app-container--with-sidebar' : ''}" onkeydown={handleKeyDown}>
   {#if navbarUiState.showSidebar}
     <SidebarRefactored 
@@ -1287,7 +1279,6 @@
       showTestStatus={testSummary !== null}
     />
     
-    <!-- Main Editor Workspace using refactored components -->
     <EditorWorkspace
       sections={sections}
       editingSection={editingSection}
@@ -1317,7 +1308,7 @@
       onEditingSectionChange={(val) => editingSection = val}
       onAddSection={addSection}
       onDeleteSection={deleteSection}
-      onUpdateSectionContent={updateSectionContentWrapper}
+      onUpdateSectionContent={updateSectionContent}
       onConvertToDynamic={handleConvertToDynamic}
       onToggleTestCases={toggleTestCases}
       onAddTestCase={addTestCase}
@@ -1344,14 +1335,395 @@
       onOutputModeChange={(mode) => navbarUiState.outputMode = mode}
     />
     
+    
+              ondragstart={(e) => handleSectionDragStart(e, section)}
+              ondragover={handleSectionDragOver}
+              ondrop={(e) => handleSectionDrop(e, section)}
+              ondragend={handleSectionDragEnd}
+            >
+            <div class="section-header">
+              <span class="drag-handle">≡</span>
+              <span class="section-type {section.type}">
+                {section.type === 'static' ? '📝 HTML' : '⚡ JavaScript'}
+              </span>
+              
+              {#if section.type === 'dynamic' && ingredientsBySection[section.id]}
+                <div class="ingredient-badges">
+                  {#each ingredientsBySection[section.id].tpnKeys as key}
+                    <span 
+                      class="ingredient-badge tpn-badge" 
+                      style="background-color: {getIngredientBadgeColor(key)}"
+                      title="TPN: {key}"
+                    >
+                      {key}
+                    </span>
+                  {/each}
+                  {#each ingredientsBySection[section.id].calculatedKeys as key}
+                    <span 
+                      class="ingredient-badge calculated-badge" 
+                      style="background-color: {getIngredientBadgeColor(key)}"
+                      title="Calculated: {key}"
+                    >
+                      {key} 📊
+                    </span>
+                  {/each}
+                  {#each ingredientsBySection[section.id].customKeys as key}
+                    <span 
+                      class="ingredient-badge custom-badge"
+                      title="Custom: {key}"
+                    >
+                      {key}
+                    </span>
+                  {/each}
+                  {#if ingredientsBySection[section.id].allKeys.length > 0}
+                    <span class="ingredient-count">
+                      {ingredientsBySection[section.id].allKeys.length} vars
+                    </span>
+                  {/if}
+                </div>
+              {/if}
+              
+              <button 
+                class="delete-section-btn"
+                onclick={() => deleteSection(section.id)}
+                title="Delete section"
+              >
+                ×
+              </button>
+            </div>
+            
+            {#if editingSection === section.id}
+              <div class="editor-wrapper">
+                <CodeEditor
+                  value={section.content}
+                  language={section.type === 'static' ? 'html' : 'javascript'}
+                  onChange={(content) => updateSectionContent(section.id, content)}
+                  on:convertToDynamic={(e) => handleConvertToDynamic(section.id, e.detail.content)}
+                />
+                <button 
+                  class="done-editing-btn"
+                  onclick={() => editingSection = null}
+                >
+                  Done Editing
+                </button>
+              </div>
+            {:else}
+              <div 
+                class="content-preview"
+                ondblclick={() => editingSection = section.id}
+                onkeydown={(e) => e.key === 'Enter' && (editingSection = section.id)}
+                role="button"
+                tabindex="0"
+                title="Double-click to edit"
+              >
+                <pre>{section.content}</pre>
+              </div>
+            {/if}
+            
+            {#if section.type === 'dynamic' && section.testCases}
+              <div class="test-cases">
+                <div class="test-cases-header">
+                  <button 
+                    class="test-cases-toggle" 
+                    onclick={() => toggleTestCases(section.id)}
+                    type="button"
+                    aria-expanded={expandedTestCases[section.id] ? 'true' : 'false'}
+                    aria-controls={`test-cases-${section.id}`}
+                  >
+                    <span class="collapse-icon">{expandedTestCases[section.id] ? '▼' : '▶'}</span>
+                    <h4>Test Cases</h4>
+                    {#if activeTestCase[section.id]}
+                      <span class="active-test-badge">{activeTestCase[section.id].name}</span>
+                    {/if}
+                  </button>
+                  <div class="test-actions">
+                    <button 
+                      class="add-test-btn" 
+                      onclick={() => {
+                        addTestCase(section.id);
+                        if (!expandedTestCases[section.id]) {
+                          sectionStore.toggleTestCases(section.id);
+                        }
+                      }}
+                    >
+                      + Add Test
+                    </button>
+                    <TestGeneratorButton 
+                      section={section}
+                      tpnMode={navbarUiState.tpnMode}
+                      onTestsGenerated={(tests) => handleTestsGenerated(section.id, tests)}
+                    />
+                    <button 
+                      class="ai-inspector-btn"
+                      onclick={() => openAIWorkflowInspector(section.id)}
+                      title="Open AI Workflow Inspector"
+                    >
+                      🔍 AI Inspector
+                    </button>
+                  </div>
+                </div>
+                
+                {#if expandedTestCases[section.id]}
+                  <div class="test-case-list" id={`test-cases-${section.id}`}>
+                  {#each section.testCases as testCase, index}
+                    <div class="test-case {activeTestCase[section.id] === testCase ? 'active' : ''}">
+                      <div class="test-case-header">
+                        <input 
+                          type="text" 
+                          value={testCase.name}
+                          class="test-case-name"
+                          oninput={(e) => updateTestCase(section.id, index, { name: e.target.value })}
+                        />
+                        <button 
+                          class="test-case-run {activeTestCase[section.id] === testCase ? 'running' : ''}"
+                          onclick={() => setActiveTestCase(section.id, testCase)}
+                          title="Run this test case"
+                        >
+                          {activeTestCase[section.id] === testCase ? '■' : '▶'}
+                        </button>
+                        {#if section.testCases.length > 1}
+                          <button 
+                            class="test-case-delete"
+                            onclick={() => deleteTestCase(section.id, index)}
+                            title="Delete test case"
+                          >
+                            ×
+                          </button>
+                        {/if}
+                      </div>
+                      
+                      <div class="test-variables">
+                        <div class="variable-header">
+                          <span>Variables:</span>
+                          <button 
+                            class="add-var-btn"
+                            onclick={() => {
+                              const varName = prompt('Variable name:');
+                              if (varName) {
+                                const vars = { ...testCase.variables, [varName]: 0 };
+                                updateTestCase(section.id, index, { variables: vars });
+                              }
+                            }}
+                          >
+                            + Add
+                          </button>
+                        </div>
+                        
+                        {#each Object.entries(testCase.variables || {}) as [key, value]}
+                          <div class="variable-row">
+                            <span class="var-name">{key}:</span>
+                            <input 
+                              type="text"
+                              value={value}
+                              class="var-value"
+                              oninput={(e) => {
+                                const vars = { ...testCase.variables };
+                                // Try to parse as number, otherwise keep as string
+                                const val = e.target.value;
+                                vars[key] = !isNaN(val) && val !== '' ? Number(val) : val;
+                                updateTestCase(section.id, index, { variables: vars });
+                              }}
+                            />
+                            <button 
+                              class="var-delete"
+                              onclick={() => {
+                                const vars = { ...testCase.variables };
+                                delete vars[key];
+                                updateTestCase(section.id, index, { variables: vars });
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        {/each}
+                      </div>
+                      
+                      <!-- Test Expectations -->
+                      <div class="test-expectations">
+                        <div class="expectation-header">
+                          <span>Expected Output:</span>
+                          <select 
+                            class="match-type-select"
+                            value={testCase.matchType || 'contains'}
+                            onchange={(e) => updateTestCase(section.id, index, { matchType: e.target.value })}
+                          >
+                            <option value="exact">Exact Match</option>
+                            <option value="contains">Contains</option>
+                            <option value="regex">Regex</option>
+                          </select>
+                        </div>
+                        <textarea
+                          class="expected-output"
+                          value={testCase.expectedOutput || ''}
+                          placeholder="Enter expected output text..."
+                          oninput={(e) => updateTestCase(section.id, index, { expectedOutput: e.target.value })}
+                        />
+                        
+                        <div class="expectation-header">
+                          <span>Expected Styles:</span>
+                          <button 
+                            class="add-style-btn"
+                            onclick={() => {
+                              const styleProp = prompt('CSS property (e.g., color, font-weight):');
+                              if (styleProp) {
+                                const styleValue = prompt(`Value for ${styleProp}:`);
+                                if (styleValue) {
+                                  const styles = { ...(testCase.expectedStyles || {}), [styleProp]: styleValue };
+                                  updateTestCase(section.id, index, { expectedStyles: styles });
+                                }
+                              }
+                            }}
+                          >
+                            + Add Style
+                          </button>
+                        </div>
+                        
+                        {#if testCase.expectedStyles}
+                          {#each Object.entries(testCase.expectedStyles) as [prop, value]}
+                            <div class="style-row">
+                              <span class="style-prop">{prop}:</span>
+                              <input 
+                                type="text"
+                                value={value}
+                                class="style-value"
+                                oninput={(e) => {
+                                  const styles = { ...testCase.expectedStyles };
+                                  styles[prop] = e.target.value;
+                                  updateTestCase(section.id, index, { expectedStyles: styles });
+                                }}
+                              />
+                              <button 
+                                class="style-delete"
+                                onclick={() => {
+                                  const styles = { ...testCase.expectedStyles };
+                                  delete styles[prop];
+                                  updateTestCase(section.id, index, { expectedStyles: Object.keys(styles).length > 0 ? styles : undefined });
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          {/each}
+                        {/if}
+                      </div>
+                      
+                      <!-- Test Result Display -->
+                      {#if testCase.testResult}
+                        <div class="test-result {testCase.testResult.passed ? 'passed' : 'failed'}">
+                          <div class="result-header">
+                            {testCase.testResult.passed ? '✅ Passed' : '❌ Failed'}
+                          </div>
+                          {#if !testCase.testResult.passed && testCase.testResult.error}
+                            <div class="result-error">{testCase.testResult.error}</div>
+                          {/if}
+                          {#if testCase.testResult.actualOutput}
+                            <div class="result-detail">
+                              <strong>Actual Output:</strong> {testCase.testResult.actualOutput}
+                            </div>
+                          {/if}
+                        </div>
+                      {/if}
+                    </div>
+                  {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
+        {/if}
+      <div class="panel-header preview-header">
+        {#if !previewCollapsed}
+          <div class="preview-header-content">
+            <div class="view-tabs">
+              <button 
+                class="view-tab {previewMode === 'preview' ? 'active' : ''}"
+                onclick={() => previewMode = 'preview'}
+              >
+                👁️ Preview
+              </button>
+              <button 
+                class="view-tab {previewMode === 'output' ? 'active' : ''}"
+                onclick={() => {
+                  previewMode = 'output';
+                  navbarUiState.showOutput = true;
+                }}
+              >
+                📊 Output
+              </button>
+            </div>
+            {#if previewMode === 'output'}
+              <div class="output-format-selector">
+                <button 
+                  class="format-btn {navbarUiState.outputMode === 'json' ? 'active' : ''}"
+                  onclick={() => navbarUiState.outputMode = 'json'}
+                >
+                  JSON
+                </button>
+                <button 
+                  class="format-btn {navbarUiState.outputMode === 'configurator' ? 'active' : ''}"
+                  onclick={() => navbarUiState.outputMode = 'configurator'}
+                >
+                  Configurator
+                </button>
+              </div>
+            {/if}
+          </div>
+        {/if}
+        <button 
+          class="preview-toggle"
+          onclick={() => previewCollapsed = !previewCollapsed}
+          title="{previewCollapsed ? 'Show' : 'Hide'} Panel"
+        >
+          {previewCollapsed ? '◀' : '▶'}
+        </button>
+      </div>
+      
+      {#if referencedIngredients.length > 0 && !navbarUiState.tpnMode && previewMode === 'preview'}
+        <IngredientInputPanel 
+          ingredients={referencedIngredients}
+          values={currentIngredientValues}
+          onChange={handleIngredientChange}
+          tpnInstance={calculationTPNInstance}
+        />
+      {/if}
+      
+      {#if previewMode === 'preview'}
+        <div class="preview">
+          {@html previewHTML}
+        </div>
+      {:else if previewMode === 'output'}
+        <div class="output-view">
+          {#if navbarUiState.outputMode === 'json'}
+            <div class="json-output">
+              <pre>{JSON.stringify(jsonOutput, null, 2)}</pre>
+            </div>
+          {:else}
+            <div class="configurator">
+              {#each lineObjects as item (item.id)}
+                <div class="config-line {!item.editable ? 'non-editable' : ''}">
+                  <input 
+                    type="text" 
+                    value={item.text}
+                    readonly={true}
+                    class="line-input"
+                  />
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
+      
+
     {#if navbarUiState.tpnMode}
-      <TPNTestPanel 
-        {dynamicSections}
-        onValuesChange={handleTPNValuesChange}
-        {activeTestCase}
-        bind:isExpanded={tpnPanelExpanded}
-      />
-    {/if}
+    <TPNTestPanel 
+      {dynamicSections}
+      onValuesChange={handleTPNValuesChange}
+      {activeTestCase}
+      bind:isExpanded={tpnPanelExpanded}
+    />
+  {/if}
   
   </main>
   
@@ -1515,3 +1887,1038 @@
   />
 </div>
 
+<style lang="scss">
+  // Import the necessary abstracts individually
+  @use 'sass:map';
+  @use './styles/abstracts/variables' as *;
+  @use './styles/abstracts/mixins' as *;
+  
+  // Temporary styles - will be refactored in Phase 2-4
+  // Most styles have been moved to:
+  // - src/styles/layout/_app.scss
+  // - src/styles/components/_sections.scss  
+  // - src/styles/components/_status.scss
+
+  .app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    
+    // Sidebar layout - Desktop only uses grid, mobile remains flex
+    &.app-container--with-sidebar {
+      @include breakpoint(lg) {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 0;
+      }
+    }
+  }
+  
+  main {
+    flex: 1;
+    padding: 1rem;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    
+    // Ensure main content is visible when sidebar is open
+    .app-container.app-container--with-sidebar & {
+      @include breakpoint(lg) {
+        padding: 0;
+        height: 100vh;
+      }
+    }
+  }
+  
+  
+  .header-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .sidebar-toggle {
+    padding: 0.5rem 0.75rem;
+    background-color: #fff;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  
+  .sidebar-toggle:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .new-button {
+    padding: 0.5rem 1rem;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  
+  .new-button:hover {
+    background-color: #138496;
+  }
+
+  
+  // Status bar styles moved to components/_status.scss
+
+  // Editor container styles moved to layout/_app.scss
+
+  // Panel styles moved to layout/_app.scss
+
+  // Panel header styles moved to layout/_app.scss
+  
+  // Run tests button styles moved to components/_sections.scss
+  
+  // Ingredient context bar styles moved to components/_sections.scss
+  
+  // Ingredient pill styles moved to components/_sections.scss
+  
+  // Population pill styles moved to components/_sections.scss
+  
+  // Population dropdown styles moved to components/_sections.scss
+  
+  .dropdown-header {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    color: #495057;
+  }
+  
+  .dropdown-empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+  }
+  
+  .population-option {
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .population-option:last-child {
+    border-bottom: none;
+  }
+  
+  .population-option.active {
+    background-color: #f8f9fa;
+  }
+  
+  .population-option-header {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-left: 4px solid transparent;
+  }
+  
+  .population-name {
+    font-weight: 500;
+    color: #212529;
+  }
+  
+  .active-badge {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border-radius: 12px;
+  }
+  
+  .reference-list {
+    padding: 0.5rem;
+    background-color: #fafbfc;
+  }
+  
+  .reference-option {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+    background: white;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  
+  .reference-option:last-child {
+    margin-bottom: 0;
+  }
+  
+  .reference-option:hover:not(:disabled) {
+    border-color: #0366d6;
+    background-color: #f6f8fa;
+  }
+  
+  .reference-option:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f1f3f5;
+  }
+  
+  .ref-health-system {
+    font-size: 0.875rem;
+    color: #586069;
+  }
+  
+  .ref-version {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    background-color: #e1e4e8;
+    color: #586069;
+    border-radius: 10px;
+  }
+  
+  .health-system-pill {
+    padding: 0.375rem 0.75rem;
+    background-color: #6c757d;
+    color: white;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .context-separator {
+    color: #999;
+    font-size: 0.875rem;
+  }
+  
+  .version-badge {
+    padding: 0.25rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    margin: 0;
+    color: #535bf2;
+  }
+
+  .add-section-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .add-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .add-btn:hover {
+    background-color: #218838;
+  }
+
+  // Sections container styles moved to layout/_app.scss
+
+  // Section styles moved to components/_sections.scss
+
+  // Section header and type styles moved to components/_sections.scss
+
+  .ingredient-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    align-items: center;
+    flex: 1;
+  }
+
+  .ingredient-badge {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  .ingredient-badge.tpn-badge {
+    color: white;
+  }
+
+  .ingredient-badge.calculated-badge {
+    color: white;
+    opacity: 0.85;
+    border: 1px dashed rgba(255, 255, 255, 0.5);
+  }
+
+  .ingredient-badge.custom-badge {
+    background-color: #e9ecef;
+    color: #495057;
+  }
+
+  .ingredient-count {
+    font-size: 0.65rem;
+    color: #666;
+    padding: 0.1rem 0.35rem;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  .delete-section-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 1.2rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .delete-section-btn:hover {
+    background-color: #c82333;
+  }
+
+  .editor-wrapper {
+    max-height: 500px;
+    resize: vertical;
+    overflow: auto;
+    position: relative;
+  }
+  
+  .content-preview {
+    padding: 1rem;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  
+  .content-preview:hover {
+    background-color: #f0f0f0;
+    border-color: #bbb;
+  }
+  
+  .content-preview::after {
+    content: "Double-click to edit";
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.75rem;
+    color: #999;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .content-preview:hover::after {
+    opacity: 1;
+  }
+  
+  .content-preview pre {
+    margin: 0;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: #333;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  .done-editing-btn {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    z-index: 10;
+  }
+  
+  .done-editing-btn:hover {
+    background-color: #218838;
+  }
+
+  /* Test Cases Styles */
+  .test-cases {
+    padding: 0.5rem;
+    border-top: 1px solid #ddd;
+    background-color: #f9f9f9;
+  }
+
+  .test-cases-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  
+  .test-cases-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    text-align: left;
+  }
+  
+  .test-cases-toggle:hover {
+    background-color: #2a2a2a;
+  }
+  
+  .collapse-icon {
+    font-size: 0.8rem;
+    color: #666;
+    transition: transform 0.2s;
+  }
+  
+  .active-test-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    background-color: #ffc107;
+    color: #000;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+
+  .test-cases-toggle h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #ffc107;
+  }
+  
+  .test-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .add-test-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .add-test-btn:hover {
+    background-color: #5a6268;
+  }
+  
+  .ai-inspector-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+  }
+  
+  .ai-inspector-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+  }
+
+  .test-case-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .test-case {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+  }
+
+  .test-case.active {
+    border-color: #ffc107;
+    background-color: #fffbf0;
+  }
+
+  .test-case-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .test-case-name {
+    flex: 1;
+    padding: 0.25rem;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #333;
+    font-size: 0.9rem;
+  }
+
+  .test-case-run {
+    padding: 0.25rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
+  .test-case-run:hover {
+    background-color: #218838;
+  }
+  
+  .test-case-run.running {
+    background-color: #dc3545;
+  }
+  
+  .test-case-run.running:hover {
+    background-color: #c82333;
+  }
+
+  .test-case-delete {
+    padding: 0.25rem 0.5rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
+  .test-variables {
+    font-size: 0.85rem;
+  }
+
+  .variable-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    color: #999;
+  }
+
+  .add-var-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .variable-row, .style-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .var-name {
+    color: #17a2b8;
+    min-width: 100px;
+  }
+
+  .var-value {
+    flex: 1;
+    padding: 0.2rem;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #333;
+    font-size: 0.85rem;
+  }
+
+  .var-delete, .style-delete {
+    padding: 0.2rem 0.4rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+  }
+
+  /* Test expectations styles */
+  .test-expectations {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  .expectation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    color: #666;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .match-type-select {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+  }
+
+  .expected-output {
+    width: 100%;
+    min-height: 60px;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    resize: vertical;
+    margin-bottom: 1rem;
+  }
+
+  .add-style-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .style-prop {
+    color: #6c757d;
+    min-width: 100px;
+    font-size: 0.85rem;
+  }
+
+  .style-value {
+    flex: 1;
+    padding: 0.2rem;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #333;
+    font-size: 0.85rem;
+  }
+
+  /* Test result styles */
+  .test-result {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .test-result.passed {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+  }
+
+  .test-result.failed {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+
+  .result-header {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-error {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 3px;
+  }
+
+  .result-detail {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 3px;
+    word-break: break-word;
+  }
+
+  /* Rest of styles remain the same... */
+  .preview-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  
+  .preview-header-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+  
+  .view-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background-color: #e9ecef;
+    padding: 0.25rem;
+    border-radius: 6px;
+  }
+  
+  .view-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    background-color: transparent;
+    color: #495057;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .view-tab:hover {
+    background-color: #dee2e6;
+    color: #333;
+  }
+  
+  .view-tab.active {
+    background-color: #646cff;
+    color: white;
+  }
+  
+  .output-format-selector {
+    display: flex;
+    gap: 0.25rem;
+    background-color: #fff;
+    padding: 0.25rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+  }
+  
+  .format-btn {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    background-color: transparent;
+    color: #495057;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .format-btn:hover {
+    background-color: #f8f9fa;
+    color: #333;
+  }
+  
+  .format-btn.active {
+    background-color: #646cff;
+    color: white;
+  }
+  
+  .preview-header {
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  
+  .preview-toggle {
+    padding: 0.25rem 0.5rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  
+  .preview-toggle:hover {
+    background-color: #5a6268;
+  }
+  
+  .editor-container.preview-collapsed .preview-panel {
+    overflow: hidden;
+    gap: 0;
+  }
+  
+  .editor-container.preview-collapsed .preview,
+  .editor-container.preview-collapsed .output-view,
+  .editor-container.preview-collapsed .ingredient-input-panel {
+    display: none;
+  }
+
+  .preview {
+    flex: 1;
+    padding: 1rem;
+    background-color: #fff;
+    border: 1px solid #444;
+    border-radius: 4px;
+    overflow: auto;
+    margin-bottom: 1rem;
+    color: #333;
+  }
+  
+  /* Force light theme for preview content */
+  .preview :global(*) {
+    color: #333;
+  }
+  
+  .preview :global(a) {
+    color: #0066cc;
+  }
+  
+  .preview :global(a:hover) {
+    color: #0052a3;
+  }
+
+  .output-controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  .output-toggle-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .output-toggle-btn:hover {
+    background-color: #5a6268;
+  }
+
+  .output-view {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+    background-color: #f8f9fa;
+  }
+
+  .output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .view-toggle {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .toggle-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border: 1px solid #ddd;
+    background-color: #fff;
+    color: #333;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toggle-btn:hover {
+    background-color: #f5f5f5;
+  }
+
+  .toggle-btn.active {
+    background-color: #646cff;
+    color: white;
+    border-color: #646cff;
+  }
+
+  .json-output {
+    flex: 1;
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    overflow: auto;
+  }
+  
+  .json-output pre {
+    margin: 0;
+    color: #212529;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
+  .configurator {
+    flex: 1;
+    padding: 1rem;
+    background-color: #fff;
+    border-radius: 6px;
+    overflow: auto;
+    border: 1px solid #dee2e6;
+  }
+
+  .config-line {
+    margin-bottom: 0.5rem;
+  }
+
+  .line-input {
+    width: 100%;
+    padding: 0.5rem;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    color: #212529;
+  }
+
+  .config-line.non-editable .line-input {
+    background-color: #e9ecef;
+    opacity: 0.7;
+  }
+
+  .export-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    background-color: #646cff;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .export-button:hover {
+    background-color: #535bf2;
+  }
+
+  .export-button.copied {
+    background-color: #4caf50;
+  }
+
+  @media (max-width: 1024px) {
+    .editor-container {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  // Modal styles moved to components/_status.scss
+
+  .tpn-toggle {
+    margin-left: 1rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  
+  
+  // Empty state styles moved to layout/_app.scss
+  /* Validation section styles */
+  .validation-section {
+    margin: 0.75rem 1rem;
+    margin-top: 0;
+  }
+  
+  /* Selective Apply Modal */
+  .selective-apply-modal {
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: map.get($z-indices, modal);
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .close-btn:hover {
+    color: #333;
+  }
+  
+  // Test summary modal styles moved to components/_status.scss
+</style>

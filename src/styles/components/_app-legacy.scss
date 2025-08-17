@@ -1,0 +1,1035 @@
+// Legacy styles from App.svelte - TO BE REFACTORED
+// These styles need to be gradually moved to proper component SCSS modules
+// Import the necessary abstracts individually
+@use 'sass:map';
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+  
+  // Temporary styles - will be refactored in Phase 2-4
+  // Most styles have been moved to:
+  // - src/styles/layout/_app.scss
+  // - src/styles/components/_sections.scss  
+  // - src/styles/components/_status.scss
+
+  .app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    
+    // Sidebar layout - Desktop only uses grid, mobile remains flex
+    &.app-container--with-sidebar {
+      @include breakpoint(lg) {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 0;
+      }
+    }
+  }
+  
+  main {
+    flex: 1;
+    padding: 1rem;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    
+    // Ensure main content is visible when sidebar is open
+    .app-container.app-container--with-sidebar & {
+      @include breakpoint(lg) {
+        padding: 0;
+        height: 100vh;
+      }
+    }
+  }
+  
+  
+  .header-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .sidebar-toggle {
+    padding: 0.5rem 0.75rem;
+    background-color: #fff;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  
+  .sidebar-toggle:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .new-button {
+    padding: 0.5rem 1rem;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  
+  .new-button:hover {
+    background-color: #138496;
+  }
+
+  
+  // Status bar styles moved to components/_status.scss
+
+  // Editor container styles moved to layout/_app.scss
+
+  // Panel styles moved to layout/_app.scss
+
+  // Panel header styles moved to layout/_app.scss
+  
+  // Run tests button styles moved to components/_sections.scss
+  
+  // Ingredient context bar styles moved to components/_sections.scss
+  
+  // Ingredient pill styles moved to components/_sections.scss
+  
+  // Population pill styles moved to components/_sections.scss
+  
+  // Population dropdown styles moved to components/_sections.scss
+  
+  .dropdown-header {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    color: #495057;
+  }
+  
+  .dropdown-empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+  }
+  
+  .population-option {
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .population-option:last-child {
+    border-bottom: none;
+  }
+  
+  .population-option.active {
+    background-color: #f8f9fa;
+  }
+  
+  .population-option-header {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-left: 4px solid transparent;
+  }
+  
+  .population-name {
+    font-weight: 500;
+    color: #212529;
+  }
+  
+  .active-badge {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border-radius: 12px;
+  }
+  
+  .reference-list {
+    padding: 0.5rem;
+    background-color: #fafbfc;
+  }
+  
+  .reference-option {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+    background: white;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  
+  .reference-option:last-child {
+    margin-bottom: 0;
+  }
+  
+  .reference-option:hover:not(:disabled) {
+    border-color: #0366d6;
+    background-color: #f6f8fa;
+  }
+  
+  .reference-option:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f1f3f5;
+  }
+  
+  .ref-health-system {
+    font-size: 0.875rem;
+    color: #586069;
+  }
+  
+  .ref-version {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    background-color: #e1e4e8;
+    color: #586069;
+    border-radius: 10px;
+  }
+  
+  .health-system-pill {
+    padding: 0.375rem 0.75rem;
+    background-color: #6c757d;
+    color: white;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  .context-separator {
+    color: #999;
+    font-size: 0.875rem;
+  }
+  
+  .version-badge {
+    padding: 0.25rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    margin: 0;
+    color: #535bf2;
+  }
+
+  .add-section-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .add-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .add-btn:hover {
+    background-color: #218838;
+  }
+
+  // Sections container styles moved to layout/_app.scss
+
+  // Section styles moved to components/_sections.scss
+
+  // Section header and type styles moved to components/_sections.scss
+
+  .ingredient-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    align-items: center;
+    flex: 1;
+  }
+
+  .ingredient-badge {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  .ingredient-badge.tpn-badge {
+    color: white;
+  }
+
+  .ingredient-badge.calculated-badge {
+    color: white;
+    opacity: 0.85;
+    border: 1px dashed rgba(255, 255, 255, 0.5);
+  }
+
+  .ingredient-badge.custom-badge {
+    background-color: #e9ecef;
+    color: #495057;
+  }
+
+  .ingredient-count {
+    font-size: 0.65rem;
+    color: #666;
+    padding: 0.1rem 0.35rem;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  .delete-section-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 1.2rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .delete-section-btn:hover {
+    background-color: #c82333;
+  }
+
+  .editor-wrapper {
+    max-height: 500px;
+    resize: vertical;
+    overflow: auto;
+    position: relative;
+  }
+  
+  .content-preview {
+    padding: 1rem;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  
+  .content-preview:hover {
+    background-color: #f0f0f0;
+    border-color: #bbb;
+  }
+  
+  .content-preview::after {
+    content: "Double-click to edit";
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.75rem;
+    color: #999;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .content-preview:hover::after {
+    opacity: 1;
+  }
+  
+  .content-preview pre {
+    margin: 0;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: #333;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  .done-editing-btn {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    z-index: 10;
+  }
+  
+  .done-editing-btn:hover {
+    background-color: #218838;
+  }
+
+  /* Test Cases Styles */
+  .test-cases {
+    padding: 0.5rem;
+    border-top: 1px solid #ddd;
+    background-color: #f9f9f9;
+  }
+
+  .test-cases-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  
+  .test-cases-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    text-align: left;
+  }
+  
+  .test-cases-toggle:hover {
+    background-color: #2a2a2a;
+  }
+  
+  .collapse-icon {
+    font-size: 0.8rem;
+    color: #666;
+    transition: transform 0.2s;
+  }
+  
+  .active-test-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    background-color: #ffc107;
+    color: #000;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+
+  .test-cases-toggle h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #ffc107;
+  }
+  
+  .test-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .add-test-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .add-test-btn:hover {
+    background-color: #5a6268;
+  }
+  
+  .ai-inspector-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+  }
+  
+  .ai-inspector-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+  }
+
+  .test-case-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .test-case {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+  }
+
+  .test-case.active {
+    border-color: #ffc107;
+    background-color: #fffbf0;
+  }
+
+  .test-case-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .test-case-name {
+    flex: 1;
+    padding: 0.25rem;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #333;
+    font-size: 0.9rem;
+  }
+
+  .test-case-run {
+    padding: 0.25rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
+  .test-case-run:hover {
+    background-color: #218838;
+  }
+  
+  .test-case-run.running {
+    background-color: #dc3545;
+  }
+  
+  .test-case-run.running:hover {
+    background-color: #c82333;
+  }
+
+  .test-case-delete {
+    padding: 0.25rem 0.5rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
+  .test-variables {
+    font-size: 0.85rem;
+  }
+
+  .variable-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    color: #999;
+  }
+
+  .add-var-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .variable-row, .style-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .var-name {
+    color: #17a2b8;
+    min-width: 100px;
+  }
+
+  .var-value {
+    flex: 1;
+    padding: 0.2rem;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #333;
+    font-size: 0.85rem;
+  }
+
+  .var-delete, .style-delete {
+    padding: 0.2rem 0.4rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+  }
+
+  /* Test expectations styles */
+  .test-expectations {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  .expectation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    color: #666;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .match-type-select {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+  }
+
+  .expected-output {
+    width: 100%;
+    min-height: 60px;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    resize: vertical;
+    margin-bottom: 1rem;
+  }
+
+  .add-style-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .style-prop {
+    color: #6c757d;
+    min-width: 100px;
+    font-size: 0.85rem;
+  }
+
+  .style-value {
+    flex: 1;
+    padding: 0.2rem;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #333;
+    font-size: 0.85rem;
+  }
+
+  /* Test result styles */
+  .test-result {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .test-result.passed {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+  }
+
+  .test-result.failed {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+
+  .result-header {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-error {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 3px;
+  }
+
+  .result-detail {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 3px;
+    word-break: break-word;
+  }
+
+  /* Rest of styles remain the same... */
+  .preview-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  
+  .preview-header-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+  
+  .view-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background-color: #e9ecef;
+    padding: 0.25rem;
+    border-radius: 6px;
+  }
+  
+  .view-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    background-color: transparent;
+    color: #495057;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .view-tab:hover {
+    background-color: #dee2e6;
+    color: #333;
+  }
+  
+  .view-tab.active {
+    background-color: #646cff;
+    color: white;
+  }
+  
+  .output-format-selector {
+    display: flex;
+    gap: 0.25rem;
+    background-color: #fff;
+    padding: 0.25rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+  }
+  
+  .format-btn {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    background-color: transparent;
+    color: #495057;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .format-btn:hover {
+    background-color: #f8f9fa;
+    color: #333;
+  }
+  
+  .format-btn.active {
+    background-color: #646cff;
+    color: white;
+  }
+  
+  .preview-header {
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  
+  .preview-toggle {
+    padding: 0.25rem 0.5rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  
+  .preview-toggle:hover {
+    background-color: #5a6268;
+  }
+  
+  .editor-container.preview-collapsed .preview-panel {
+    overflow: hidden;
+    gap: 0;
+  }
+  
+  .editor-container.preview-collapsed .preview,
+  .editor-container.preview-collapsed .output-view,
+  .editor-container.preview-collapsed .ingredient-input-panel {
+    display: none;
+  }
+
+  .preview {
+    flex: 1;
+    padding: 1rem;
+    background-color: #fff;
+    border: 1px solid #444;
+    border-radius: 4px;
+    overflow: auto;
+    margin-bottom: 1rem;
+    color: #333;
+  }
+  
+  /* Force light theme for preview content */
+  .preview :global(*) {
+    color: #333;
+  }
+  
+  .preview :global(a) {
+    color: #0066cc;
+  }
+  
+  .preview :global(a:hover) {
+    color: #0052a3;
+  }
+
+  .output-controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  .output-toggle-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .output-toggle-btn:hover {
+    background-color: #5a6268;
+  }
+
+  .output-view {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+    background-color: #f8f9fa;
+  }
+
+  .output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .view-toggle {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .toggle-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border: 1px solid #ddd;
+    background-color: #fff;
+    color: #333;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toggle-btn:hover {
+    background-color: #f5f5f5;
+  }
+
+  .toggle-btn.active {
+    background-color: #646cff;
+    color: white;
+    border-color: #646cff;
+  }
+
+  .json-output {
+    flex: 1;
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    overflow: auto;
+  }
+  
+  .json-output pre {
+    margin: 0;
+    color: #212529;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
+  .configurator {
+    flex: 1;
+    padding: 1rem;
+    background-color: #fff;
+    border-radius: 6px;
+    overflow: auto;
+    border: 1px solid #dee2e6;
+  }
+
+  .config-line {
+    margin-bottom: 0.5rem;
+  }
+
+  .line-input {
+    width: 100%;
+    padding: 0.5rem;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    color: #212529;
+  }
+
+  .config-line.non-editable .line-input {
+    background-color: #e9ecef;
+    opacity: 0.7;
+  }
+
+  .export-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    background-color: #646cff;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .export-button:hover {
+    background-color: #535bf2;
+  }
+
+  .export-button.copied {
+    background-color: #4caf50;
+  }
+
+  @media (max-width: 1024px) {
+    .editor-container {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  // Modal styles moved to components/_status.scss
+
+  .tpn-toggle {
+    margin-left: 1rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  
+  
+  // Empty state styles moved to layout/_app.scss
+  /* Validation section styles */
+  .validation-section {
+    margin: 0.75rem 1rem;
+    margin-top: 0;
+  }
+  
+  /* Selective Apply Modal */
+  .selective-apply-modal {
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: map.get($z-indices, modal);
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .close-btn:hover {
+    color: #333;
+  }
+  
+  // Test summary modal styles moved to components/_status.scss

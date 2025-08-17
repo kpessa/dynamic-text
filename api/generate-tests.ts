@@ -12,12 +12,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).json({});
+    res.status(200).json({});
+    return;
   }
 
   // Only allow POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
   
   console.log('Received test generation request:', {
@@ -30,10 +32,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // Check if API key is configured
     if (!process.env['GEMINI_API_KEY']) {
       console.error('GEMINI_API_KEY not configured');
-      return res.status(500).json({ 
+      res.status(500).json({ 
         error: 'AI service not configured', 
         details: 'GEMINI_API_KEY environment variable is missing' 
       });
+      return;
     }
     
     const { 
@@ -52,7 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     } = req.body;
 
     if (!dynamicCode) {
-      return res.status(400).json({ error: 'Dynamic code is required' });
+      res.status(400).json({ error: 'Dynamic code is required' });
+      return;
     }
 
     // Create the prompt for Gemini with full document context
@@ -148,7 +152,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       }
       
       // First parsing attempt
-      tests = JSON.parse(jsonText);
+      tests = JSON.parse(jsonText!);
       
       // Validate the structure based on testCategory
       if (testCategory === 'all') {
@@ -231,11 +235,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     
     // Check if it's an API key error
     if (error.message?.includes('API_KEY') || error.message?.includes('API key')) {
-      return res.status(500).json({ 
+      res.status(500).json({ 
         error: 'AI service configuration error', 
         details: 'Please check that GEMINI_API_KEY is properly configured',
         originalError: error.message
       });
+      return;
     }
     
     res.status(500).json({ 
@@ -273,11 +278,11 @@ Total document variables: ${allDocumentVariables?.length || 0}
 Total test cases across document: ${documentStats.totalTestCases || 0}
 
 DOCUMENT STRUCTURE:
-${documentContext.map(section => `
+${documentContext.map((section: any) => `
 Section ${section.id} (${section.type.toUpperCase()}):
 ${section.content}
 ${section.testCases && section.testCases.length > 0 ? `
-Existing Test Cases: ${section.testCases.map(tc => `${tc.name} (${Object.keys(tc.variables || {}).length} vars)`).join(', ')}
+Existing Test Cases: ${section.testCases.map((tc: any) => `${tc.name} (${Object.keys(tc.variables || {}).length} vars)`).join(', ')}
 ` : ''}
 `).join('\n---\n')}
 

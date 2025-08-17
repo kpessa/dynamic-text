@@ -37,7 +37,7 @@ try {
   const existingApps = getApps();
   if (existingApps.length > 0) {
     // Use existing app
-    app = existingApps[0];
+    app = existingApps[0]!;
     db = getFirestore(app);
     auth = getAuth(app);
   } else {

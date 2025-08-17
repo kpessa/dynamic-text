@@ -3,46 +3,171 @@
 
 @use '../abstracts/variables' as *;
 @use '../abstracts/mixins' as *;
+@use '../abstracts/dark-mode' as *;
 
 // CSS Custom Properties (Root Variables)
 :root {
-  // Colors
+  // Core colors - Light mode defaults
   --color-background: #ffffff;
   --color-surface: #f8fafc;
+  --color-surface-secondary: #f1f5f9;
+  --color-surface-tertiary: #e2e8f0;
+  
+  // Text colors
   --color-text: #334155;
-  --color-primary: #3b82f6;
+  --color-text-secondary: #64748b;
+  --color-text-tertiary: #94a3b8;
+  --color-text-inverse: #ffffff;
+  
+  // Border colors
   --color-border: #e2e8f0;
+  --color-border-light: #f1f5f9;
+  --color-border-dark: #cbd5e1;
+  
+  // Brand colors
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-light: rgba(59, 130, 246, 0.1);
+  --color-primary-text: #ffffff;
+  
+  --color-secondary: #8b5cf6;
+  --color-secondary-hover: #7c3aed;
+  --color-secondary-light: rgba(139, 92, 246, 0.1);
+  --color-secondary-text: #ffffff;
+  
+  // Status colors
+  --color-success: #10b981;
+  --color-success-hover: #059669;
+  --color-success-light: rgba(16, 185, 129, 0.1);
+  --color-success-300: rgba(16, 185, 129, 0.3);
+  --color-success-700: #047857;
+  --color-success-text: #ffffff;
+  
+  --color-warning: #f59e0b;
+  --color-warning-hover: #d97706;
+  --color-warning-light: rgba(245, 158, 11, 0.1);
+  --color-warning-300: rgba(245, 158, 11, 0.3);
+  --color-warning-700: #b45309;
+  --color-warning-text: #ffffff;
+  
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-light: rgba(239, 68, 68, 0.1);
+  --color-danger-300: rgba(239, 68, 68, 0.3);
+  --color-danger-700: #b91c1c;
+  --color-danger-text: #ffffff;
+  
+  --color-info: #0ea5e9;
+  --color-info-hover: #0284c7;
+  --color-info-light: rgba(14, 165, 233, 0.1);
+  --color-info-300: rgba(14, 165, 233, 0.3);
+  --color-info-700: #0369a1;
+  --color-info-text: #ffffff;
   
   // Spacing
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
+  --space-7: 1.75rem;
   --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
   
   // Border radius
+  --radius-none: 0;
   --radius-sm: 0.125rem;
+  --radius-base: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-full: 9999px;
   
   // Shadows
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-base: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-medical: 0 0 20px rgba(59, 130, 246, 0.1);
+  --shadow-medical-hover: 0 0 30px rgba(59, 130, 246, 0.15);
   
   // Typography
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  
+  // Font sizes
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  
+  // Font weights
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  // Line heights
+  --line-height-tight: 1.25;
   --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
   
   // Transitions
-  --transition-fast: 150ms ease;
+  --transition-fast: 120ms ease-out;
+  --transition-normal: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
   
   // Focus
   --focus-ring-width: 2px;
   --focus-ring-color: #3b82f6;
   --focus-ring-offset: 2px;
+  
+  // Z-index
+  --z-base: 1;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-overlay: 1035;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-notification: 1080;
+  
+  // Medical-specific
+  --color-medical-critical: #ef4444;
+  --color-medical-warning: #f59e0b;
+  --color-medical-normal: #10b981;
+  --color-medical-info: #0ea5e9;
+  
+  // Code editor colors
+  --color-code-bg: #f8fafc;
+  --color-code-text: #334155;
+  --color-code-comment: #94a3b8;
+  --color-code-keyword: #8b5cf6;
+  --color-code-string: #10b981;
+  --color-code-number: #0ea5e9;
+  --color-code-function: #f59e0b;
+  
+  // Overlay
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  
+  // Scrollbar
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
 }
+
+// Apply automatic dark mode support
+@include auto-dark-mode;
+@include dark-mode-utilities;
 
 // Modern CSS reset with medical-grade accessibility
 *,

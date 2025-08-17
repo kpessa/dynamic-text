@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/generate-tests.js": {
+    "api/generate-tests.ts": {
       "maxDuration": 30
     }
   },

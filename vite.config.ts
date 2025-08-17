@@ -31,7 +31,7 @@ export default defineConfig({
             '@lezer/highlight'
           ],
           
-          firebase: ['firebase'],
+          firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth'],
           
           ai: ['@google/generative-ai'],
           
@@ -88,7 +88,9 @@ export default defineConfig({
     ],
     exclude: [
       // Exclude heavy libraries from pre-bundling
-      'firebase',
+      'firebase/app',
+      'firebase/firestore', 
+      'firebase/auth',
       '@google/generative-ai',
       'codemirror'
     ],

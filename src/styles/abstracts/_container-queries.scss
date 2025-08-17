@@ -1,0 +1,354 @@
+// Container Queries for Component-Level Responsiveness
+// Modern CSS container queries for responsive components independent of viewport
+
+// Container query breakpoints
+$container-breakpoints: (
+  xs: 20rem,    // 320px
+  sm: 24rem,    // 384px
+  md: 32rem,    // 512px
+  lg: 48rem,    // 768px
+  xl: 64rem,    // 1024px
+  xxl: 80rem    // 1280px
+);
+
+// Container query mixin
+@mixin container-query($size) {
+  @if map-has-key($container-breakpoints, $size) {
+    @container (min-width: #{map-get($container-breakpoints, $size)}) {
+      @content;
+    }
+  } @else {
+    @container (min-width: #{$size}) {
+      @content;
+    }
+  }
+}
+
+// Inline size container query mixin
+@mixin container-inline-query($size) {
+  @if map-has-key($container-breakpoints, $size) {
+    @container (min-inline-size: #{map-get($container-breakpoints, $size)}) {
+      @content;
+    }
+  } @else {
+    @container (min-inline-size: #{$size}) {
+      @content;
+    }
+  }
+}
+
+// Container type mixins
+@mixin container-inline {
+  container-type: inline-size;
+}
+
+@mixin container-size {
+  container-type: size;
+}
+
+@mixin container-normal {
+  container-type: normal;
+}
+
+// Named container mixin
+@mixin named-container($name, $type: inline-size) {
+  container-name: $name;
+  container-type: $type;
+}
+
+// Container query utilities
+.container-inline {
+  container-type: inline-size;
+}
+
+.container-size {
+  container-type: size;
+}
+
+.container-normal {
+  container-type: normal;
+}
+
+// Component-specific container queries
+// Modal containers
+.modal-container {
+  @include container-inline;
+  
+  .modal-content {
+    padding: var(--space-4);
+    
+    @include container-query(sm) {
+      padding: var(--space-6);
+    }
+    
+    @include container-query(md) {
+      padding: var(--space-8);
+    }
+  }
+  
+  .modal-header {
+    font-size: var(--font-size-lg);
+    
+    @include container-query(sm) {
+      font-size: var(--font-size-xl);
+    }
+    
+    @include container-query(md) {
+      font-size: var(--font-size-2xl);
+    }
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+    gap: var(--space-2);
+    
+    @include container-query(sm) {
+      flex-direction: row;
+      justify-content: flex-end;
+      gap: var(--space-3);
+    }
+  }
+}
+
+// Sidebar container
+.sidebar-container {
+  @include container-inline;
+  
+  .sidebar-content {
+    @include container-query(xs) {
+      // Collapsed state
+      .sidebar-label {
+        display: none;
+      }
+      
+      .sidebar-icon {
+        margin: 0 auto;
+      }
+    }
+    
+    @include container-query(sm) {
+      // Expanded state
+      .sidebar-label {
+        display: inline;
+      }
+      
+      .sidebar-icon {
+        margin: 0;
+      }
+    }
+  }
+}
+
+// Card containers
+.card-container {
+  @include container-inline;
+  
+  .card {
+    @include container-query(xs) {
+      // Stack layout for small containers
+      .card-header,
+      .card-body,
+      .card-footer {
+        padding: var(--space-3);
+      }
+      
+      .card-actions {
+        flex-direction: column;
+        width: 100%;
+        
+        button {
+          width: 100%;
+        }
+      }
+    }
+    
+    @include container-query(sm) {
+      // Regular layout for medium containers
+      .card-header,
+      .card-body,
+      .card-footer {
+        padding: var(--space-4);
+      }
+      
+      .card-actions {
+        flex-direction: row;
+        width: auto;
+        
+        button {
+          width: auto;
+        }
+      }
+    }
+    
+    @include container-query(md) {
+      // Spacious layout for large containers
+      .card-header,
+      .card-body,
+      .card-footer {
+        padding: var(--space-6);
+      }
+    }
+  }
+}
+
+// Test panel container
+.test-panel-container {
+  @include container-inline;
+  
+  .test-grid {
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: 1fr;
+    
+    @include container-query(md) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @include container-query(lg) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    @include container-query(xl) {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+}
+
+// Editor workspace container
+.editor-workspace-container {
+  @include container-inline;
+  
+  .editor-layout {
+    display: flex;
+    flex-direction: column;
+    
+    @include container-query(lg) {
+      flex-direction: row;
+      
+      .editor-main {
+        flex: 1;
+      }
+      
+      .editor-sidebar {
+        width: 300px;
+      }
+    }
+    
+    @include container-query(xl) {
+      .editor-sidebar {
+        width: 400px;
+      }
+    }
+  }
+}
+
+// Form container queries
+.form-container {
+  @include container-inline;
+  
+  .form-grid {
+    display: grid;
+    gap: var(--space-4);
+    grid-template-columns: 1fr;
+    
+    @include container-query(sm) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @include container-query(md) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .form-group-full {
+      grid-column: 1 / -1;
+    }
+  }
+  
+  .form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    
+    @include container-query(sm) {
+      flex-direction: row;
+      justify-content: flex-end;
+      gap: var(--space-3);
+    }
+  }
+}
+
+// Table container queries
+.table-container {
+  @include container-inline;
+  
+  table {
+    font-size: var(--font-size-sm);
+    
+    @include container-query(sm) {
+      font-size: var(--font-size-base);
+    }
+    
+    // Hide less important columns on small containers
+    @include container-query(xs) {
+      .hide-xs {
+        display: none;
+      }
+    }
+    
+    @include container-query(sm) {
+      .hide-xs {
+        display: table-cell;
+      }
+    }
+    
+    @include container-query(md) {
+      .hide-sm {
+        display: table-cell;
+      }
+    }
+  }
+}
+
+// Navigation container
+.nav-container {
+  @include container-inline;
+  
+  .nav-items {
+    @include container-query(xs) {
+      // Mobile menu
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-2);
+      
+      &:not(.open) {
+        display: none;
+      }
+    }
+    
+    @include container-query(md) {
+      // Desktop menu
+      position: static;
+      flex-direction: row;
+      background-color: transparent;
+      border: none;
+      padding: 0;
+      display: flex !important;
+    }
+  }
+  
+  .nav-toggle {
+    display: block;
+    
+    @include container-query(md) {
+      display: none;
+    }
+  }
+}
+
+// Export handled by file inclusion

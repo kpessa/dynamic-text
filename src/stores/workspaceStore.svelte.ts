@@ -4,37 +4,37 @@ import { POPULATION_TYPES } from '../lib/firebaseDataService.js';
 
 type ValidationStatus = 'untested' | 'passed' | 'failed' | 'partial';
 
-// Workspace store for current work context and state (Svelte 4 compatible)
+// Workspace store for current work context and state using Svelte 5 runes
 class WorkspaceStore {
   // Current work context
-  private _currentIngredient: string = '';
-  private _currentReferenceName: string = '';
-  private _loadedIngredient: LoadedIngredient | null = null;
-  private _loadedReference: LoadedReference | null = null;
-  private _currentHealthSystem: string | null = null;
-  private _currentPopulationType: string = POPULATION_TYPES.ADULT;
-  private _availablePopulations: any[] = [];
+  private _currentIngredient = $state<string>('');
+  private _currentReferenceName = $state<string>('');
+  private _loadedIngredient = $state<LoadedIngredient | null>(null);
+  private _loadedReference = $state<LoadedReference | null>(null);
+  private _currentHealthSystem = $state<string | null>(null);
+  private _currentPopulationType = $state<string>(POPULATION_TYPES.ADULT);
+  private _availablePopulations = $state<any[]>([]);
 
   // Save/load state
-  private _hasUnsavedChanges: boolean = false;
-  private _lastSavedTime: Date | null = null;
-  private _loadedReferenceId : string | null = null;
-  private _originalSections : Section[] | null = null;
+  private _hasUnsavedChanges = $state<boolean>(false);
+  private _lastSavedTime = $state<Date | null>(null);
+  private _loadedReferenceId = $state<string | null>(null);
+  private _originalSections = $state<Section[] | null>(null);
 
   // Validation state
-  private _currentValidationStatus : ValidationStatus = 'untested';
-  private _currentValidationNotes : string = '';
-  private _currentValidatedBy : string | null = null;
-  private _currentValidatedAt : Date | null = null;
-  private _currentTestResults : any = null;
+  private _currentValidationStatus = $state<ValidationStatus>('untested');
+  private _currentValidationNotes = $state<string>('');
+  private _currentValidatedBy = $state<string | null>(null);
+  private _currentValidatedAt = $state<Date | null>(null);
+  private _currentTestResults = $state<any>(null);
 
   // Firebase and config state
-  private _firebaseEnabled : boolean = false;
-  private _activeConfigId : string | null = null;
-  private _activeConfigIngredients : any[] = [];
-  private _selectedIngredientForDiff : any = null;
-  private _pendingSaveData : any = null;
-  private _pendingReferenceData : any = null;
+  private _firebaseEnabled = $state<boolean>(false);
+  private _activeConfigId = $state<string | null>(null);
+  private _activeConfigIngredients = $state<any[]>([]);
+  private _selectedIngredientForDiff = $state<any>(null);
+  private _pendingSaveData = $state<any>(null);
+  private _pendingReferenceData = $state<any>(null);
 
   // Getters
   get currentIngredient() { return this._currentIngredient; }
@@ -60,32 +60,30 @@ class WorkspaceStore {
   get pendingSaveData() { return this._pendingSaveData; }
   get pendingReferenceData() { return this._pendingReferenceData; }
 
-  // Derived computed values - using getters to prevent reactivity loops
-  get hasLoadedContent() {
-    return this._loadedIngredient !== null || this._loadedReference !== null;
-  }
+  // Derived computed values using $derived
+  hasLoadedContent = $derived(this._loadedIngredient !== null || this._loadedReference !== null);
   
-  get hasWorkspaceChanges() {
-    return this._hasUnsavedChanges || 
-      (this._currentIngredient.trim() !== '') || 
-      (this._currentReferenceName.trim() !== '');
-  }
+  hasWorkspaceChanges = $derived(
+    this._hasUnsavedChanges || 
+    (this._currentIngredient.trim() !== '') || 
+    (this._currentReferenceName.trim() !== '')
+  );
   
-  get isValidationComplete() {
-    return this._currentValidationStatus === 'passed' || 
-      this._currentValidationStatus === 'failed';
-  }
+  isValidationComplete = $derived(
+    this._currentValidationStatus === 'passed' || 
+    this._currentValidationStatus === 'failed'
+  );
   
-  get workspaceTitle() {
+  workspaceTitle = $derived.by(() => {
     if (this._currentReferenceName) return this._currentReferenceName;
     if (this._currentIngredient) return this._currentIngredient;
     return 'Untitled Workspace';
-  }
+  });
   
-  get lastSavedTimeFormatted() {
+  lastSavedTimeFormatted = $derived.by(() => {
     if (!this._lastSavedTime) return 'Never saved';
     return this._lastSavedTime.toLocaleString();
-  }
+  });
 
   // Setters
   setCurrentIngredient(ingredient: string) { this._currentIngredient = ingredient; }

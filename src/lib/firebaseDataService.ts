@@ -14,42 +14,21 @@ import {
   serverTimestamp,
   writeBatch,
   arrayUnion,
-  arrayRemove,
-  increment,
-  type DocumentData,
-  type QuerySnapshot,
-  type DocumentSnapshot,
-  type WriteBatch,
-  type Unsubscribe,
-  type Timestamp
+  increment
 } from 'firebase/firestore';
 import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from './firebase';
 import { getKeyCategory } from './tpnLegacy.js';
-import { generateIngredientHash, findDuplicates, areIngredientsIdentical } from './contentHashing';
+import { generateIngredientHash, findDuplicates } from './contentHashing';
 import { getPreferences } from './preferencesService.js';
-import { createSharedIngredient, addToSharedIngredient, getSharedIngredientByHash } from './sharedIngredientService.js';
+import { getSharedIngredientByHash } from './sharedIngredientService.js';
 import type {
   PopulationType,
   POPULATION_TYPES as PopulationTypesType,
   IngredientData,
   ReferenceData,
-  ImportedIngredient,
-  ConfigData,
-  ConfigMetadata,
-  ImportedConfig,
-  DuplicateReport,
-  ImportStats,
-  AutoDedupeAction,
-  SharedIngredient,
-  User,
   FirebaseTimestamp,
   Section,
-  NoteItem,
-  ServiceResponse,
-  ComparisonResult,
-  ImportResult,
-  MigrationResult,
-  AuditLogEntry
+  NoteItem
 } from './types.js';
 
 // Population types
@@ -333,6 +312,7 @@ export const ingredientService = {
       
       // Use normalized ingredient name as ID
       const ingredientId = ingredientData.id || normalizeIngredientId(ingredientData.name);
+      if (!db) throw new Error('Firebase not initialized');
       const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
       
       // Get current document to check version

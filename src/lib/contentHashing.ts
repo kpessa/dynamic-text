@@ -3,7 +3,7 @@
  * Generates deterministic hashes for ingredient content to identify duplicates
  */
 
-import type { Section, Ingredient } from '../types';
+import type { Section } from '../types';
 
 /**
  * Simple hash function using djb2 algorithm
