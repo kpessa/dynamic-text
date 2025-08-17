@@ -194,7 +194,7 @@ export function importFromJSON(jsonData: any): Section[] {
   // Handle both old and new formats
   if (Array.isArray(jsonData)) {
     // Old format - direct array of sections
-    return jsonData.map((section, index) => ({
+    return jsonData.map((section) => ({
       id: section.id || crypto.randomUUID(),
       type: section.type || 'static',
       content: section.content || '',

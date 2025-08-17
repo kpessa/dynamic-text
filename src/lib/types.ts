@@ -529,6 +529,9 @@ export interface TPNValidKeys {
   RADIO_BUTTONS: readonly string[];
   UI_ELEMENTS: readonly string[];
   LEGACY_ALIASES: readonly string[];
+  TRACE_ELEMENTS: readonly string[];
+  VITAMINS: readonly string[];
+  CALCULATED: readonly string[];
 }
 
 // Calculated value dependencies

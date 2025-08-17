@@ -70,13 +70,13 @@ export class IngredientManagementExample {
       
       // 4. Get all ingredients (cached for performance)
       const allIngredientsResult = await ingredientService.getAllIngredients();
-      if (allIngredientsResult.success) {
+      if (allIngredientsResult.success && allIngredientsResult.data) {
         console.log(`✓ Retrieved ${allIngredientsResult.data.length} total ingredients`);
       }
       
       // 5. Get ingredients by category (also cached)
       const electrolyteResult = await ingredientService.getIngredientsByCategory('ELECTROLYTE');
-      if (electrolyteResult.success) {
+      if (electrolyteResult.success && electrolyteResult.data) {
         console.log(`✓ Retrieved ${electrolyteResult.data.length} electrolyte ingredients`);
       }
       
@@ -130,7 +130,7 @@ export class ReferenceManagementExample {
       
       // First, ensure we have an ingredient to work with
       const ingredientsResult = await ingredientService.getAllIngredients();
-      if (!ingredientsResult.success || ingredientsResult.data.length === 0) {
+      if (!ingredientsResult.success || !ingredientsResult.data || ingredientsResult.data.length === 0) {
         console.log('❌ No ingredients found. Create ingredients first.');
         return;
       }

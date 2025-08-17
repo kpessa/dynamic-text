@@ -5,7 +5,6 @@
 
 import * as Babel from '@babel/standalone';
 import DOMPurify from 'dompurify';
-import { TPNLegacySupport, LegacyElementWrapper } from '../lib/tpnLegacy';
 
 /**
  * Sanitize HTML content to prevent XSS attacks
@@ -65,7 +64,7 @@ export function transpileCode(code: string): string {
     return result.code || '';
   } catch (error) {
     console.error('Transpilation error:', error);
-    throw new Error(`Code transpilation failed: ${error.message}`);
+    throw new Error(`Code transpilation failed: ${(error as Error).message}`);
   }
 }
 
@@ -118,7 +117,7 @@ export function evaluateCode(code: string, testVariables: Record<string, any> | 
     return String(result);
   } catch (error) {
     console.error('Code execution error:', error);
-    return `<span style="color: red;">Error: ${error.message}</span>`;
+    return `<span style="color: red;">Error: ${(error as Error).message}</span>`;
   }
 }
 
@@ -126,18 +125,20 @@ export function evaluateCode(code: string, testVariables: Record<string, any> | 
  * Extract inline styles from HTML string
  */
 export function extractStylesFromHTML(htmlString: string): Record<string, string> {
-  const styleMatch = htmlString.match(/style="([^"]*)"/);
+  const styleMatch = htmlString.match(/style="([^"]*)"/i);
   if (!styleMatch) return {};
   
   const styleString = styleMatch[1];
   const styles: Record<string, string> = {};
   
-  styleString.split(';').forEach(style => {
+  if (styleString) {
+    styleString.split(';').forEach(style => {
     const [property, value] = style.split(':').map(s => s.trim());
     if (property && value) {
       styles[property] = value;
     }
-  });
+    });
+  }
   
   return styles;
 }
@@ -219,7 +220,7 @@ export function runTestCase(code: string, testCase: any): any {
   } catch (error) {
     return {
       passed: false,
-      error: error.message,
+      error: (error as Error).message,
       actualOutput: null,
       actualStyles: {}
     };

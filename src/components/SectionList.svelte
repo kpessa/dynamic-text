@@ -1,11 +1,10 @@
-<script>
+<script lang="ts">
   import { getIngredientBadgeColor } from '../services/uiHelpers';
   import TestCaseManager from './TestCaseManager.svelte';
-  import CodeMirror from './CodeMirror.svelte';
+  import CodeEditor from '../lib/CodeEditor.svelte';
   
   let {
     sections = [],
-    dynamicKeys = [],
     tpnKeysCategories = {},
     onAddSection = () => {},
     onDeleteSection = () => {},
@@ -22,7 +21,7 @@
   } = $props();
   
   // Get badge info for a key
-  function getKeyBadgeInfo(key) {
+  function getKeyBadgeInfo(key: string) {
     const category = tpnKeysCategories[key];
     if (category) {
       return {
@@ -37,7 +36,7 @@
   }
   
   // Get all ingredient badges for a section
-  function getSectionIngredients(section) {
+  function getSectionIngredients(section: any) {
     const keys = [];
     
     if (section.type === 'dynamic') {
@@ -47,7 +46,7 @@
       
       // Extract keys from test cases
       if (section.testCases) {
-        section.testCases.forEach(testCase => {
+        section.testCases.forEach((testCase: any) => {
           if (testCase.variables) {
             keys.push(...Object.keys(testCase.variables));
           }
@@ -58,12 +57,12 @@
     return [...new Set(keys)]; // Remove duplicates
   }
   
-  function extractKeysFromCode(code) {
-    const keys = [];
+  function extractKeysFromCode(code: string) {
+    const keys: string[] = [];
     const getValueRegex = /me\.getValue\(['"]([^'"]+)['"]\)/g;
     let match;
     while ((match = getValueRegex.exec(code)) !== null) {
-      keys.add(match[1]);
+      keys.push(match[1]);
     }
     return keys;
   }
@@ -83,13 +82,13 @@
   </div>
   
   <div class="sections-list">
-    {#each sections as section, index}
+    {#each sections as section}
       <div 
         class="section"
         draggable="true"
-        ondragstart={(e) => onDragStart(e, section)}
-        ondragover={onDragOver}
-        ondrop={(e) => onDragDrop(e, section)}
+        ondragstart={(e: DragEvent) => onDragStart(e, section)}
+        ondragover={(e: DragEvent) => onDragOver(e)}
+        ondrop={(e: DragEvent) => onDragDrop(e, section)}
         ondragend={onDragEnd}
       >
         <div class="section-header">
@@ -129,7 +128,7 @@
         <div class="section-content">
           {#if section.isEditing}
             <div class="editor-wrapper">
-              <CodeMirror
+              <CodeEditor
                 value={section.content}
                 onChange={(value) => onUpdateContent(section.id, value)}
                 language={section.type === 'static' ? 'html' : 'javascript'}
@@ -146,6 +145,9 @@
             <div 
               class="content-preview"
               ondblclick={() => onToggleEditing(section.id, true)}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => e.key === 'Enter' && onToggleEditing(section.id, true)}
             >
               <pre>{section.content.slice(0, 200)}{section.content.length > 200 ? '...' : ''}</pre>
             </div>

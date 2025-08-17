@@ -177,13 +177,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       
       // In development, return the full error details for debugging
       if (process.env['NODE_ENV'] !== 'production') {
-        return res.status(500).json({ 
+        res.status(500).json({ 
           error: 'Failed to parse AI response - Debug Mode', 
           details: parseError.message,
           rawResponse: text?.substring(0, 2000), // Include more of the response
           parseAttempt: jsonText?.substring(0, 1000),
           fullError: parseError.toString()
         });
+        return;
       }
       
       // Try a fallback minimal response
@@ -203,12 +204,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         console.log('Using fallback test structure due to parsing error');
         
       } catch (fallbackError) {
-        return res.status(500).json({ 
+        res.status(500).json({ 
           error: 'Failed to parse AI response', 
           details: parseError.message,
           rawResponse: text?.substring(0, 1000), // Include more for debugging
           parseAttempt: jsonText?.substring(0, 500)
         });
+        return;
       }
     }
 

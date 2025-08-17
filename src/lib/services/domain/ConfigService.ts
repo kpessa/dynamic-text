@@ -10,26 +10,23 @@ import {
   getDoc, 
   getDocs,
   updateDoc,
-  deleteDoc,
   query, 
   where, 
   orderBy,
   writeBatch,
   serverTimestamp,
-  arrayUnion,
-  increment
+  arrayUnion
 } from 'firebase/firestore';
 
 import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from '../../firebase';
 import { cacheService } from '../base/CacheService';
 import { errorService } from '../base/ErrorService';
-import { syncService } from '../base/SyncService';
 import { ingredientService, formatIngredientName, normalizeIngredientId } from './IngredientService';
-import { referenceService, generateReferenceId } from './ReferenceService';
+import { referenceService } from './ReferenceService';
 import { getKeyCategory } from '../../tpnLegacy.js';
 import { generateIngredientHash, findDuplicates } from '../../contentHashing';
 import { getPreferences } from '../../preferencesService.js';
-import { createSharedIngredient, getSharedIngredientByHash } from '../../sharedIngredientService.js';
+import { getSharedIngredientByHash } from '../../sharedIngredientService.js';
 
 import type { 
   ConfigData,

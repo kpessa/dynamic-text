@@ -11,7 +11,7 @@
   let { 
     value = '', 
     language = 'javascript', 
-    onChange = (newValue: string) => {} 
+    onChange = (_newValue: string) => {} 
   } = $props();
   
   const dispatch = createEventDispatcher();
@@ -87,10 +87,10 @@
   
   onMount(() => {
     // Build extensions array carefully to avoid conflicts
-    const extensions = [];
+    const extensions: any[] = [];
     
     // Add basic setup first (this is an array of extensions)
-    extensions.push(...basicSetup);
+    extensions.push(basicSetup);
     
     // Add language-specific extensions first (before themes to avoid conflicts)
     if (language === 'javascript') {
@@ -209,8 +209,9 @@
         textarea.style.border = 'none';
         textarea.style.resize = 'none';
         textarea.addEventListener('input', (e) => {
-          value = e.target.value;
-          onChange(e.target.value);
+          const target = e.target as HTMLTextAreaElement;
+          value = target.value;
+          onChange(target.value);
         });
         element.appendChild(textarea);
       }

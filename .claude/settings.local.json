@@ -17,7 +17,10 @@
       "Bash(git stash:*)",
       "Bash(git add:*)",
       "Bash(mkdir:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/pre-commit-check.sh:*)",
+      "Bash(pnpm run:*)"
     ],
     "deny": []
   }

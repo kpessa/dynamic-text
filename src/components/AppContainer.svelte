@@ -1,13 +1,14 @@
 <script>
-  import { uiStore } from '../stores/uiStore.js';
-  import NavbarRefactored from './NavbarRefactored.svelte';
-  import SidebarRefactored from './SidebarRefactored.svelte';
+  import { uiStore } from '../stores/uiStore.svelte.js';
+  import NavbarRefactored from '../lib/NavbarRefactored.svelte';
+  import SidebarRefactored from '../lib/SidebarRefactored.svelte';
+  import { get } from 'svelte/store';
   
   let { 
     children
   } = $props();
   
-  const sidebarOpen = $derived(uiStore.getSidebarOpen());
+  const sidebarOpen = $derived(get(uiStore.showSidebar));
 </script>
 
 <div class="app">

@@ -15,9 +15,9 @@ export interface TestCase {
 
 export interface TestResult {
   passed: boolean;
-  error?: string;
-  actualOutput?: string;
-  actualStyles?: Record<string, string>;
+  error?: string | undefined;
+  actualOutput?: string | undefined;
+  actualStyles?: Record<string, string> | undefined;
 }
 
 export interface SectionTestResults {
@@ -62,7 +62,7 @@ export function runTestCase(code: string, testCase: TestCase): TestResult {
     
     return {
       passed,
-      error,
+      error: error || undefined,
       actualOutput: stripHTML(output),
       actualStyles: outputStyles
     };
@@ -70,7 +70,7 @@ export function runTestCase(code: string, testCase: TestCase): TestResult {
     return {
       passed: false,
       error: err.message,
-      actualOutput: undefined,
+      actualOutput: '',
       actualStyles: {}
     };
   }
@@ -164,6 +164,7 @@ export function formatTestResults(results: TestResult[], testCases: TestCase[]):
   const lines: string[] = [];
   results.forEach((result, index) => {
     const testCase = testCases[index];
+    if (!testCase) return;
     const status = result.passed ? '✅' : '❌';
     lines.push(`${status} ${testCase.name}`);
     if (!result.passed && result.error) {

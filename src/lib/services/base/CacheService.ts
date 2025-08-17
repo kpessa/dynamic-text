@@ -3,8 +3,6 @@
  * Optimizes Firebase reads and provides offline capabilities
  */
 
-import { FirebaseTimestamp } from '../../types';
-
 interface CacheItem<T> {
   data: T;
   timestamp: number;

@@ -1,5 +1,6 @@
 import { mount } from 'svelte'
 import './app.scss'
+import { healthMonitor } from './lib/services/healthMonitor'
 
 // Simple, non-blocking app initialization to fix freezing issues
 async function initializeApp() {
@@ -29,6 +30,9 @@ async function initializeApp() {
   } catch (error) {
     console.error('[App] Failed to initialize application:', error)
     
+    // Report to health monitor
+    healthMonitor.reportComponentError('App', error as Error)
+    
     // Show simple error message
     const target = document.getElementById('app')
     if (target) {
@@ -41,7 +45,7 @@ async function initializeApp() {
           </button>
           <details style="margin-top: 1rem;">
             <summary>Technical Details</summary>
-            <pre style="background: white; padding: 1rem; border-radius: 4px; overflow: auto; font-size: 0.85rem;">${error.stack || error.message}</pre>
+            <pre style="background: white; padding: 1rem; border-radius: 4px; overflow: auto; font-size: 0.85rem;">${(error as Error).stack || (error as Error).message}</pre>
           </details>
         </div>
       `

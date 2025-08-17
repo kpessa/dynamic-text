@@ -20,14 +20,17 @@ export interface Section {
  * Create a new section
  */
 export function createSection(type: 'static' | 'dynamic'): Section {
-  return {
+  const section: Section = {
     id: crypto.randomUUID(),
     type,
     content: type === 'static' ? '' : '// Dynamic JavaScript\nreturn "Hello, World!";',
     isEditing: true,
-    testCases: type === 'dynamic' ? [] : undefined,
     showTests: false
   };
+  if (type === 'dynamic') {
+    section.testCases = [];
+  }
+  return section;
 }
 
 /**
@@ -69,7 +72,7 @@ export function convertToDynamic(sections: Section[], sectionId: string, content
       const scriptMatch = content.match(/<script[^>]*>([\s\S]*?)<\/script>/);
       let dynamicContent = '';
       
-      if (scriptMatch) {
+      if (scriptMatch && scriptMatch[1]) {
         dynamicContent = scriptMatch[1].trim();
       } else {
         // Convert HTML to a return statement
@@ -95,7 +98,9 @@ export function convertToDynamic(sections: Section[], sectionId: string, content
 export function reorderSections(sections: Section[], fromIndex: number, toIndex: number): Section[] {
   const newSections = [...sections];
   const [movedSection] = newSections.splice(fromIndex, 1);
-  newSections.splice(toIndex, 0, movedSection);
+  if (movedSection) {
+    newSections.splice(toIndex, 0, movedSection);
+  }
   return newSections;
 }
 
@@ -110,7 +115,8 @@ export function extractUsedKeys(sections: Section[]): string[] {
       // Extract me.getValue() calls
       const getValueRegex = /me\.getValue\(['"]([^'"]+)['"]\)/g;
       let match;
-      while ((match = getValueRegex.exec(section.content)) !== null) {
+      const content = section.content || '';
+      while ((match = getValueRegex.exec(content)) !== null) {
         keySet.add(match[1]);
       }
       
@@ -180,7 +186,7 @@ export function generatePreviewHTML(sections: Section[], evaluator: (code: strin
       try {
         return evaluator(section.content, section.activeTestCase?.variables || null);
       } catch (error) {
-        return `<span style="color: red;">Error: ${error.message}</span>`;
+        return `<span style="color: red;">Error: ${(error as Error).message}</span>`;
       }
     }
   }).join('\n');

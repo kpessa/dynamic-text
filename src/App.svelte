@@ -33,7 +33,7 @@
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   
   // New refactored components
-  import AppContainer from './components/AppContainer.svelte';
+  // AppContainer removed - not being used in template
   import StatusBar from './components/StatusBar.svelte';
   import TestSummaryModal from './components/TestSummaryModal.svelte';
   import IngredientContextBar from './components/IngredientContextBar.svelte';
@@ -76,6 +76,7 @@
   const currentTestResults = $derived(workspaceStore.currentTestResults);
   
   // Local UI state
+  let editingSection = $state(null); // Currently editing section ID
   let currentTPNInstance = $state(null); // Current TPN instance from test panel
   let tpnPanelExpanded = $state(true); // Track TPN panel expansion state
   let previewCollapsed = $state(false); // Track preview panel collapse state

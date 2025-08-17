@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Run TypeScript type checking
+echo "📘 Checking TypeScript..."
+pnpm run typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript check failed. Please fix errors before committing."
+  exit 1
+fi
+
+# Run Svelte checking
+echo "🎨 Checking Svelte components..."
+pnpm run check
+if [ $? -ne 0 ]; then
+  echo "❌ Svelte check failed. Please fix errors before committing."
+  exit 1
+fi
+
+# Run quick health check
+echo "🏥 Running health check..."
+node scripts/health-check.js check
+if [ $? -ne 0 ]; then
+  echo "❌ Health check failed. Please fix issues before committing."
+  exit 1
+fi
+
+# Run unit tests
+echo "🧪 Running unit tests..."
+pnpm run test:unit
+if [ $? -ne 0 ]; then
+  echo "❌ Unit tests failed. Please fix failing tests before committing."
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"

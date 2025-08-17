@@ -927,7 +927,7 @@
   <!-- Config Dialog -->
   {#if showConfigDialog}
     {(() => { console.log('Config dialog is rendering!'); return ''; })()}
-    <div class="dialog-overlay" onclick={() => showConfigDialog = false}>
+    <div class="dialog-overlay" onclick={() => showConfigDialog = false} role="button" tabindex="-1" aria-label="Close dialog">
       <div class="dialog" onclick={(e) => e.stopPropagation()}>
         <h3>TPN Configurations</h3>
         

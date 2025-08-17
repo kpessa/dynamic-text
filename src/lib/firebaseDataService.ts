@@ -317,7 +317,7 @@ export const ingredientService = {
       
       // Get current document to check version
       const currentDoc = await getDoc(ingredientRef);
-      const currentVersion = currentDoc.exists() ? (currentDoc.data().version || 0) : 0;
+      const currentVersion = currentDoc.exists() ? (currentDoc.data()['version'] || 0) : 0;
       
       const data: IngredientData = {
         ...ingredientData,
@@ -358,9 +358,8 @@ export const ingredientService = {
   // Save version history
   async saveVersionHistory(ingredientId: string, versionData: IngredientData): Promise<void> {
     try {
-      const versionRef = doc(
-        collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions')
-      );
+      const versionsCollection = collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions');
+      const versionRef = doc(versionsCollection);
       
       await setDoc(versionRef, {
         ...versionData,
@@ -412,7 +411,7 @@ export const ingredientService = {
   },
   
   // Get ingredients by category
-  async getIngredientsByCategory(category) {
+  async getIngredientsByCategory(category: string) {
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS),
@@ -432,7 +431,7 @@ export const ingredientService = {
   },
   
   // Subscribe to ingredient changes
-  subscribeToIngredients(callback) {
+  subscribeToIngredients(callback: (ingredients: any[]) => void) {
     const q = query(
       collection(db, COLLECTIONS.INGREDIENTS),
       orderBy('name', 'asc')
@@ -531,7 +530,7 @@ export const ingredientService = {
         if (ingredientDoc.exists()) {
           const data = ingredientDoc.data();
           // Only fix if the name doesn't already have parentheses
-          if (data.name && !data.name.includes('(')) {
+          if (data['name'] && !data['name'].includes('(')) {
             batch.update(ingredientRef, {
               name: pattern.name,
               lastModified: serverTimestamp(),
@@ -559,7 +558,7 @@ export const ingredientService = {
 // Reference service (nested under ingredients)
 export const referenceService = {
   // Save a reference under an ingredient with version tracking
-  async saveReference(ingredientId, referenceData, commitMessage = null) {
+  async saveReference(ingredientId: string, referenceData: any, commitMessage: string | null = null) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
@@ -569,7 +568,7 @@ export const referenceService = {
       
       // Get current document to check version
       const currentDoc = await getDoc(referenceRef);
-      const currentVersion = currentDoc.exists() ? (currentDoc.data().version || 0) : 0;
+      const currentVersion = currentDoc.exists() ? (currentDoc.data()['version'] || 0) : 0;
       
       const data = {
         ...referenceData,
@@ -581,11 +580,11 @@ export const referenceService = {
         contentHash: generateIngredientHash(referenceData), // Add content hash
         commitMessage: commitMessage || null, // Store commit message if provided
         // Preserve validation data if it exists
-        validationStatus: referenceData.validationStatus || currentDoc.data()?.validationStatus || 'untested',
-        validationNotes: referenceData.validationNotes || currentDoc.data()?.validationNotes || '',
-        validatedBy: referenceData.validatedBy || currentDoc.data()?.validatedBy || null,
-        validatedAt: referenceData.validatedAt || currentDoc.data()?.validatedAt || null,
-        testResults: referenceData.testResults || currentDoc.data()?.testResults || null,
+        validationStatus: referenceData.validationStatus || currentDoc.data()?.['validationStatus'] || 'untested',
+        validationNotes: referenceData.validationNotes || currentDoc.data()?.['validationNotes'] || '',
+        validatedBy: referenceData.validatedBy || currentDoc.data()?.['validatedBy'] || null,
+        validatedAt: referenceData.validatedAt || currentDoc.data()?.['validatedAt'] || null,
+        testResults: referenceData.testResults || currentDoc.data()?.['testResults'] || null,
         // Keep legacy fields for compatibility
         updatedAt: serverTimestamp(),
         updatedBy: user.uid
@@ -628,7 +627,7 @@ export const referenceService = {
   },
   
   // Save reference version history
-  async saveReferenceVersionHistory(ingredientId, referenceId, versionData) {
+  async saveReferenceVersionHistory(ingredientId: string, referenceId: string, versionData: any) {
     try {
       const versionRef = doc(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions')
@@ -646,7 +645,7 @@ export const referenceService = {
   },
   
   // Get version history for a reference
-  async getReferenceVersionHistory(ingredientId, referenceId) {
+  async getReferenceVersionHistory(ingredientId: string, referenceId: string) {
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions'),
@@ -665,7 +664,7 @@ export const referenceService = {
   },
   
   // Get all references for an ingredient
-  async getReferencesForIngredient(ingredientId) {
+  async getReferencesForIngredient(ingredientId: string) {
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'),
@@ -684,7 +683,7 @@ export const referenceService = {
   },
   
   // Update validation status for a reference
-  async updateReferenceValidation(ingredientId, referenceId, validationData) {
+  async updateReferenceValidation(ingredientId: string, referenceId: string, validationData: any) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId);
@@ -707,7 +706,7 @@ export const referenceService = {
   },
 
   // Get references by population type
-  async getReferencesByPopulation(ingredientId, populationType) {
+  async getReferencesByPopulation(ingredientId: string, populationType: string) {
     try {
       // Handle child/pediatric mapping
       const searchTypes = [populationType];
@@ -734,7 +733,7 @@ export const referenceService = {
   },
   
   // Get references across health systems for comparison
-  async getReferencesForComparison(ingredientId, healthSystem = null) {
+  async getReferencesForComparison(ingredientId: string, healthSystem: string | null = null) {
     try {
       let q = collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references');
       
@@ -765,7 +764,7 @@ export const referenceService = {
   },
   
   // Subscribe to reference changes for an ingredient
-  subscribeToReferences(ingredientId, callback) {
+  subscribeToReferences(ingredientId: string, callback: (references: any[]) => void) {
     const q = query(
       collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'),
       orderBy('populationType', 'asc')
@@ -781,7 +780,7 @@ export const referenceService = {
   },
   
   // Delete a reference
-  async deleteReference(ingredientId, referenceId) {
+  async deleteReference(ingredientId: string, referenceId: string) {
     try {
       await deleteDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId));
       
@@ -800,7 +799,7 @@ export const referenceService = {
 // Batch operations for migration
 export const migrationService = {
   // Migrate all localStorage data to Firebase
-  async migrateFromLocalStorage(localStorageData) {
+  async migrateFromLocalStorage(localStorageData: any) {
     try {
       const batch = writeBatch(db);
       const ingredientMap = new Map();
@@ -881,7 +880,7 @@ export const organizationService = {
   },
   
   // Add a new health system
-  async addHealthSystem(name) {
+  async addHealthSystem(name: string) {
     try {
       const docRef = await addDoc(collection(db, COLLECTIONS.HEALTH_SYSTEMS), {
         name,
@@ -895,7 +894,7 @@ export const organizationService = {
   },
   
   // Get domains for a health system
-  async getDomains(healthSystemId) {
+  async getDomains(healthSystemId: string) {
     try {
       const snapshot = await getDocs(
         collection(db, COLLECTIONS.HEALTH_SYSTEMS, healthSystemId, 'domains')
@@ -914,7 +913,7 @@ export const organizationService = {
 // Config service for imported TPN configurations
 export const configService = {
   // Phase 3.2: Detect duplicates before import
-  async detectDuplicatesBeforeImport(configData) {
+  async detectDuplicatesBeforeImport(configData: any) {
     try {
       const report = {
         duplicatesFound: [],
@@ -976,7 +975,7 @@ export const configService = {
       }
       
       // Find duplicates within the import itself
-      const importDuplicates = findDuplicates(configData.INGREDIENT.map(ing => ({
+      const importDuplicates = findDuplicates(configData.INGREDIENT.map((ing: any) => ({
         NOTE: ing.NOTE || ing.notes,
         name: ing.KEYNAME || ing.keyname || ing.Ingredient || ing.ingredient || ing.name
       })));
@@ -1007,7 +1006,7 @@ export const configService = {
   // Save an imported config with all ingredient data
   // Phase 2.1: Now preserves original imports as immutable baseline
   // Phase 3.2: Now includes duplicate detection
-  async saveImportedConfig(configData, metadata) {
+  async saveImportedConfig(configData: any, metadata: any) {
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
@@ -1146,7 +1145,7 @@ export const configService = {
         });
         
         console.log(`Processing ${processedIngredients.size} unique ingredients from config ${metadata.name}`);
-        console.log('DEBUG: Firebase project:', db.app.options.projectId);
+        console.log('DEBUG: Firebase project:', db?.app?.options?.projectId);
         
         // Create or update ingredients in the main collection
         for (const [name, ingredientInfo] of processedIngredients) {
@@ -1353,7 +1352,7 @@ export const configService = {
   },
   
   // Delete a config and all its ingredients
-  async deleteConfig(configId) {
+  async deleteConfig(configId: string) {
     try {
       // First delete all ingredients in the subcollection
       const ingredientsSnapshot = await getDocs(
@@ -1379,7 +1378,7 @@ export const configService = {
   },
   
   // Phase 2.1: Get baseline config data (immutable original)
-  async getBaselineConfig(configId) {
+  async getBaselineConfig(configId: string) {
     try {
       const baselineDoc = await getDoc(doc(db, 'baselineConfigs', configId));
       if (!baselineDoc.exists()) {
@@ -1396,7 +1395,7 @@ export const configService = {
   },
   
   // Phase 2.1: Get baseline ingredients for a config
-  async getBaselineIngredients(configId) {
+  async getBaselineIngredients(configId: string) {
     try {
       const q = query(
         collection(db, 'baselineConfigs', configId, 'ingredients'),

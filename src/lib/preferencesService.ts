@@ -34,7 +34,7 @@ export function savePreferences(preferences: UserPreferences): boolean {
 
 export function updatePreference(key: keyof UserPreferences, value: UserPreferences[keyof UserPreferences]): boolean {
   const preferences = getPreferences();
-  preferences[key] = value;
+  (preferences as any)[key] = value;
   return savePreferences(preferences);
 }
 

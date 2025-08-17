@@ -9,15 +9,12 @@ import {
   setDoc, 
   getDoc, 
   getDocs,
-  updateDoc,
-  deleteDoc,
   query, 
   where, 
   orderBy,
   writeBatch,
   serverTimestamp,
-  increment,
-  type DocumentData
+  increment
 } from 'firebase/firestore';
 
 import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from '../../firebase';
