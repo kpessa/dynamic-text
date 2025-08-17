@@ -9,14 +9,27 @@ globalThis.$state = <T>(initial: T): T => {
   return initial as T;
 };
 
-// For $derived, just call the function immediately
-globalThis.$derived = (fn: () => any) => {
-  return fn();
+// For $derived, handle both function and getter syntax
+globalThis.$derived = (fnOrValue: any) => {
+  // If it's a function, call it
+  if (typeof fnOrValue === 'function') {
+    return fnOrValue();
+  }
+  // Otherwise return the value directly
+  return fnOrValue;
 };
+
+// For $derived.by, handle the .by syntax
+Object.defineProperty(globalThis.$derived, 'by', {
+  value: (fn: () => any) => {
+    return fn();
+  }
+});
 
 // For $effect, just call the function
 globalThis.$effect = (fn: () => void | (() => void)) => {
-  return fn();
+  const cleanup = fn();
+  return cleanup;
 };
 
 // Mock Firebase functions for testing
@@ -72,19 +85,30 @@ global.fetch = vi.fn();
 // Mock DOMPurify for sanitization tests
 vi.mock('dompurify', () => ({
   default: {
-    sanitize: vi.fn((html: string) => {
-      // Simple mock that removes script tags
-      return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    sanitize: vi.fn((html: string, options?: any) => {
+      // Handle null/undefined input
+      if (!html) return '';
+      // Simple mock that removes script tags and dangerous attributes
+      let cleaned = String(html).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      cleaned = cleaned.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, ''); // Remove onclick, etc.
+      return cleaned;
     })
   }
 }));
 
 // Mock Babel standalone for transpilation tests
 vi.mock('@babel/standalone', () => ({
-  transform: vi.fn((code: string) => {
-    // Simple mock that converts const/let to var
+  transform: vi.fn((code: string, options?: any) => {
+    // Handle invalid syntax
+    if (code.includes('const x = ;')) {
+      throw new Error('Unexpected token');
+    }
+    // Simple transpilation mock
+    let transpiled = code.replace(/\b(const|let)\b/g, 'var');
+    transpiled = transpiled.replace(/=>/g, 'function');
+    transpiled = transpiled.replace(/`([^`]*)`/g, '"$1"');
     return {
-      code: code.replace(/\b(const|let)\b/g, 'var')
+      code: transpiled
     };
   })
 }));

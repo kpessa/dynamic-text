@@ -11,10 +11,14 @@
             "id": "ec44c29aca1b0dba",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "_knowledge/00-Overview/project-status.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "project-status"
             }
           }
         ]
@@ -163,6 +167,11 @@
   },
   "active": "ec44c29aca1b0dba",
   "lastOpenFiles": [
+    "_knowledge/05-Testing/test-suite-complete-2025-08-17.md",
+    "src/__tests__/startup.test.ts.tmp.5310.1755413379658",
+    "tests/stores/sectionStore.test.ts.tmp.5310.1755413167127",
+    "_knowledge/00-Overview/PROJECT_SUMMARY.md",
+    "_knowledge/00-Overview/KNOWLEDGE_INDEX.md",
     "_knowledge/05-Testing/test-improvement-final-2025-08-17.md",
     "vitest.config.ts.tmp.5310.1755412661998",
     "vitest.config.ts.timestamp-1755412601094-2614ce43d8ecb.mjs",

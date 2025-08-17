@@ -16,7 +16,16 @@ vi.mock('../firebase', () => ({
   db: {},
   auth: {
     currentUser: { uid: 'test-user-123' }
-  }
+  },
+  COLLECTIONS: {
+    INGREDIENTS: 'ingredients',
+    HEALTH_SYSTEMS: 'healthSystems',
+    AUDIT_LOG: 'auditLog'
+  },
+  getCurrentUser: vi.fn(() => ({ uid: 'test-user-123' })),
+  signInAnonymouslyUser: vi.fn(() => Promise.resolve({ uid: 'test-user-123' })),
+  onAuthStateChange: vi.fn(),
+  isFirebaseConfigured: vi.fn(() => true)
 }));
 
 // Mock Firestore functions
