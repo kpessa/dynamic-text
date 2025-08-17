@@ -4,9 +4,9 @@
   import { referenceService, POPULATION_TYPES } from './firebaseDataService.js';
   
   // Import stores
-  import { ingredientStore } from './stores/ingredientStore.svelte.js';
-  import { ingredientFiltersStore } from './stores/ingredientFiltersStore.svelte.js';
-  import { ingredientUIStore } from './stores/ingredientUIStore.svelte.js';
+  import { ingredientStore } from './stores/ingredientStore.js';
+  import { ingredientFiltersStore } from './stores/ingredientFiltersStore.js';
+  import { ingredientUIStore } from './stores/ingredientUIStore.js';
   
   // Import components
   import MinimalHeader from './components/ingredients/MinimalHeader.svelte';
