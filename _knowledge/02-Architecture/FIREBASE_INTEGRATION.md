@@ -1,4 +1,14 @@
+---
+title: Firebase Integration for Dynamic Text Editor
+tags: [firebase, architecture, database, firestore, integration]
+created: 2024-10-15
+updated: 2025-08-17
+status: complete
+---
+
 # Firebase Integration for Dynamic Text Editor
+
+[[Back to Architecture Index|02-Architecture/README]]
 
 This document describes the new Firebase-powered ingredient-centric reference management system.
 
@@ -192,3 +202,10 @@ If changes aren't syncing:
 - Bulk import/export functionality
 - Advanced diff algorithms
 - Template library for common references
+
+## Related Documents
+- [[VERSIONING_ROADMAP|Versioning Roadmap]]
+- [[firebase-service-patterns-2025-08-17|Firebase Service Patterns]]
+- [[firebaseDataService.ts|Firebase Data Service]]
+- [[FIREBASE_OPTIMIZATION_README|Firebase Optimization Guide]]
+- [[SYSTEM_ARCHITECTURE|System Architecture]]

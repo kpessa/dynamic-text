@@ -1,3 +1,11 @@
+---
+title: Test Coverage Improvement Summary
+tags: [#testing, #coverage, #unit-tests, #e2e, #performance, #quality]
+created: 2025-08-17
+updated: 2025-08-17
+status: completed
+---
+
 # Test Coverage Improvement Summary
 
 ## 🎯 Overview
@@ -171,3 +179,11 @@ npx playwright test e2e/main-workflow.spec.ts
 ---
 
 *Test infrastructure significantly improved. The project now has a solid foundation for maintaining quality as it scales.*
+
+## Related Documents
+
+- [[test-improvement-final-2025-08-17]] - Specific test fixes and progress
+- [[test-suite-complete-2025-08-17]] - Test suite completion details
+- [[firebase-test-success-2025-08-17]] - Firebase testing patterns
+- [[performanceMonitor]] - Performance monitoring service
+- [[usePerformance]] - Performance hooks

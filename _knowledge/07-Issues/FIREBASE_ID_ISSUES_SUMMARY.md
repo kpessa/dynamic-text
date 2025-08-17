@@ -1,3 +1,11 @@
+---
+title: Firebase ID Issues Fix Summary
+tags: [#firebase, #id-issues, #choc, #parentheses, #validation, #debugging]
+created: 2025-08-17
+updated: 2025-08-17
+status: fixed
+---
+
 # Firebase ID Issues Fix Summary
 
 ## Issues Fixed
@@ -71,3 +79,55 @@ Normalized to: "amino-acids-trophamine"
 ```
 
 This helps debug any issues with special character normalization.
+
+## Technical Implementation
+
+### ID Validation Function
+```javascript
+function isValidFirestoreId(id) {
+  // Firestore document ID constraints
+  if (!id || typeof id !== 'string') return false;
+  if (id.length === 0 || id.length > 1500) return false;
+  if (id === '.' || id === '..') return false;
+  if (id.includes('/')) return false;
+  return true;
+}
+```
+
+### Enhanced Normalization
+```javascript
+function normalizeIngredientId(name) {
+  console.log(`Normalizing ingredient with parentheses: "${name}"`);
+  
+  const normalized = name
+    .toLowerCase()
+    .replace(/[()]/g, '') // Remove parentheses
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  
+  console.log(`Normalized to: "${normalized}"`);
+  
+  if (!isValidFirestoreId(normalized)) {
+    console.warn(`Invalid Firestore ID generated: ${normalized}`);
+    return 'invalid-ingredient-id';
+  }
+  
+  return normalized;
+}
+```
+
+## Edge Cases Handled
+
+- Empty or null ingredient names
+- Names with multiple consecutive parentheses
+- Names with special characters and percentages
+- Very long ingredient names (>1500 characters)
+- Reserved Firestore document names
+
+## Related Documents
+
+- [[FIREBASE_ID_NORMALIZATION_SUMMARY]] - Overall ID normalization strategy
+- [[CHOC_IMPORT_FIX]] - CHOC import visibility fixes
+- [[firebaseDataService]] - Firebase service implementation
+- [[test-id-normalization]] - Testing utilities

@@ -1,3 +1,11 @@
+---
+title: Performance Optimization Guide
+tags: [#performance, #optimization, #web-workers, #caching, #bundle-size, #medical-software]
+created: 2025-08-17
+updated: 2025-08-17
+status: implemented
+---
+
 # Performance Optimization Guide
 
 This document outlines the comprehensive performance optimizations implemented in the TPN Dynamic Text Editor to ensure optimal performance for medical professionals.
@@ -246,3 +254,10 @@ npm run size-limit
 ---
 
 **Note**: This implementation prioritizes medical accuracy and user safety while optimizing performance. All performance optimizations have been designed to maintain the integrity of TPN calculations and medical workflows.
+
+## Related Documents
+
+- [[PWA_IMPLEMENTATION]] - PWA and caching features
+- [[performanceService]] - Performance monitoring utilities
+- [[workerService]] - Web worker management
+- [[PerformanceDashboard]] - Performance dashboard component

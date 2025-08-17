@@ -1,4 +1,14 @@
+---
+title: Versioning & Ingredient Management Roadmap
+tags: [architecture, roadmap, versioning, planning, features]
+created: 2024-01-15
+updated: 2025-08-17
+status: complete
+---
+
 # Versioning & Ingredient Management Roadmap
+
+[[Back to Architecture Index|02-Architecture/README]]
 
 ## Overview
 This roadmap breaks down the versioning and ingredient management system into manageable stories. Each phase builds on the previous one, but many can be implemented independently.
@@ -422,3 +432,10 @@ All planned features from the roadmap have been successfully implemented. The ve
 - **Similarity threshold configuration**: Auto-deduplicate based on configurable similarity
 - **Merge conflict resolution**: Advanced handling of conflicting changes
 - **Import/Export of preferences**: Share settings across instances
+
+## Related Documents
+- [[FIREBASE_INTEGRATION|Firebase Integration]]
+- [[firebase-service-patterns-2025-08-17|Firebase Service Patterns]]
+- [[SYSTEM_ARCHITECTURE|System Architecture]]
+- [[contentHashing.ts|Content Hashing Implementation]]
+- [[sharedIngredientService.js|Shared Ingredient Service]]

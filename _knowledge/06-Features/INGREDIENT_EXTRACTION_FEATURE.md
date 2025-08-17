@@ -1,3 +1,11 @@
+---
+title: Ingredient Extraction Feature
+tags: [#features, #ingredient-extraction, #badges, #test-cases, #automation]
+created: 2025-08-17
+updated: 2025-08-17
+status: implemented
+---
+
 # Ingredient Extraction Feature
 
 ## Overview
@@ -51,3 +59,38 @@ And test cases will automatically have:
 3. Badges appear automatically in the section header
 4. Test cases auto-populate with the referenced variables
 5. Change test values to test different scenarios
+
+## Technical Implementation
+
+### Code Analysis
+The feature uses AST (Abstract Syntax Tree) parsing to extract `me.getValue()` calls:
+- Parses JavaScript code in dynamic sections
+- Identifies function calls to `me.getValue()`
+- Extracts variable names from string arguments
+- Categorizes variables as TPN or custom
+
+### Badge Rendering
+- TPN variables use category-specific colors
+- Custom variables use neutral gray
+- Badge count shows total variable usage
+- Responsive design adapts to screen size
+
+### Test Case Synchronization
+- Automatic addition of new variables
+- Removal of unused variables
+- Type-appropriate default values
+- Real-time updates as code changes
+
+## Related Components
+
+- [[SectionEditor]] - Contains badge display logic
+- [[TestCaseManager]] - Handles test case population
+- [[extractKeysFromCode]] - Core extraction utility
+- [[tpnIngredientConfig]] - TPN variable categorization
+
+## Benefits
+
+- **Developer Efficiency**: Automatic test case setup
+- **Visual Feedback**: Immediate visibility into variable usage
+- **Quality Assurance**: Ensures test coverage of all variables
+- **User Experience**: Streamlined workflow for medical professionals

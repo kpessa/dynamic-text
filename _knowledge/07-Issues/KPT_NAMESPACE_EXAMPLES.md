@@ -1,3 +1,11 @@
+---
+title: KPT Namespace Usage Examples
+tags: [#kpt, #namespace, #examples, #dynamic-content, #functions, #medical]
+created: 2025-08-17
+updated: 2025-08-17
+status: implemented
+---
+
 # KPT Namespace Usage Examples
 
 The KPT namespace is now available in dynamic text sections. Here are examples of how to use it:
@@ -133,3 +141,86 @@ The KPT namespace includes these function categories:
 - **Aliases**: weight, age, volume, protein, calories
 
 All functions are available for destructuring: `let { redText, weight } = kpt;`
+
+## Function Reference
+
+### Text Formatting Functions
+```javascript
+redText(text)       // <span style="color: red">text</span>
+greenText(text)     // <span style="color: green">text</span>
+blueText(text)      // <span style="color: blue">text</span>
+boldText(text)      // <strong>text</strong>
+italicText(text)    // <em>text</em>
+highlightText(text) // <mark>text</mark>
+```
+
+### Number Formatting Functions
+```javascript
+roundTo(number, decimals)    // Round to specified decimal places
+formatNumber(number, decimals) // Format with commas and decimals
+formatPercent(decimal)       // Convert 0.15 to "15%"
+formatCurrency(amount)       // Format as currency "$123.45"
+```
+
+### TPN-Specific Functions
+```javascript
+formatWeight(kg)        // "75.0 kg"
+formatVolume(ml)        // "1500 mL"
+formatDose(amount)      // "2.5 g/kg/day"
+formatConcentration(%) // "20%"
+```
+
+### Conditional Display Functions
+```javascript
+showIf(condition, content)           // Show content if condition is true
+hideIf(condition, content)           // Hide content if condition is true
+whenAbove(value, threshold, content) // Show if value > threshold
+whenBelow(value, threshold, content) // Show if value < threshold
+whenInRange(value, min, max, content) // Show if value in range
+```
+
+### Validation Functions
+```javascript
+checkRange(value, normalRange, acceptableRange)
+// Returns: "Normal", "Acceptable", or "Critical"
+
+isNormal(value, range)     // Boolean: is value in normal range
+isCritical(value, range)   // Boolean: is value outside acceptable range
+```
+
+### HTML Builder Functions
+```javascript
+createTable(data, headers)           // Generate HTML table
+createList(items, ordered = false)   // Generate HTML list
+createAlert(message, type = 'info')  // Generate styled alert box
+```
+
+### Utility Functions
+```javascript
+capitalize(text)    // "hello" → "Hello"
+pluralize(text)     // "child" → "children"
+abbreviate(text)    // "milligram" → "mg"
+```
+
+### Math Functions
+```javascript
+clamp(value, min, max)      // Constrain value between min and max
+percentage(part, whole)     // Calculate percentage
+ratio(numerator, denominator) // Calculate ratio as "X:1"
+```
+
+## Integration with TPN System
+
+The KPT namespace is fully integrated with the TPN calculation system:
+
+- **TPN Values**: Access current TPN values via `kpt.weight`, `kpt.age`, etc.
+- **Medical Context**: Functions designed for medical/pharmaceutical use
+- **Validation**: Built-in range checking for medical safety
+- **Formatting**: Medical unit formatting (kg, mL, g/kg/day, etc.)
+
+## Related Components
+
+- [[kptNamespace]] - Core namespace implementation
+- [[KPTManager]] - KPT function browser
+- [[KPTReference]] - Function reference documentation
+- [[codeExecutionService]] - Code execution with KPT integration

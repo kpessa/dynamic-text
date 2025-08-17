@@ -7,10 +7,11 @@ This searchable index helps you find information quickly across the entire knowl
 ## 📑 Index by Topic
 
 ### A
-- **Accessibility**: [DEVELOPMENT_WORKFLOW.md](../08-Workflows/DEVELOPMENT_WORKFLOW.md), [src/lib/utils/accessibility.js](../../src/lib/utils/accessibility.js)
-- **AI Integration**: [AI_INTEGRATION.md](../04-Integration/AI_INTEGRATION.md), [api/generate-tests.ts](../../api/generate-tests.ts)
+- **Accessibility**: [ACCESSIBILITY_IMPROVEMENTS.md](../04-Decisions/ACCESSIBILITY_IMPROVEMENTS.md), [DEVELOPMENT_WORKFLOW.md](../08-Workflows/DEVELOPMENT_WORKFLOW.md), [src/lib/utils/accessibility.js](../../src/lib/utils/accessibility.js)
+- **AI Integration**: [AI_INTEGRATION.md](../04-Integration/AI_INTEGRATION.md), [AI_TEST_GENERATION_TROUBLESHOOTING.md](../05-Testing/AI_TEST_GENERATION_TROUBLESHOOTING.md), [api/generate-tests.ts](../../api/generate-tests.ts)
 - **Anonymous Authentication**: [AUTHENTICATION.md](../07-Security/AUTHENTICATION.md), [firebase-architecture-analysis.md](../01-Research/Firebase/firebase-architecture-analysis.md)
-- **Architecture**: [SYSTEM_ARCHITECTURE.md](../02-Architecture/SYSTEM_ARCHITECTURE.md)
+- **App Refactoring**: [APP_REFACTORING_SUMMARY.md](../02-Architecture/APP_REFACTORING_SUMMARY.md)
+- **Architecture**: [SYSTEM_ARCHITECTURE.md](../02-Architecture/SYSTEM_ARCHITECTURE.md), [VERSIONING_ROADMAP.md](../02-Architecture/VERSIONING_ROADMAP.md)
 - **Audit Trail**: [FIREBASE_RULES.md](../07-Security/FIREBASE_RULES.md), [MEDICAL_DATA_PROTECTION.md](../07-Security/MEDICAL_DATA_PROTECTION.md)
 
 ### B
@@ -20,15 +21,18 @@ This searchable index helps you find information quickly across the entire knowl
 
 ### C
 - **Caching**: [CACHING_STRATEGIES.md](../03-Patterns/CACHING_STRATEGIES.md), [src/lib/services/base/CacheService.ts](../../src/lib/services/base/CacheService.ts)
+- **CHOC Import**: [CHOC_IMPORT_FIX.md](../07-Issues/CHOC_IMPORT_FIX.md)
 - **CodeMirror**: [COMPONENT_HIERARCHY.md](../02-Architecture/COMPONENT_HIERARCHY.md), [src/lib/CodeEditor.svelte](../../src/lib/CodeEditor.svelte)
-- **Component Testing**: [UNIT_TEST_PATTERNS.md](../05-Testing/UNIT_TEST_PATTERNS.md)
+- **Component Testing**: [UNIT_TEST_PATTERNS.md](../05-Testing/UNIT_TEST_PATTERNS.md), [TEST_COVERAGE_IMPROVEMENT_SUMMARY.md](../05-Testing/TEST_COVERAGE_IMPROVEMENT_SUMMARY.md)
 - **Content Hashing**: [src/lib/contentHashing.ts](../../src/lib/contentHashing.ts)
+- **Conversion Testing**: [AUTO_CONVERSION_TEST_PLAN.md](../07-Issues/AUTO_CONVERSION_TEST_PLAN.md)
 
 ### D
 - **Data Flow**: [STATE_MANAGEMENT.md](../02-Architecture/STATE_MANAGEMENT.md)
 - **Debugging**: [DEBUGGING_WORKFLOW.md](../08-Workflows/DEBUGGING_WORKFLOW.md)
 - **Deployment**: [DEPLOYMENT_WORKFLOW.md](../08-Workflows/DEPLOYMENT_WORKFLOW.md)
 - **Derived Values**: [REACTIVE_PATTERNS.md](../03-Patterns/REACTIVE_PATTERNS.md), [$derived usage](../01-Research/Svelte/svelte-patterns-analysis.md)
+- **Design System**: [DESIGN_SYSTEM_IMPLEMENTATION.md](../03-Components/Styling/DESIGN_SYSTEM_IMPLEMENTATION.md)
 
 ### E
 - **E2E Testing**: [E2E_TEST_PATTERNS.md](../05-Testing/E2E_TEST_PATTERNS.md), [e2e/*.spec.ts](../../e2e/)
@@ -36,22 +40,25 @@ This searchable index helps you find information quickly across the entire knowl
 - **Event Bus**: [src/lib/eventBus.ts](../../src/lib/eventBus.ts)
 
 ### F
-- **Firebase**: [FIREBASE_INTEGRATION.md](../04-Integration/FIREBASE_INTEGRATION.md), [src/lib/firebase.ts](../../src/lib/firebase.ts)
+- **Features**: [Features Documentation](../06-Features/README.md)
+- **Firebase**: [FIREBASE_INTEGRATION.md](../02-Architecture/FIREBASE_INTEGRATION.md), [FIREBASE_OPTIMIZATION.md](../02-Architecture/FIREBASE_OPTIMIZATION.md), [src/lib/firebase.ts](../../src/lib/firebase.ts)
+- **Firebase Issues**: [FIREBASE_ID_NORMALIZATION_SUMMARY.md](../07-Issues/FIREBASE_ID_NORMALIZATION_SUMMARY.md), [FIREBASE_ID_ISSUES_SUMMARY.md](../07-Issues/FIREBASE_ID_ISSUES_SUMMARY.md)
 - **Firestore**: [data-modeling-patterns.md](../01-Research/Firebase/data-modeling-patterns.md), [firestore.rules](../../firestore.rules)
 
 ### G
 - **Gemini API**: [AI_INTEGRATION.md](../04-Integration/AI_INTEGRATION.md), [api/generate-tests.ts](../../api/generate-tests.ts)
 
 ### H
-- **Health Systems**: [src/lib/firebaseDataService.ts](../../src/lib/firebaseDataService.ts)
+- **Health Systems**: [SINGLE_DOMAIN_HEALTH_SYSTEMS.md](../06-Features/SINGLE_DOMAIN_HEALTH_SYSTEMS.md), [src/lib/firebaseDataService.ts](../../src/lib/firebaseDataService.ts)
 - **HIPAA Compliance**: [MEDICAL_DATA_PROTECTION.md](../07-Security/MEDICAL_DATA_PROTECTION.md)
 
 ### I
-- **Ingredients**: [src/lib/services/domain/IngredientService.ts](../../src/lib/services/domain/IngredientService.ts)
+- **Ingredients**: [INGREDIENT_EXTRACTION_FEATURE.md](../06-Features/INGREDIENT_EXTRACTION_FEATURE.md), [src/lib/services/domain/IngredientService.ts](../../src/lib/services/domain/IngredientService.ts)
 - **Integration Testing**: [testing-infrastructure-analysis.md](../01-Research/Testing/testing-infrastructure-analysis.md)
+- **Issues**: [Issues & Fixes Documentation](../07-Issues/README.md)
 
 ### K
-- **KPT Functions**: [src/lib/kptNamespace.ts](../../src/lib/kptNamespace.ts), [src/lib/KPTManager.svelte](../../src/lib/KPTManager.svelte)
+- **KPT Functions**: [KPT_NAMESPACE_EXAMPLES.md](../07-Issues/KPT_NAMESPACE_EXAMPLES.md), [src/lib/kptNamespace.ts](../../src/lib/kptNamespace.ts), [src/lib/KPTManager.svelte](../../src/lib/KPTManager.svelte)
 
 ### L
 - **Lazy Loading**: [OPTIMIZATION_TECHNIQUES.md](../06-Performance/OPTIMIZATION_TECHNIQUES.md)
@@ -60,7 +67,7 @@ This searchable index helps you find information quickly across the entire knowl
 ### M
 - **Medical Safety**: [MEDICAL_SAFETY_PATTERNS.md](../03-Patterns/MEDICAL_SAFETY_PATTERNS.md)
 - **Memory Management**: [performance-optimization-research.md](../01-Research/Performance/performance-optimization-research.md)
-- **Migration**: [MIGRATION_WORKFLOW.md](../08-Workflows/MIGRATION_WORKFLOW.md)
+- **Migration**: [MIGRATION_WORKFLOW.md](../08-Workflows/MIGRATION_WORKFLOW.md), [MIGRATION_STATUS.md](../03-Components/Styling/MIGRATION_STATUS.md)
 - **Monitoring**: [MONITORING_STRATEGY.md](../06-Performance/MONITORING_STRATEGY.md)
 
 ### O
@@ -68,9 +75,10 @@ This searchable index helps you find information quickly across the entire knowl
 - **Osmolarity**: [MEDICAL_SAFETY_PATTERNS.md](../03-Patterns/MEDICAL_SAFETY_PATTERNS.md), [src/lib/tpnLegacy.ts](../../src/lib/tpnLegacy.ts)
 
 ### P
-- **Performance**: [PERFORMANCE_GUIDELINES.md](../06-Performance/PERFORMANCE_GUIDELINES.md)
+- **Performance**: [PERFORMANCE_GUIDELINES.md](../06-Performance/PERFORMANCE_GUIDELINES.md), [PERFORMANCE_OPTIMIZATION_GUIDE.md](../04-Decisions/PERFORMANCE_OPTIMIZATION_GUIDE.md)
+- **Phase Completion**: [PHASE_1_COMPLETE.md](../03-Components/Styling/PHASE_1_COMPLETE.md), [PHASE_2_COMPLETE.md](../03-Components/Styling/PHASE_2_COMPLETE.md), [PHASE_2B_COMPLETE.md](../03-Components/Styling/PHASE_2B_COMPLETE.md)
 - **Playwright**: [E2E_TEST_PATTERNS.md](../05-Testing/E2E_TEST_PATTERNS.md), [playwright.config.ts](../../playwright.config.ts)
-- **PWA**: [PWA_INTEGRATION.md](../04-Integration/PWA_INTEGRATION.md), [public/sw.js](../../public/sw.js)
+- **PWA**: [PWA_IMPLEMENTATION.md](../04-Decisions/PWA_IMPLEMENTATION.md), [PWA_INTEGRATION.md](../04-Integration/PWA_INTEGRATION.md), [public/sw.js](../../public/sw.js)
 
 ### R
 - **Reactive Patterns**: [REACTIVE_PATTERNS.md](../03-Patterns/REACTIVE_PATTERNS.md)
@@ -78,11 +86,13 @@ This searchable index helps you find information quickly across the entire knowl
 - **Runes**: [svelte-patterns-analysis.md](../01-Research/Svelte/svelte-patterns-analysis.md)
 
 ### S
+- **SCSS Migration**: [SCSS_MIGRATION_PLAN.md](../03-Components/Styling/SCSS_MIGRATION_PLAN.md), [SCSS_MIGRATION_COMPLETE.md](../03-Components/Styling/SCSS_MIGRATION_COMPLETE.md)
 - **Security**: [SECURITY_PATTERNS.md](../07-Security/SECURITY_PATTERNS.md), [FIREBASE_RULES.md](../07-Security/FIREBASE_RULES.md)
 - **Service Layer**: [SERVICE_LAYER.md](../02-Architecture/SERVICE_LAYER.md)
 - **Service Worker**: [public/sw.js](../../public/sw.js), [PWA_INTEGRATION.md](../04-Integration/PWA_INTEGRATION.md)
 - **State Management**: [STATE_MANAGEMENT.md](../02-Architecture/STATE_MANAGEMENT.md)
 - **Stores**: [src/stores/](../../src/stores/), [svelte-patterns-analysis.md](../01-Research/Svelte/svelte-patterns-analysis.md)
+- **Styling**: [Styling Documentation](../03-Components/Styling/README.md)
 - **Svelte 5**: [svelte-patterns-analysis.md](../01-Research/Svelte/svelte-patterns-analysis.md)
 
 ### T
@@ -198,6 +208,38 @@ This searchable index helps you find information quickly across the entire knowl
 | Security | 100% | ✅ Complete |
 | Workflows | 100% | ✅ Complete |
 | Medical Domain | 100% | ✅ Complete |
+
+## 📂 Newly Organized Documentation (2025-08-17)
+
+### Architecture & Planning
+- [VERSIONING_ROADMAP.md](../02-Architecture/VERSIONING_ROADMAP.md) - Complete versioning system roadmap
+- [FIREBASE_INTEGRATION.md](../02-Architecture/FIREBASE_INTEGRATION.md) - Firebase integration guide
+- [FIREBASE_OPTIMIZATION.md](../02-Architecture/FIREBASE_OPTIMIZATION.md) - Firebase optimization strategies
+- [APP_REFACTORING_SUMMARY.md](../02-Architecture/APP_REFACTORING_SUMMARY.md) - App.svelte refactoring details
+
+### Styling & Components
+- [Styling Documentation Index](../03-Components/Styling/README.md) - Complete SCSS migration documentation
+- [SCSS_MIGRATION_PLAN.md](../03-Components/Styling/SCSS_MIGRATION_PLAN.md) - Migration strategy
+- [DESIGN_SYSTEM_IMPLEMENTATION.md](../03-Components/Styling/DESIGN_SYSTEM_IMPLEMENTATION.md) - Design system details
+
+### Features
+- [Features Documentation Index](../06-Features/README.md) - All feature documentation
+- [INGREDIENT_EXTRACTION_FEATURE.md](../06-Features/INGREDIENT_EXTRACTION_FEATURE.md) - Ingredient extraction
+- [SINGLE_DOMAIN_HEALTH_SYSTEMS.md](../06-Features/SINGLE_DOMAIN_HEALTH_SYSTEMS.md) - Health system support
+
+### Technical Decisions
+- [PWA_IMPLEMENTATION.md](../04-Decisions/PWA_IMPLEMENTATION.md) - PWA implementation details
+- [ACCESSIBILITY_IMPROVEMENTS.md](../04-Decisions/ACCESSIBILITY_IMPROVEMENTS.md) - Accessibility enhancements
+- [PERFORMANCE_OPTIMIZATION_GUIDE.md](../04-Decisions/PERFORMANCE_OPTIMIZATION_GUIDE.md) - Performance strategies
+
+### Testing
+- [TEST_COVERAGE_IMPROVEMENT_SUMMARY.md](../05-Testing/TEST_COVERAGE_IMPROVEMENT_SUMMARY.md) - Test improvements
+- [AI_TEST_GENERATION_TROUBLESHOOTING.md](../05-Testing/AI_TEST_GENERATION_TROUBLESHOOTING.md) - AI test generation
+
+### Issues & Fixes
+- [Issues Documentation Index](../07-Issues/README.md) - All resolved issues
+- [FIREBASE_ID_NORMALIZATION_SUMMARY.md](../07-Issues/FIREBASE_ID_NORMALIZATION_SUMMARY.md) - Firebase ID fixes
+- [CHOC_IMPORT_FIX.md](../07-Issues/CHOC_IMPORT_FIX.md) - CHOC import resolution
 
 ## 🔗 Quick Links
 

@@ -4,21 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "367b93bbbe599021",
+        "id": "4d618dd00c52bc09",
         "type": "tabs",
         "children": [
           {
-            "id": "ec44c29aca1b0dba",
+            "id": "8451b0f036de397f",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "_knowledge/05-Testing/test-suite-complete-2025-08-17.md",
+                "file": "_knowledge/00-Overview/README.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "test-suite-complete-2025-08-17"
+              "title": "README"
             }
           }
         ]
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 423.5
   },
   "right": {
     "id": "c3b40794179eba42",
@@ -94,6 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "_knowledge/00-Overview/README.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -103,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks"
+              "title": "Backlinks for README"
             }
           },
           {
@@ -112,11 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "_knowledge/00-Overview/README.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links"
+              "title": "Outgoing links from README"
             }
           },
           {
@@ -140,12 +142,13 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "_knowledge/00-Overview/README.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline"
+              "title": "Outline of README"
             }
           }
         ]
@@ -165,31 +168,43 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "ec44c29aca1b0dba",
+  "active": "8451b0f036de397f",
   "lastOpenFiles": [
-    "_knowledge/05-Testing/firebase-test-success-2025-08-17.md",
-    "src/lib/__tests__/firebaseDataService.test.ts.tmp.5310.1755415371817",
-    "_knowledge/04-Decisions/firebase-testing-strategy-2025-08-17.md",
-    "_knowledge/04-Decisions",
-    "_knowledge/03-Components/Firebase-Patterns/firebase-service-patterns-2025-08-17.md",
-    "_knowledge/03-Components/Firebase-Patterns",
-    "_knowledge/03-Components",
-    "_knowledge/01-Research/Firebase/firebase-test-fixes-2025-08-17.md",
-    "_knowledge/01-Research/Firebase/firebase-testing-patterns-2025-08-17.md",
-    "_knowledge/05-Testing/test-fix-summary-2025-08-17.md",
-    "_knowledge/00-Overview/project-status.md",
-    "_knowledge/05-Testing/test-suite-complete-2025-08-17.md",
-    "src/__tests__/startup.test.ts.tmp.5310.1755413379658",
-    "tests/stores/sectionStore.test.ts.tmp.5310.1755413167127",
+    "_knowledge/07-Issues/README.md",
+    "_knowledge/07-Issues/README.md.tmp.22385.1755444107241",
+    "_knowledge/06-Features/README.md",
+    "_knowledge/06-Features/README.md.tmp.22385.1755444080124",
+    "_knowledge/07-Issues/KPT_NAMESPACE_EXAMPLES.md",
+    "_knowledge/07-Issues/KPT_NAMESPACE_EXAMPLES.md.tmp.22385.1755443996264",
     "_knowledge/00-Overview/PROJECT_SUMMARY.md",
-    "_knowledge/00-Overview/KNOWLEDGE_INDEX.md",
-    "_knowledge/05-Testing/test-improvement-final-2025-08-17.md",
-    "vitest.config.ts.tmp.5310.1755412661998",
-    "vitest.config.ts.timestamp-1755412601094-2614ce43d8ecb.mjs",
-    "vitest.config.ts.timestamp-1755412588208-1b3e9d879934c.mjs",
-    "vitest.config.ts.timestamp-1755412575470-3c399c5b605e3.mjs",
-    "TEST_FIX_SUMMARY.md",
-    "_knowledge/02-Architecture/refactor-status-2025-08-17.md",
-    "REFACTOR_STATUS.md"
+    "_knowledge/07-Issues/AUTO_CONVERSION_TEST_PLAN.md",
+    "_knowledge/07-Issues/AUTO_CONVERSION_TEST_PLAN.md.tmp.22385.1755443959400",
+    "_knowledge/07-Issues/CHOC_IMPORT_FIX.md",
+    "_knowledge/07-Issues/CHOC_IMPORT_FIX.md.tmp.22385.1755443932758",
+    "_knowledge/07-Issues/FIREBASE_ID_ISSUES_SUMMARY.md",
+    "_knowledge/07-Issues/FIREBASE_ID_ISSUES_SUMMARY.md.tmp.22385.1755443908742",
+    "_knowledge/07-Issues/FIREBASE_ID_NORMALIZATION_SUMMARY.md",
+    "_knowledge/07-Issues/FIREBASE_ID_NORMALIZATION_SUMMARY.md.tmp.22385.1755443882836",
+    "_knowledge/06-Features/SINGLE_DOMAIN_HEALTH_SYSTEMS.md",
+    "_knowledge/06-Features/SINGLE_DOMAIN_HEALTH_SYSTEMS.md.tmp.22385.1755443853160",
+    "_knowledge/06-Features/INGREDIENT_EXTRACTION_FEATURE.md",
+    "_knowledge/06-Features/INGREDIENT_EXTRACTION_FEATURE.md.tmp.22385.1755443830470",
+    "_knowledge/05-Testing/AI_TEST_GENERATION_TROUBLESHOOTING.md",
+    "_knowledge/05-Testing/AI_TEST_GENERATION_TROUBLESHOOTING.md.tmp.22385.1755443807258",
+    "_knowledge/05-Testing/TEST_COVERAGE_IMPROVEMENT_SUMMARY.md",
+    "_knowledge/04-Decisions/PERFORMANCE_OPTIMIZATION_GUIDE.md",
+    "_knowledge/04-Decisions/ACCESSIBILITY_IMPROVEMENTS.md",
+    "_knowledge/04-Decisions/PWA_IMPLEMENTATION.md",
+    "_knowledge/03-Components/Styling/MIGRATION_STATUS.md",
+    "_knowledge/03-Components/Styling/PHASE_2B_STATUS.md",
+    "_knowledge/03-Components/Styling/PHASE_2B_COMPLETE.md",
+    "_knowledge/03-Components/Styling/PHASE_2_COMPLETE.md",
+    "_knowledge/03-Components/Styling/PHASE_1_COMPLETE.md",
+    "_knowledge/03-Components/Styling/DESIGN_SYSTEM_IMPLEMENTATION.md",
+    "_knowledge/03-Components/Styling/SCSS_MIGRATION_COMPLETE.md",
+    "_knowledge/03-Components/Styling/SCSS_MIGRATION_PLAN.md",
+    "_knowledge/02-Architecture/APP_REFACTORING_SUMMARY.md",
+    "_knowledge/02-Architecture/FIREBASE_OPTIMIZATION.md",
+    "_knowledge/02-Architecture/FIREBASE_INTEGRATION.md"
   ]
 }

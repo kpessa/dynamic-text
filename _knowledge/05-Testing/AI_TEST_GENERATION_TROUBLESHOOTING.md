@@ -1,3 +1,11 @@
+---
+title: AI Test Generation Troubleshooting Guide
+tags: [#ai, #testing, #troubleshooting, #gemini, #test-generation, #debugging]
+created: 2025-08-17
+updated: 2025-08-17
+status: guide
+---
+
 # AI Test Generation Troubleshooting Guide
 
 ## Common Issues and Solutions
@@ -16,7 +24,7 @@
 
 **Solutions:**
 1. **Simplify your code**: Try testing with simpler JavaScript code first
-2. **Check the AI response**: Look at the "AI Response" tab in the AIWorkflowInspector to see the raw response
+2. **Check the AI response**: Look at the "AI Response" tab in the [[AIWorkflowInspector]] to see the raw response
 3. **Retry**: Sometimes the AI generates better responses on subsequent attempts
 4. **Use fallback tests**: The system now provides basic fallback tests when parsing fails
 
@@ -109,3 +117,72 @@ GEMINI_API_KEY=your_gemini_api_key_here
 1. Set environment variables in Vercel dashboard
 2. Ensure the API directory is included in deployment
 3. Check function logs in Vercel dashboard for errors
+
+## Debugging Workflow
+
+### Step 1: Verify Environment
+- [ ] Check that `GEMINI_API_KEY` is set
+- [ ] Confirm you're using `pnpm dev` (not frontend-only)
+- [ ] Test with simple code first
+
+### Step 2: Use Debugging Tools
+- [ ] Open [[AIWorkflowInspector]] to see raw responses
+- [ ] Check browser Network tab for API calls
+- [ ] Look for console errors in browser DevTools
+
+### Step 3: Analyze Response
+- [ ] Is the AI returning valid JSON?
+- [ ] Are test cases properly formatted?
+- [ ] Check for syntax errors in generated tests
+
+### Step 4: Common Fixes
+- [ ] Simplify input code if too complex
+- [ ] Retry generation (AI responses vary)
+- [ ] Check API key is valid and has quota
+- [ ] Restart development server
+
+## Error Patterns and Solutions
+
+### JSON Parse Errors
+```
+SyntaxError: Unexpected token in JSON
+```
+**Cause**: AI generated malformed JSON
+**Fix**: Use fallback tests or retry generation
+
+### Network Errors
+```
+Failed to fetch
+```
+**Cause**: API endpoint not accessible
+**Fix**: Ensure using `pnpm dev` and API key is set
+
+### Quota Exceeded
+```
+Rate limit exceeded
+```
+**Cause**: Too many requests to Gemini API
+**Fix**: Wait a moment and retry, or upgrade API plan
+
+### Invalid Code Input
+```
+Could not analyze code
+```
+**Cause**: Code contains syntax errors or unsupported features
+**Fix**: Fix syntax errors in input code
+
+## Integration with Testing Suite
+
+The AI test generation works with the existing test infrastructure:
+
+- **Unit Tests**: Generated tests follow Vitest patterns
+- **TPN Calculations**: AI understands medical calculation context
+- **Integration**: Tests can be directly integrated into test suite
+- **Performance**: Generated tests include performance monitoring
+
+## Related Features
+
+- [[TestGeneratorModal]] - UI for test generation
+- [[AIWorkflowInspector]] - Debugging interface
+- [[TEST_COVERAGE_IMPROVEMENT_SUMMARY]] - Overall testing strategy
+- [[generate-tests]] - API endpoint implementation
