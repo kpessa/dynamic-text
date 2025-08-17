@@ -22,13 +22,16 @@ globalThis.$effect = (fn: () => void | (() => void)) => {
 // Mock Firebase functions for testing
 vi.mock('../src/lib/firebase', () => ({
   db: {},
+  auth: {},
   COLLECTIONS: {
     INGREDIENTS: 'ingredients',
     HEALTH_SYSTEMS: 'healthSystems',
     AUDIT_LOG: 'auditLog'
   },
   getCurrentUser: vi.fn(() => ({ uid: 'test-user' })),
-  signInAnonymouslyUser: vi.fn(() => Promise.resolve({ uid: 'test-user' }))
+  signInAnonymouslyUser: vi.fn(() => Promise.resolve({ uid: 'test-user' })),
+  onAuthStateChange: vi.fn(),
+  isFirebaseConfigured: vi.fn(() => true)
 }));
 
 // Mock Firebase Firestore functions
@@ -65,6 +68,26 @@ Object.defineProperty(window, 'localStorage', {
 
 // Mock fetch for API calls
 global.fetch = vi.fn();
+
+// Mock DOMPurify for sanitization tests
+vi.mock('dompurify', () => ({
+  default: {
+    sanitize: vi.fn((html: string) => {
+      // Simple mock that removes script tags
+      return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    })
+  }
+}));
+
+// Mock Babel standalone for transpilation tests
+vi.mock('@babel/standalone', () => ({
+  transform: vi.fn((code: string) => {
+    // Simple mock that converts const/let to var
+    return {
+      code: code.replace(/\b(const|let)\b/g, 'var')
+    };
+  })
+}));
 
 // Clean up after each test
 afterEach(() => {
