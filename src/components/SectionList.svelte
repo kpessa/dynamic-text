@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getIngredientBadgeColor } from '../services/uiHelpers';
+  import { extractKeysFromCode } from '../lib/tpnLegacy';
   import TestCaseManager from './TestCaseManager.svelte';
   import CodeEditor from '../lib/CodeEditor.svelte';
   
@@ -40,9 +41,9 @@
     const keys = [];
     
     if (section.type === 'dynamic') {
-      // Extract keys from code
-      const codeKeys = extractKeysFromCode(section.content);
-      keys.push(...codeKeys);
+      // Extract keys from code - returns an object with 'all' array
+      const extractedKeys = extractKeysFromCode(section.content);
+      keys.push(...extractedKeys.all);
       
       // Extract keys from test cases
       if (section.testCases) {
@@ -55,16 +56,6 @@
     }
     
     return [...new Set(keys)]; // Remove duplicates
-  }
-  
-  function extractKeysFromCode(code: string) {
-    const keys: string[] = [];
-    const getValueRegex = /me\.getValue\(['"]([^'"]+)['"]\)/g;
-    let match;
-    while ((match = getValueRegex.exec(code)) !== null) {
-      keys.push(match[1]);
-    }
-    return keys;
   }
 </script>
 
