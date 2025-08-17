@@ -133,7 +133,20 @@
   async function loadDefaultConfigs() {
     console.log('Loading default configs...');
     
-    // Try to load from test-import.json
+    // Try to load cert-west-neonatal.json first
+    try {
+      const response = await fetch('/cert-west-neonatal.json');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Found cert-west-neonatal.json, importing...');
+        await handleImportJSON(JSON.stringify(data));
+        return;
+      }
+    } catch (error) {
+      console.log('Could not load cert-west-neonatal.json:', error.message);
+    }
+    
+    // Fallback to test-import.json
     try {
       const response = await fetch('/test-import.json');
       if (response.ok) {
@@ -460,11 +473,22 @@
         data.INGREDIENT.forEach(ingredient => {
           const keyname = ingredient.keyname || ingredient.KEYNAME;
           if (keyname) {
+            // Handle NOTE array format (from cert-west-neonatal.json)
+            let notes = '';
+            if (ingredient.NOTE && Array.isArray(ingredient.NOTE)) {
+              notes = ingredient.NOTE.map(note => note.TEXT || note.text || '').join('');
+            } else if (ingredient.notes && Array.isArray(ingredient.notes)) {
+              notes = ingredient.notes.map(note => note.TEXT || note.text || note.notetext || '').join('');
+            } else if (ingredient.NOTES) {
+              notes = ingredient.NOTES;
+            }
+            
             convertedData.INGREDIENTS[keyname] = {
               ...ingredient,
               KEYNAME: keyname,
-              DISPLAY: ingredient.display || ingredient.displayname || keyname,
-              NOTES: ingredient.notes?.map(note => note.notetext).join('') || ''
+              DISPLAY: ingredient.DISPLAY || ingredient.display || ingredient.displayname || keyname,
+              NOTES: notes,
+              TYPE: ingredient.TYPE || ingredient.type || 'Other'
             };
           }
         });

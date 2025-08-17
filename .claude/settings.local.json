@@ -20,7 +20,8 @@
       "Bash(chmod:*)",
       "Bash(./scripts/pre-commit-check.sh:*)",
       "Bash(pnpm run:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(pnpm test:unit:*)"
     ],
     "deny": []
   }

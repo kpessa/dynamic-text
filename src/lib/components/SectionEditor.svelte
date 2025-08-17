@@ -2,7 +2,7 @@
   import { sectionStore } from '../../stores/sectionStore.svelte.ts';
   import { workspaceStore } from '../../stores/workspaceStore.svelte.ts';
   import { uiStore } from '../../stores/uiStore.svelte.ts';
-  import SectionList from './SectionList.svelte';
+  import SectionList from '../../components/SectionList.svelte';
   import TestRunner from './TestRunner.svelte';
   import ValidationStatus from '../ValidationStatus.svelte';
   import { POPULATION_TYPES } from '../firebaseDataService.js';

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { get } from 'svelte/store';
 
 // Mock Svelte imports to avoid compilation issues in tests
 vi.mock('svelte', () => ({
@@ -88,21 +89,21 @@ describe('Application Startup Tests', () => {
     it('should initialize UI store with default values', async () => {
       const { uiStore } = await import('../stores/uiStore.svelte');
 
-      // Check default values - Svelte 5 stores use direct property access
-      expect(uiStore.showSidebar).toBe(false);
-      expect(uiStore.previewCollapsed).toBe(false);
-      expect(uiStore.showOutput).toBe(false);
-      expect(uiStore.outputMode).toBe('json');
-      expect(uiStore.previewMode).toBe('preview');
+      // Check default values - UI store returns Svelte stores, need to use get()
+      expect(get(uiStore.showSidebar)).toBe(false);
+      expect(get(uiStore.previewCollapsed)).toBe(false);
+      expect(get(uiStore.showOutput)).toBe(false);
+      expect(get(uiStore.outputMode)).toBe('json');
+      expect(get(uiStore.previewMode)).toBe('preview');
     });
 
     it('should have working store methods', async () => {
       const { uiStore } = await import('../stores/uiStore.svelte');
 
-      // Test toggle methods - Svelte 5 stores use direct property access
-      const initialSidebarState = uiStore.showSidebar;
+      // Test toggle methods - UI store returns Svelte stores, need to use get()
+      const initialSidebarState = get(uiStore.showSidebar);
       uiStore.toggleSidebar();
-      expect(uiStore.showSidebar).toBe(!initialSidebarState);
+      expect(get(uiStore.showSidebar)).toBe(!initialSidebarState);
       
       // Reset
       uiStore.setShowSidebar(false);

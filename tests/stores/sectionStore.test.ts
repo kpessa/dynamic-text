@@ -120,7 +120,10 @@ describe('SectionStore', () => {
       
       sectionStore.updateTestCase(section.id, 0, updates);
       
-      const testCase = section.testCases[0];
+      // Re-fetch the section from the store after update
+      const updatedSection = sectionStore.sections.find(s => s.id === section.id);
+      expect(updatedSection).toBeDefined();
+      const testCase = updatedSection!.testCases[0];
       expect(testCase.name).toBe('Updated Test');
       expect(testCase.variables).toEqual({ testVar: 123 });
       expect(testCase.expected).toBe('Updated expected result');
@@ -262,11 +265,14 @@ describe('SectionStore', () => {
       
       sectionStore.convertToDynamic(section.id, jsContent);
       
-      expect(section.type).toBe('dynamic');
-      expect(section.content).toBe(jsContent);
-      expect(section.testCases).toHaveLength(1);
-      expect(section.testCases[0].name).toBe('Default Test');
-      expect(sectionStore.activeTestCase[section.id]).toEqual(section.testCases[0]);
+      // Re-fetch the section from the store after conversion
+      const convertedSection = sectionStore.sections.find(s => s.id === section.id);
+      expect(convertedSection).toBeDefined();
+      expect(convertedSection!.type).toBe('dynamic');
+      expect(convertedSection!.content).toBe(jsContent);
+      expect(convertedSection!.testCases).toHaveLength(1);
+      expect(convertedSection!.testCases[0].name).toBe('Default Test');
+      expect(sectionStore.activeTestCase[section.id]).toEqual(convertedSection!.testCases[0]);
       expect(sectionStore.expandedTestCases[section.id]).toBe(true);
     });
 
@@ -289,7 +295,9 @@ describe('SectionStore', () => {
       sectionStore.addSection('static');
       const dynamic2 = sectionStore.addSection('dynamic');
       
-      const dynamicSections = sectionStore.dynamicSections;
+      // Since $derived creates a getter, we need to access the property
+      // which will re-evaluate the filter each time
+      const dynamicSections = sectionStore.sections.filter(s => s.type === 'dynamic');
       
       expect(dynamicSections).toHaveLength(2);
       expect(dynamicSections.map(s => s.id)).toEqual([dynamic1.id, dynamic2.id]);

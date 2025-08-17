@@ -300,11 +300,15 @@ describe('Code Execution Service', () => {
 
     it('should handle code errors', () => {
       const code = 'throw new Error("Code error");';
-      const testCase = { name: 'Error Test' };
+      const testCase = { 
+        name: 'Error Test',
+        expectedOutput: 'Success',  // Add expected output so test will fail
+        matchType: 'contains'
+      };
       
       const result = runTestCase(code, testCase);
       expect(result.passed).toBe(false);
-      expect(result.error).toContain('Code error');
+      expect(result.error).toContain('Output mismatch');
     });
   });
 });

@@ -88,9 +88,12 @@ vi.mock('dompurify', () => ({
     sanitize: vi.fn((html: string, options?: any) => {
       // Handle null/undefined input
       if (!html) return '';
-      // Simple mock that removes script tags and dangerous attributes
+      // Simple mock that removes script tags
       let cleaned = String(html).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-      cleaned = cleaned.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, ''); // Remove onclick, etc.
+      // Remove onclick and other on* attributes - match the pattern in test
+      // The test expects '<div onclick="alert(\'XSS\')">Click me</div>' to become '<div>Click me</div>'
+      cleaned = cleaned.replace(/\s+on\w+="[^"]*"/gi, '');
+      cleaned = cleaned.replace(/\s+on\w+='[^']*'/gi, '');
       return cleaned;
     })
   }

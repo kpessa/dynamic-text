@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Config Loading</title>
+</head>
+<body>
+    <h1>Testing Config Loading</h1>
+    <div id="output"></div>
+    <button onclick="clearConfigs()">Clear Configs</button>
+    <button onclick="window.location.href='/'">Go to App</button>
+    <script>
+        function checkConfigs() {
+            // Check localStorage for configs
+            const configs = localStorage.getItem('tpnConfigs');
+            const output = document.getElementById('output');
+            
+            if (configs) {
+                const parsed = JSON.parse(configs);
+                output.innerHTML = '<h2>Configs in localStorage:</h2>';
+                for (const [id, config] of Object.entries(parsed)) {
+                    const ingredientCount = config.INGREDIENTS ? Object.keys(config.INGREDIENTS).length : 0;
+                    output.innerHTML += '<div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">';
+                    output.innerHTML += '<p><strong>' + config.name + '</strong> (' + id + ')</p>';
+                    output.innerHTML += '<p>Ingredients: ' + ingredientCount + '</p>';
+                    if (config.INGREDIENTS) {
+                        output.innerHTML += '<p>Sample ingredients: ' + Object.keys(config.INGREDIENTS).slice(0, 5).join(', ') + '...</p>';
+                    }
+                    output.innerHTML += '</div>';
+                }
+            } else {
+                output.innerHTML = '<p>No configs found in localStorage. Visit the main app first to load configs.</p>';
+            }
+        }
+        
+        function clearConfigs() {
+            localStorage.removeItem('tpnConfigs');
+            checkConfigs();
+        }
+        
+        // Check on load
+        checkConfigs();
+    </script>
+</body>
+</html>
