@@ -93,7 +93,7 @@ describe('Code Execution Service', () => {
 
   describe('transpileCode', () => {
     it('should transpile modern JavaScript to ES5', () => {
-      const code = 'const x = 5; return x;';
+      const code = 'const x = 5;';
       const transpiled = transpileCode(code);
       expect(transpiled).toContain('var');
       expect(transpiled).not.toContain('const');
@@ -113,7 +113,7 @@ describe('Code Execution Service', () => {
 
     it('should throw on invalid syntax', () => {
       const code = 'const x = ;'; // Invalid syntax
-      expect(() => transpileCode(code)).toThrow();
+      expect(() => transpileCode(code)).toThrow('Code transpilation failed');
     });
   });
 

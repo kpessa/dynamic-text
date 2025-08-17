@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { mount } from 'svelte';
-import type { ComponentType } from 'svelte';
+import type { Component } from 'svelte';
 
 describe('Application Startup Tests', () => {
   describe('Critical Imports Resolution', () => {
@@ -58,7 +58,7 @@ describe('Application Startup Tests', () => {
     it('should mount App component without errors', async () => {
       const { default: App } = await import('../App.svelte');
       
-      const app = mount(App as ComponentType, {
+      const app = mount(App as Component, {
         target: container
       });
 
@@ -75,24 +75,22 @@ describe('Application Startup Tests', () => {
   describe('Store Initialization', () => {
     it('should initialize UI store with default values', async () => {
       const { uiStore } = await import('../stores/uiStore.svelte');
-      const { get } = await import('svelte/store');
 
-      // Check default values
-      expect(get(uiStore.showSidebar)).toBe(false);
-      expect(get(uiStore.previewCollapsed)).toBe(false);
-      expect(get(uiStore.showOutput)).toBe(false);
-      expect(get(uiStore.outputMode)).toBe('json');
-      expect(get(uiStore.previewMode)).toBe('preview');
+      // Check default values - Svelte 5 stores use direct property access
+      expect(uiStore.showSidebar).toBe(false);
+      expect(uiStore.previewCollapsed).toBe(false);
+      expect(uiStore.showOutput).toBe(false);
+      expect(uiStore.outputMode).toBe('json');
+      expect(uiStore.previewMode).toBe('preview');
     });
 
     it('should have working store methods', async () => {
       const { uiStore } = await import('../stores/uiStore.svelte');
-      const { get } = await import('svelte/store');
 
-      // Test toggle methods
-      const initialSidebarState = get(uiStore.showSidebar);
+      // Test toggle methods - Svelte 5 stores use direct property access
+      const initialSidebarState = uiStore.showSidebar;
       uiStore.toggleSidebar();
-      expect(get(uiStore.showSidebar)).toBe(!initialSidebarState);
+      expect(uiStore.showSidebar).toBe(!initialSidebarState);
       
       // Reset
       uiStore.setShowSidebar(false);
@@ -162,26 +160,20 @@ describe('Application Startup Tests', () => {
   });
 
   describe('Performance Checks', () => {
-    it('should not have memory leaks in store subscriptions', async () => {
+    it('should not have memory leaks in store usage', async () => {
       const { uiStore } = await import('../stores/uiStore.svelte');
       
-      const subscriptions = [];
+      // Svelte 5 uses reactive state, not subscriptions
+      // Test that we can access and modify state without issues
+      const initialState = uiStore.showSidebar;
       
-      // Create multiple subscriptions
+      // Simulate multiple state changes
       for (let i = 0; i < 10; i++) {
-        const unsubscribe = uiStore.showSidebar.subscribe(() => {});
-        subscriptions.push(unsubscribe);
+        uiStore.toggleSidebar();
       }
       
-      // Clean up subscriptions
-      subscriptions.forEach(unsub => unsub());
-      
-      // No way to directly test for leaks in unit tests,
-      // but ensuring unsubscribe functions exist is a good start
-      expect(subscriptions.length).toBe(10);
-      subscriptions.forEach(unsub => {
-        expect(typeof unsub).toBe('function');
-      });
+      // State should have toggled 10 times (even number = same as initial)
+      expect(uiStore.showSidebar).toBe(initialState);
     });
   });
 

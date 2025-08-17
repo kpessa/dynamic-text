@@ -195,7 +195,9 @@ class TPNLegacySupport {
    * Set a value (for testing)
    */
   setValue(key: string, value: number | string | boolean): void {
-    this.values[key] = value;
+    // Use implementation key for consistency
+    const implementationKey = getImplementationKey(key);
+    this.values[implementationKey] = value;
     // Trigger recalculation only if not already calculating
     if (!this._isCalculating) {
       this.draw();
@@ -212,13 +214,13 @@ class TPNLegacySupport {
       delete this.values[key];
     });
     
-    // Normalize keys to canonical form when storing
+    // Store values using the implementation key for internal consistency
     const normalizedValues: TPNValues = {};
     for (const [key, value] of Object.entries(valueMap)) {
-      const canonicalKey = getCanonicalKey(key);
+      const implementationKey = getImplementationKey(key);
       // Only store non-calculated values
-      if (!calculatedKeys.includes(canonicalKey)) {
-        normalizedValues[canonicalKey] = value;
+      if (!calculatedKeys.includes(implementationKey)) {
+        normalizedValues[implementationKey] = value;
       }
     }
     Object.assign(this.values, normalizedValues);
