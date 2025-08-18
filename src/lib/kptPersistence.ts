@@ -31,8 +31,8 @@ export class KPTPersistence {
     }
     
     localStorage.setItem(KPT_STORAGE_KEY, JSON.stringify(functions));
-    console.log('[KPT Persistence] Saved to localStorage:', functions.length, 'functions');
-    console.log('[KPT Persistence] localStorage content:', localStorage.getItem(KPT_STORAGE_KEY));
+    // console.log('[KPT Persistence] Saved to localStorage:', functions.length, 'functions');
+    // console.log('[KPT Persistence] localStorage content:', localStorage.getItem(KPT_STORAGE_KEY));
     
     // Update window.kpt namespace
     this.updateWindowNamespace(func);
@@ -47,18 +47,18 @@ export class KPTPersistence {
   static loadFunctions(): KPTFunction[] {
     try {
       const stored = localStorage.getItem(KPT_STORAGE_KEY);
-      console.log('[KPT Persistence] Loading from localStorage:', stored ? 'found data' : 'no data');
+      // console.log('[KPT Persistence] Loading from localStorage:', stored ? 'found data' : 'no data');
       if (!stored) return [];
       
       const functions = JSON.parse(stored);
-      console.log('[KPT Persistence] Parsed functions:', functions.length);
-      return functions.map(func => ({
+      // console.log('[KPT Persistence] Parsed functions:', functions.length);
+      return functions.map((func: any) => ({
         ...func,
         createdAt: new Date(func.createdAt),
         modifiedAt: new Date(func.modifiedAt)
       }));
     } catch (error) {
-      console.warn('Failed to load KPT functions from localStorage:', error);
+      // logWarn('Failed to load KPT functions from localStorage:', error);
       return [];
     }
   }
@@ -73,9 +73,8 @@ export class KPTPersistence {
     if (filteredFunctions.length === functions.length) {
       return false; // Function not found
     }
-    
     localStorage.setItem(KPT_STORAGE_KEY, JSON.stringify(filteredFunctions));
-    console.log('[KPT Persistence] Deleted function:', functionName);
+    // console.log('[KPT Persistence] Deleted function:', functionName);
     
     // Remove from window.kpt namespace
     if (window.kpt && window.kpt[functionName]) {
@@ -119,7 +118,7 @@ export class KPTPersistence {
           this.saveFunction(func);
           imported++;
         } catch (error) {
-          errors.push(`Failed to import ${func.name}: ${error.message}`);
+          errors.push(`Failed to import ${func.name}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
       
@@ -128,7 +127,7 @@ export class KPTPersistence {
       return { 
         success: false, 
         imported: 0, 
-        errors: [`Invalid JSON format: ${error.message}`] 
+        errors: [`Invalid JSON format: ${error instanceof Error ? error.message : String(error)}`] 
       };
     }
   }
@@ -150,8 +149,8 @@ export class KPTPersistence {
       // Add to window.kpt
       window.kpt[func.name] = compiledFunction;
     } catch (error) {
-      console.error(`Failed to update window namespace for ${func.name}:`, error);
-      throw new Error(`Function compilation failed: ${error.message}`);
+      // logError(`Failed to update window namespace for ${func.name}:`, error, 'Validation');
+      throw new Error(`Function compilation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
@@ -171,7 +170,7 @@ export class KPTPersistence {
       try {
         this.updateWindowNamespace(func);
       } catch (error) {
-        console.error(`Failed to initialize custom function ${func.name}:`, error);
+        // logError(`Failed to initialize custom function ${func.name}:`, error, 'Validation');
       }
     }
   }
@@ -185,7 +184,7 @@ export class KPTPersistence {
       const funcCode = `(${func.parameters}) => { ${func.body} }`;
       new Function('return ' + funcCode)();
     } catch (error) {
-      throw new Error(`Invalid function syntax: ${error.message}`);
+      throw new Error(`Invalid function syntax: ${error instanceof Error ? error.message : String(error)}`);
     }
     
     // Check for reserved names
@@ -246,12 +245,12 @@ export class KPTPersistence {
    * Notify all listeners of changes
    */
   private static notifyListeners(functions: KPTFunction[]): void {
-    console.log('[KPT Persistence] Notifying', this.listeners.size, 'listeners of function changes');
+    // console.log('[KPT Persistence] Notifying', this.listeners.size, 'listeners of function changes');
     this.listeners.forEach(callback => {
       try {
         callback(functions);
       } catch (error) {
-        console.error('[KPT Persistence] Error in listener callback:', error);
+        // logError('[KPT Persistence] Error in listener callback:', error);
       }
     });
   }
@@ -260,10 +259,10 @@ export class KPTPersistence {
    * Listen for storage events from other tabs/windows
    */
   static initStorageListener(): void {
-    console.log('[KPT Persistence] Setting up storage listener');
+    // console.log('[KPT Persistence] Setting up storage listener');
     window.addEventListener('storage', (e) => {
       if (e.key === KPT_STORAGE_KEY && e.newValue) {
-        console.log('[KPT Persistence] Storage changed from another tab');
+        // console.log('[KPT Persistence] Storage changed from another tab');
         // Re-initialize all functions when storage changes
         this.initializeCustomFunctions();
         

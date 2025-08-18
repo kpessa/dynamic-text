@@ -8,6 +8,7 @@ import type {
   CalculatedValueDependencies,
   ExtractedKeys
 } from './types.js';
+import { logWarn, logError } from '$lib/logger';
 
 /**
  * TPN Legacy Support Module
@@ -175,7 +176,7 @@ class TPNLegacySupport {
     this.data = {
       RREC: {
         INGREDIENT_map: {},
-        META: {
+      META: {
           PERIPHERAL_OSMOLARITY_MAXIMUM: 800
         }
       }
@@ -245,7 +246,7 @@ class TPNLegacySupport {
   getValue(key: string): number | string | boolean {
     // Prevent infinite recursion
     if (this._calculationDepth > 10) {
-      console.warn(`getValue recursion depth exceeded for key: ${key}`);
+      // logWarn(`getValue recursion depth exceeded for key: ${key}`, 'TPN');
       return 0;
     }
     
@@ -495,12 +496,12 @@ class TPNLegacySupport {
           const result = fn.call(this, this);
           return result !== undefined ? result : '';
         } catch (err) {
-          console.error('Error evaluating dynamic text:', err);
+          // logError('Error evaluating dynamic text:', err);
           return `[Error: ${(err as Error).message}]`;
         }
       });
     } catch (err) {
-      console.error('Error in evaluate:', err);
+      // logError('Error in evaluate:', err);
       return sourceText;
     }
   }
@@ -1150,7 +1151,6 @@ export function extractKeysFromCode(code: string): ExtractedKeys {
   // Return keys as-is without canonical conversion for tests
   return [...new Set(Array.from(keys))]; // Remove duplicates
 }
-
 /**
  * Extract only directly referenced keys from dynamic text code (no dependencies)
  */
@@ -1224,6 +1224,5 @@ export function extractDirectKeysFromCode(code: string): ExtractedKeys {
   // Return keys as-is without canonical conversion for tests
   return [...new Set(Array.from(keys))]; // Remove duplicates
 }
-
 // Export classes
 export { TPNLegacySupport, LegacyElementWrapperImpl as LegacyElementWrapper };

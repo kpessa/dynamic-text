@@ -1,3 +1,4 @@
+import { logError, logWarn } from '$lib/logger';
 /**
  * Runtime Health Monitoring Service
  * Monitors application health and reports issues in real-time
@@ -59,7 +60,7 @@ class HealthMonitor {
         message: event.reason?.toString(),
         timestamp: new Date()
       });
-      console.error('[HealthMonitor] Unhandled rejection:', event.reason);
+      logError('[HealthMonitor] Unhandled rejection:', event.reason);
     };
     window.addEventListener('unhandledrejection', rejectionHandler);
     this.errorListeners.set('unhandledrejection', rejectionHandler);
@@ -184,7 +185,7 @@ class HealthMonitor {
     
     // Log warnings and errors
     if (check.status !== 'healthy') {
-      console.warn(`[HealthMonitor] ${check.status.toUpperCase()}: ${check.name}`, check.message);
+      logWarn(`[HealthMonitor] ${check.status.toUpperCase()}: ${check.name}`, check.message);
     }
   }
 

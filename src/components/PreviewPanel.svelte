@@ -1,7 +1,7 @@
 <script>
-  import { sanitizeHTML } from '../services/codeExecutionService';
-  import { copyJSONToClipboard } from '../services/clipboardService';
-  import { sectionsToJSON, sectionsToLineObjects } from '../services/exportService';
+  import { sanitizeHTML } from '../lib/services/execution/codeExecutionService';
+  import { copyJSONToClipboard } from '../lib/services/utilities/clipboardService';
+  import { sectionsToJSON, sectionsToLineObjects } from '../lib/services/export/exportService';
   
   let {
     sections = [],
@@ -30,7 +30,7 @@
   function handleLineChange(lineId, newText) {
     // This would need to be handled by parent component
     // as it needs to update the sections
-    console.log('Line change:', lineId, newText);
+    // console.log('Line change:', lineId, newText);
   }
 </script>
 

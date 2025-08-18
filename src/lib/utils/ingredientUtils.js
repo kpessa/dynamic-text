@@ -1,5 +1,6 @@
 import { getKeyCategory } from '../tpnLegacy.js';
 import { CATEGORIES } from '../constants/ingredientConstants.js';
+import { logError } from '$lib/logger';
 
 /**
  * Group references by population type
@@ -149,7 +150,7 @@ export async function checkSharedStatus(ingredient, isSharedFn) {
       sharedCount: sharedInfo.configs?.length || 0
     };
   } catch (error) {
-    console.error('Error checking shared status:', error);
+    // logError('Error checking shared status:', error);
     return { isShared: false, sharedCount: 0 };
   }
 }

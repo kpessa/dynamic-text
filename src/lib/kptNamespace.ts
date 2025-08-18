@@ -74,104 +74,93 @@ export function initializeKPTCustomFunctions(): void {
   KPTPersistence.initializeCustomFunctions();
   KPTPersistence.initStorageListener();
   
-  console.log('[KPT Namespace] Custom functions initialized');
+  // console.log('[KPT Namespace] Custom functions initialized');
 }
-
 /**
  * Get all available KPT functions (built-in + custom)
  */
 export function getAllKPTFunctions(): { builtin: KPTFunction[]; custom: KPTFunction[] } {
-  const builtinObj = getBuiltInFunctions();
-  
-  // Transform built-in functions to match custom function format
-  const builtin = Object.entries(builtinObj).map(([name, meta]) => ({
-    name,
-    description: meta.description,
-    parameters: meta.params,
-    body: `// Built-in function: ${name}`,
-    category: getCategoryForFunction(name),
-    createdAt: new Date(),
-    modifiedAt: new Date()
-  }));
-  
+  // Since getBuiltInFunctions returns an empty object for now,
+  // we'll return empty arrays until built-in functions are re-enabled
   return {
-    builtin,
+    builtin: [],
     custom: KPTPersistence.loadFunctions()
   };
 }
 
-/**
- * Get category for built-in functions
- */
-function getCategoryForFunction(name: string): string {
-  if (name.includes('Text') || name.includes('highlight')) return 'formatting';
-  if (name.startsWith('format')) return 'formatting';
-  if (name.includes('round') || name.includes('Number')) return 'calculations';
-  if (name.includes('show') || name.includes('when') || name.includes('check')) return 'validation';
-  if (name.includes('create')) return 'utilities';
-  return 'utilities';
-}
+// Unused functions commented out for now
+// /**
+//  * Get category for built-in functions
+//  */
+// function getCategoryForFunction(name: string): string {
+//   if (name.includes('Text') || name.includes('highlight')) return 'formatting';
+//   if (name.startsWith('format')) return 'formatting';
+//   if (name.includes('round') || name.includes('Number')) return 'calculations';
+//   if (name.includes('show') || name.includes('when') || name.includes('check')) return 'validation';
+//   if (name.includes('create')) return 'utilities';
+//   return 'utilities';
+// }
 
-/**
- * Get built-in function definitions for reference
- */
-function getBuiltInFunctions() {
-  return {
-    // Text formatting functions
-    redText: { params: 'text: string | number', description: 'Display text in red with bold styling' },
-    greenText: { params: 'text: string | number', description: 'Display text in green with bold styling' },
-    blueText: { params: 'text: string | number', description: 'Display text in blue with bold styling' },
-    boldText: { params: 'text: string | number', description: 'Make text bold' },
-    italicText: { params: 'text: string | number', description: 'Make text italic' },
-    highlightText: { params: 'text: string | number, color?: string', description: 'Highlight text with background color' },
-    
-    // Number formatting functions
-    roundTo: { params: 'num: number, decimals?: number', description: 'Round number to specified decimal places' },
-    formatNumber: { params: 'num: number, decimals?: number', description: 'Format number with specified decimals' },
-    formatPercent: { params: 'num: number, decimals?: number', description: 'Format number as percentage' },
-    formatCurrency: { params: 'num: number, currency?: string', description: 'Format number as currency' },
-    
-    // TPN-specific formatting
-    formatWeight: { params: 'weight: number, unit?: string', description: 'Format weight with units' },
-    formatVolume: { params: 'volume: number, unit?: string', description: 'Format volume with units' },
-    formatDose: { params: 'dose: number, unit?: string', description: 'Format dose with units' },
-    formatConcentration: { params: 'concentration: number', description: 'Format concentration as percentage' },
-    
-    // Conditional display functions
-    showIf: { params: 'condition: boolean, content: string', description: 'Show content if condition is true' },
-    hideIf: { params: 'condition: boolean, content: string', description: 'Hide content if condition is true' },
-    whenAbove: { params: 'value: number, threshold: number, content: string', description: 'Show content when value is above threshold' },
-    whenBelow: { params: 'value: number, threshold: number, content: string', description: 'Show content when value is below threshold' },
-    whenInRange: { params: 'value: number, min: number, max: number, content: string', description: 'Show content when value is in range' },
-    
-    // Range checking functions
-    checkRange: { params: 'value: number, normal?: [number, number], critical?: [number, number]', description: 'Check if value is in normal/critical range' },
-    isNormal: { params: 'value: number, min: number, max: number', description: 'Check if value is in normal range' },
-    isCritical: { params: 'value: number, criticalMin: number, criticalMax: number', description: 'Check if value is in critical range' },
-    
-    // HTML building functions
-    createTable: { params: 'data: Array<Array<string | number>>, headers?: string[]', description: 'Create HTML table from data' },
-    createList: { params: 'items: Array<string | number>, ordered?: boolean', description: 'Create HTML list from items' },
-    createAlert: { params: 'message: string, type?: "info" | "warning" | "error" | "success"', description: 'Create styled alert box' },
-    
-    // Utility functions
-    capitalize: { params: 'text: string', description: 'Capitalize first letter of text' },
-    pluralize: { params: 'count: number, singular: string, plural?: string', description: 'Pluralize word based on count' },
-    abbreviate: { params: 'text: string, maxLength: number', description: 'Abbreviate text to max length' },
-    
-    // Math utilities
-    clamp: { params: 'value: number, min: number, max: number', description: 'Constrain value between min and max' },
-    percentage: { params: 'part: number, total: number', description: 'Calculate percentage of part to total' },
-    ratio: { params: 'a: number, b: number', description: 'Express two numbers as a ratio' },
-    
-    // Convenience aliases
-    weight: { params: 'number (calculated)', description: 'Current dose weight (DoseWeightKG)' },
-    age: { params: 'number (calculated)', description: 'Patient age' },
-    volume: { params: 'number (calculated)', description: 'Total TPN volume' },
-    protein: { params: 'number (calculated)', description: 'Protein dose' },
-    calories: { params: 'number (calculated)', description: 'Total calories' }
-  };
-}
+// /**
+//  * Get built-in function definitions for reference
+//  */
+// function getBuiltInFunctions() {
+//   return {
+//     // Text formatting functions
+//     // redText: { params: 'text: string | number', description: 'Display text in red with bold styling' },
+//     // greenText: { params: 'text: string | number', description: 'Display text in green with bold styling' },
+//     // blueText: { params: 'text: string | number', description: 'Display text in blue with bold styling' },
+//     // boldText: { params: 'text: string | number', description: 'Make text bold' },
+//     // italicText: { params: 'text: string | number', description: 'Make text italic' },
+//     // highlightText: { params: 'text: string | number, color?: string', description: 'Highlight text with background color' },
+//     
+//     // Number formatting functions
+//     // roundTo: { params: 'num: number, decimals?: number', description: 'Round number to specified decimal places' },
+//     // formatNumber: { params: 'num: number, decimals?: number', description: 'Format number with specified decimals' },
+//     // formatPercent: { params: 'num: number, decimals?: number', description: 'Format number as percentage' },
+//     // formatCurrency: { params: 'num: number, currency?: string', description: 'Format number as currency' },
+//     
+//     // TPN-specific formatting
+//     // formatWeight: { params: 'weight: number, unit?: string', description: 'Format weight with units' },
+//     // formatVolume: { params: 'volume: number, unit?: string', description: 'Format volume with units' },
+//     // formatDose: { params: 'dose: number, unit?: string', description: 'Format dose with units' },
+//     // formatConcentration: { params: 'concentration: number', description: 'Format concentration as percentage' },
+//     
+//     // Conditional display functions
+//     // showIf: { params: 'condition: boolean, content: string', description: 'Show content if condition is true' },
+//     // hideIf: { params: 'condition: boolean, content: string', description: 'Hide content if condition is true' },
+//     // whenAbove: { params: 'value: number, threshold: number, content: string', description: 'Show content when value is above threshold' },
+//     // whenBelow: { params: 'value: number, threshold: number, content: string', description: 'Show content when value is below threshold' },
+//     // whenInRange: { params: 'value: number, min: number, max: number, content: string', description: 'Show content when value is in range' },
+//     
+//     // Range checking functions
+//     // checkRange: { params: 'value: number, normal?: [number, number], critical?: [number, number]', description: 'Check if value is in normal/critical range' },
+//     // isNormal: { params: 'value: number, min: number, max: number', description: 'Check if value is in normal range' },
+//     // isCritical: { params: 'value: number, criticalMin: number, criticalMax: number', description: 'Check if value is in critical range' },
+//     
+//     // HTML building functions
+//     // createTable: { params: 'data: Array<Array<string | number>>, headers?: string[]', description: 'Create HTML table from data' },
+//     // createList: { params: 'items: Array<string | number>, ordered?: boolean', description: 'Create HTML list from items' },
+//     // createAlert: { params: 'message: string, type?: "info" | "warning" | "error" | "success"', description: 'Create styled alert box' },
+//     
+//     // Utility functions
+//     // capitalize: { params: 'text: string', description: 'Capitalize first letter of text' },
+//     // pluralize: { params: 'count: number, singular: string, plural?: string', description: 'Pluralize word based on count' },
+//     // abbreviate: { params: 'text: string, maxLength: number', description: 'Abbreviate text to max length' },
+//     
+//     // Math utilities
+//     // clamp: { params: 'value: number, min: number, max: number', description: 'Constrain value between min and max' },
+//     // percentage: { params: 'part: number, total: number', description: 'Calculate percentage of part to total' },
+//     // ratio: { params: 'a: number, b: number', description: 'Express two numbers as a ratio' },
+//     
+//     // Convenience aliases
+//     // weight: { params: 'number (calculated)', description: 'Current dose weight (DoseWeightKG)' },
+//     // age: { params: 'number (calculated)', description: 'Patient age' },
+//     // volume: { params: 'number (calculated)', description: 'Total TPN volume' },
+//     // protein: { params: 'number (calculated)', description: 'Protein dose' },
+//     // calories: { params: 'number (calculated)', description: 'Total calories' }
+//   };
+// }
 
 /**
  * Create the KPT namespace with all utility functions

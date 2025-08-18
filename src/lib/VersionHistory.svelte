@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { onMount } from 'svelte';
   import { ingredientService, referenceService } from './firebaseDataService.js';
@@ -32,7 +33,7 @@
         versions = await ingredientService.getVersionHistory(ingredientId);
       }
     } catch (err) {
-      console.error('Error loading version history:', err);
+      // logError('Error loading version history:', err);
       error = 'Failed to load version history';
     } finally {
       loading = false;

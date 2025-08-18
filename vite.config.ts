@@ -12,35 +12,49 @@ export default defineConfig({
     minify: 'terser',
     cssMinify: true,
     reportCompressedSize: false, // Speeds up build
+    chunkSizeWarningLimit: 500, // Warn for chunks over 500KB
+    sourcemap: false, // Disable sourcemaps in production
     
     // Bundle splitting for better caching
     rollupOptions: {
+      external: ['@babel/standalone'],
       output: {
-        manualChunks: {
+        manualChunks: (id) => {
+          // Babel should be excluded from bundle (loaded from CDN)
+          if (id.includes('@babel/standalone')) {
+            return false; // Don't include in any chunk
+          }
+          
           // Vendor chunk for stable libraries
-          vendor: ['svelte'],
+          if (id.includes('node_modules/svelte')) {
+            return 'vendor';
+          }
           
           // Heavy libraries in separate chunks
-          codemirror: [
-            'codemirror',
-            '@codemirror/lang-html',
-            '@codemirror/lang-javascript',
-            '@codemirror/language',
-            '@codemirror/view',
-            '@codemirror/theme-one-dark',
-            '@lezer/highlight'
-          ],
+          if (id.includes('codemirror') || id.includes('@codemirror') || id.includes('@lezer')) {
+            return 'codemirror';
+          }
           
-          firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth'],
+          if (id.includes('firebase')) {
+            return 'firebase';
+          }
           
-          ai: ['@google/generative-ai'],
+          if (id.includes('@google/generative-ai')) {
+            return 'ai';
+          }
           
-          utils: [
-            '@babel/standalone',
-            'dompurify',
-            'diff',
-            'diff2html'
-          ]
+          if (id.includes('dompurify')) {
+            return 'sanitizer';
+          }
+          
+          if (id.includes('diff') || id.includes('diff2html')) {
+            return 'diff';
+          }
+          
+          // KPT namespace utilities
+          if (id.includes('kptNamespace') || id.includes('kptPersistence')) {
+            return 'kptNamespace';
+          }
         },
         
         // Optimize chunk names for caching
@@ -83,19 +97,17 @@ export default defineConfig({
   optimizeDeps: {
     include: [
       'svelte',
-      '@babel/standalone',
       'dompurify'
     ],
     exclude: [
       // Exclude heavy libraries from pre-bundling
+      '@babel/standalone', // Load dynamically
       'firebase/app',
       'firebase/firestore', 
       'firebase/auth',
       '@google/generative-ai',
       'codemirror'
-    ],
-    // Force include critical modules
-    force: true
+    ]
   },
   
   // Enable experimental features for better performance
@@ -108,6 +120,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      '$lib': resolve(__dirname, 'src/lib'),
       '@lib': resolve(__dirname, 'src/lib'),
       '@stores': resolve(__dirname, 'src/stores'),
       '@components': resolve(__dirname, 'src/lib/components')

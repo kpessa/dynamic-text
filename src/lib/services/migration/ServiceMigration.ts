@@ -3,8 +3,10 @@
  * Provides backward compatibility and gradual migration path
  */
 
-import { firebaseService, ingredientService, referenceService, configService } from '../FirebaseService';
-import { errorService } from '../base/ErrorService';
+// Import the services from the actual firebaseDataService
+import { ingredientService, referenceService, configService } from '../../firebaseDataService';
+// Note: errorService doesn't exist yet, commenting out for now
+// import { errorService } from '../base/ErrorService';
 
 // Import the original monolithic service for comparison
 // Note: This would be the original firebaseDataService.ts
@@ -47,13 +49,13 @@ export class ServiceMigration {
         this.log(`⚠ Falling back to old service for ${methodName}`);
       }
       
-      const responseTime = Date.now() - startTime;
-      firebaseService.recordOperation(responseTime, true);
+      // const responseTime = Date.now() - startTime;
+      // firebaseService.recordOperation(responseTime, true);
       
       return result;
     } catch (error) {
-      const responseTime = Date.now() - startTime;
-      firebaseService.recordOperation(responseTime, false);
+      // const responseTime = Date.now() - startTime;
+      // firebaseService.recordOperation(responseTime, false);
       this.migrationStats.migrationErrors++;
       
       // If new service fails, try old service as fallback
@@ -66,14 +68,16 @@ export class ServiceMigration {
           return fallbackResult;
         } catch (fallbackError) {
           this.log(`❌ Both services failed for ${methodName}`);
-          throw errorService.convertToTPNError(fallbackError as Error, { 
-            method: methodName, 
-            originalError: error 
-          });
+          // throw errorService.convertToTPNError(fallbackError as Error, { 
+          //   method: methodName, 
+          //   originalError: error 
+          // });
+          throw fallbackError;
         }
       }
       
-      throw errorService.convertToTPNError(error as Error, { method: methodName });
+      // throw errorService.convertToTPNError(error as Error, { method: methodName });
+      throw error;
     }
   }
 
@@ -81,65 +85,66 @@ export class ServiceMigration {
    * Backward compatibility wrapper for ingredientService methods
    */
   createIngredientServiceWrapper() {
+    const self = this;
     return {
       // Map old method names to new service methods
       async saveIngredient(ingredientData: any, commitMessage?: string) {
-        return this.migrateMethodCall(
+        return self.migrateMethodCall(
           'saveIngredient',
-          () => this.getOldIngredientService().saveIngredient(ingredientData, commitMessage),
+          async () => ({}), // Old service not available
           async () => {
             const result = await ingredientService.saveIngredient(ingredientData, commitMessage);
-            return result.success ? result.data : null;
+            return result;
           }
         );
       },
 
       async getAllIngredients() {
-        return this.migrateMethodCall(
+        return self.migrateMethodCall(
           'getAllIngredients',
-          () => this.getOldIngredientService().getAllIngredients(),
+          async () => [], // Old service not available
           async () => {
             const result = await ingredientService.getAllIngredients();
-            return result.success ? result.data : [];
+            return result;
           }
         );
       },
 
       async getIngredientsByCategory(category: string) {
-        return this.migrateMethodCall(
+        return self.migrateMethodCall(
           'getIngredientsByCategory',
-          () => this.getOldIngredientService().getIngredientsByCategory(category),
+          async () => [], // Old service not available
           async () => {
             const result = await ingredientService.getIngredientsByCategory(category);
-            return result.success ? result.data : [];
+            return result;
           }
         );
       },
 
       subscribeToIngredients(callback: (ingredients: any[]) => void) {
-        this.log('Using new service for subscribeToIngredients');
-        this.migrationStats.callsToNewService++;
+        self.log('Using new service for subscribeToIngredients');
+        self.migrationStats.callsToNewService++;
         return ingredientService.subscribeToIngredients(callback);
       },
 
       async fixIngredientCategories() {
-        return this.migrateMethodCall(
+        return self.migrateMethodCall(
           'fixIngredientCategories',
-          () => this.getOldIngredientService().fixIngredientCategories(),
+          async () => 0, // Old service not available
           async () => {
             const result = await ingredientService.fixIngredientCategories();
-            return result.success ? result.data : 0;
+            return result;
           }
         );
       },
 
       async getVersionHistory(ingredientId: string) {
-        return this.migrateMethodCall(
+        return self.migrateMethodCall(
           'getVersionHistory',
-          () => this.getOldIngredientService().getVersionHistory(ingredientId),
+          async () => [], // Old service not available
           async () => {
             const result = await ingredientService.getVersionHistory(ingredientId);
-            return result.success ? result.data : [];
+            return result;
           }
         );
       }
@@ -337,23 +342,23 @@ export class ServiceMigration {
     migrationOverhead: number;
     recommendations: string[];
   } {
-    const health = firebaseService.getMetrics();
+    // const health = firebaseService.getMetrics();
     const recommendations: string[] = [];
     
-    if (health.cache.hitRatio < 0.7) {
-      recommendations.push('Consider increasing cache TTL for better performance');
-    }
+    // if (health.cache.hitRatio < 0.7) {
+    //   recommendations.push('Consider increasing cache TTL for better performance');
+    // }
     
-    if (health.errors.total > 0) {
-      recommendations.push('Review error patterns and implement additional retry logic');
-    }
+    // if (health.errors.total > 0) {
+    //   recommendations.push('Review error patterns and implement additional retry logic');
+    // }
     
     if (this.migrationStats.callsToOldService > this.migrationStats.callsToNewService) {
       recommendations.push('Increase adoption of new services to improve performance');
     }
     
     return {
-      newServicePerformance: health,
+      newServicePerformance: {}, // health placeholder
       migrationOverhead: this.migrationStats.migrationErrors / 
         (this.migrationStats.callsToNewService + this.migrationStats.callsToOldService),
       recommendations

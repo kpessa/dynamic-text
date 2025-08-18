@@ -28,7 +28,9 @@ import type {
   ReferenceData,
   FirebaseTimestamp,
   Section,
-  NoteItem
+  NoteItem,
+  ImportedIngredient,
+  ImportedConfig
 } from './types.js';
 
 // Population types
@@ -99,7 +101,7 @@ export function formatIngredientName(name: string): string {
   
   // Check if it's a special case (check original name)
   if (name in specialCases) {
-    return specialCases[name];
+    return specialCases[name as keyof typeof specialCases];
   }
   
   // If no pattern matched, try camelCase conversion
@@ -130,15 +132,14 @@ function isValidFirestoreId(id: string): boolean {
 
 export function normalizeIngredientId(name: string): string {
   if (!name || typeof name !== 'string') {
-    console.warn('normalizeIngredientId called with invalid name:', name);
+    // logWarn('normalizeIngredientId called with invalid name:', name);
     return '';
   }
   
   // Log for debugging parentheses issues
   if (name.includes('(') || name.includes(')')) {
-    console.log(`Normalizing ingredient with parentheses: "${name}"`);
+    // console.log(`Normalizing ingredient with parentheses: "${name}"`);
   }
-  
   const normalized = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
@@ -147,7 +148,7 @@ export function normalizeIngredientId(name: string): string {
   
   // Validate the normalized ID
   if (!isValidFirestoreId(normalized)) {
-    console.error(`Invalid Firebase ID generated: "${normalized}" from name: "${name}"`);
+    // logError(`Invalid Firebase ID generated: "${normalized}" from name: "${name}"`);
     // Fallback: ensure it's valid by truncating if needed
     if (normalized.length > 1500) {
       return normalized.substring(0, 1500).replace(/-+$/g, '');
@@ -156,9 +157,8 @@ export function normalizeIngredientId(name: string): string {
   
   // Log the result for debugging
   if (name.includes('(') || name.includes(')')) {
-    console.log(`Normalized to: "${normalized}"`);
+    // console.log(`Normalized to: "${normalized}"`);
   }
-  
   return normalized;
 }
 
@@ -217,7 +217,7 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
       // First, save any accumulated static content as a single section
       if (currentStaticContent.trim() && !dynamicStarted) {
         sections.push({ 
-          id: sectionId++,
+          id: String(sectionId++),
           type: 'static', 
           content: currentStaticContent.trim() 
         });
@@ -244,7 +244,7 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
             const beforeText = remainingText.substring(0, startIdx);
             if (beforeText.trim()) {
               sections.push({ 
-                id: sections.length + 1,
+                id: String(sections.length + 1),
                 type: 'static', 
                 content: beforeText.trim() 
               });
@@ -258,7 +258,7 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
             // Extract the dynamic code between [f( and )]
             const dynamicText = remainingText.substring(startIdx + 3, endIdx);
             sections.push({ 
-              id: sections.length + 1,
+              id: String(sections.length + 1),
               type: 'dynamic', 
               content: dynamicText.trim(),
               testCases: [{ name: 'Default', variables: {} }]
@@ -268,7 +268,7 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
             // Unmatched [f(, treat rest as static
             if (remainingText.trim()) {
               sections.push({ 
-                id: sections.length + 1,
+                id: String(sections.length + 1),
                 type: 'static', 
                 content: remainingText.trim() 
               });
@@ -294,7 +294,7 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
   // Don't forget any remaining static content
   if (currentStaticContent.trim()) {
     sections.push({ 
-      id: sections.length + 1,
+      id: String(sections.length + 1),
       type: 'static', 
       content: currentStaticContent.trim() 
     });
@@ -350,7 +350,7 @@ export const ingredientService = {
       await setDoc(ingredientRef, data);
       return ingredientId;
     } catch (error) {
-      console.error('Error saving ingredient:', error);
+      // logError('Error saving ingredient:', error);
       throw error;
     }
   },
@@ -358,6 +358,7 @@ export const ingredientService = {
   // Save version history
   async saveVersionHistory(ingredientId: string, versionData: IngredientData): Promise<void> {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const versionsCollection = collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions');
       const versionRef = doc(versionsCollection);
       
@@ -367,7 +368,7 @@ export const ingredientService = {
         archivedAt: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error saving version history:', error);
+      // logError('Error saving version history:', error);
       // Don't throw - version history is not critical
     }
   },
@@ -375,6 +376,7 @@ export const ingredientService = {
   // Get version history for an ingredient
   async getVersionHistory(ingredientId: string): Promise<IngredientData[]> {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions'),
         orderBy('versionNumber', 'desc')
@@ -386,7 +388,7 @@ export const ingredientService = {
         ...doc.data()
       })) as IngredientData[];
     } catch (error) {
-      console.error('Error fetching version history:', error);
+      // logError('Error fetching version history:', error);
       return [];
     }
   },
@@ -394,6 +396,7 @@ export const ingredientService = {
   // Get all ingredients
   async getAllIngredients() {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS),
         orderBy('name', 'asc')
@@ -405,7 +408,7 @@ export const ingredientService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching ingredients:', error);
+      // logError('Error fetching ingredients:', error);
       throw error;
     }
   },
@@ -413,6 +416,7 @@ export const ingredientService = {
   // Get ingredients by category
   async getIngredientsByCategory(category: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS),
         where('category', '==', category),
@@ -425,13 +429,14 @@ export const ingredientService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching ingredients by category:', error);
+      // logError('Error fetching ingredients by category:', error);
       throw error;
     }
   },
   
   // Subscribe to ingredient changes
   subscribeToIngredients(callback: (ingredients: any[]) => void) {
+    if (!db) throw new Error('Firebase not initialized');
     const q = query(
       collection(db, COLLECTIONS.INGREDIENTS),
       orderBy('name', 'asc')
@@ -449,6 +454,7 @@ export const ingredientService = {
   // Clear all ingredients (use with caution!)
   async clearAllIngredients() {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const snapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
       const batch = writeBatch(db);
       
@@ -457,10 +463,10 @@ export const ingredientService = {
       });
       
       await batch.commit();
-      console.log(`Deleted ${snapshot.docs.length} ingredients`);
+      // console.log(`Deleted ${snapshot.docs.length} ingredients`);
       return snapshot.docs.length;
     } catch (error) {
-      console.error('Error clearing ingredients:', error);
+      // logError('Error clearing ingredients:', error);
       throw error;
     }
   },
@@ -468,33 +474,33 @@ export const ingredientService = {
   // Fix ingredient categories
   async fixIngredientCategories() {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const ingredients = await this.getAllIngredients();
       const batch = writeBatch(db);
       let fixedCount = 0;
       
       for (const ingredient of ingredients) {
-        const correctCategory = getKeyCategory(ingredient.name);
-        if (correctCategory && ingredient.category !== correctCategory) {
-          const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredient.id);
+        const correctCategory = getKeyCategory((ingredient as any).name);
+        if (correctCategory && (ingredient as any).category !== correctCategory) {
+          const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, (ingredient as any).id);
           batch.update(ingredientRef, {
             category: correctCategory,
             lastModified: serverTimestamp(),
             modifiedBy: user.uid
           });
           fixedCount++;
-          console.log(`Fixed category for ${ingredient.name}: ${ingredient.category} -> ${correctCategory}`);
+          // console.log(`Fixed category for ${(ingredient as any).name}: ${(ingredient as any).category} -> ${correctCategory}`);
         }
       }
       
       if (fixedCount > 0) {
         await batch.commit();
-        console.log(`Fixed categories for ${fixedCount} ingredients`);
+        // console.log(`Fixed categories for ${fixedCount} ingredients`);
       }
-      
       return fixedCount;
     } catch (error) {
-      console.error('Error fixing ingredient categories:', error);
+      // logError('Error fixing ingredient categories:', error);
       throw error;
     }
   },
@@ -502,6 +508,7 @@ export const ingredientService = {
   // Fix ingredients that have lost their parentheses
   async fixIngredientsWithParentheses() {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const batch = writeBatch(db);
       let fixedCount = 0;
@@ -537,19 +544,18 @@ export const ingredientService = {
               modifiedBy: user.uid
             });
             fixedCount++;
-            console.log(`Fixed ingredient: ${pattern.id} -> ${pattern.name}`);
+            // console.log(`Fixed ingredient: ${pattern.id} -> ${pattern.name}`);
           }
         }
       }
       
       if (fixedCount > 0) {
         await batch.commit();
-        console.log(`Fixed ${fixedCount} ingredients with missing parentheses`);
+        // console.log(`Fixed ${fixedCount} ingredients with missing parentheses`);
       }
-      
       return fixedCount;
     } catch (error) {
-      console.error('Error fixing ingredients:', error);
+      // logError('Error fixing ingredients:', error);
       throw error;
     }
   }
@@ -560,6 +566,7 @@ export const referenceService = {
   // Save a reference under an ingredient with version tracking
   async saveReference(ingredientId: string, referenceData: any, commitMessage: string | null = null) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
       // Generate meaningful reference ID if not provided
@@ -600,7 +607,7 @@ export const referenceService = {
       if (currentDoc.exists() && currentDoc.data()) {
         await this.saveReferenceVersionHistory(ingredientId, referenceId, {
           ...currentDoc.data(),
-          commitMessage: currentDoc.data().commitMessage || null
+          commitMessage: currentDoc.data()['commitMessage'] || null
         });
       }
       
@@ -609,7 +616,7 @@ export const referenceService = {
       // Update ingredient's lastModified and increment its version
       const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
       const ingredientDoc = await getDoc(ingredientRef);
-      const ingredientVersion = ingredientDoc.exists() ? (ingredientDoc.data().version || 0) : 0;
+      const ingredientVersion = ingredientDoc.exists() ? (ingredientDoc.data()!['version'] || 0) : 0;
       
       await updateDoc(ingredientRef, {
         lastReferenceUpdate: serverTimestamp(),
@@ -621,7 +628,7 @@ export const referenceService = {
       
       return referenceId;
     } catch (error) {
-      console.error('Error saving reference:', error);
+      // logError('Error saving reference:', error);
       throw error;
     }
   },
@@ -629,6 +636,7 @@ export const referenceService = {
   // Save reference version history
   async saveReferenceVersionHistory(ingredientId: string, referenceId: string, versionData: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const versionRef = doc(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions')
       );
@@ -639,7 +647,7 @@ export const referenceService = {
         archivedAt: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error saving reference version history:', error);
+      // logError('Error saving reference version history:', error);
       // Don't throw - version history is not critical
     }
   },
@@ -647,6 +655,7 @@ export const referenceService = {
   // Get version history for a reference
   async getReferenceVersionHistory(ingredientId: string, referenceId: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions'),
         orderBy('versionNumber', 'desc')
@@ -658,7 +667,7 @@ export const referenceService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching reference version history:', error);
+      // logError('Error fetching reference version history:', error);
       return [];
     }
   },
@@ -666,6 +675,7 @@ export const referenceService = {
   // Get all references for an ingredient
   async getReferencesForIngredient(ingredientId: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'),
         orderBy('populationType', 'asc')
@@ -677,7 +687,7 @@ export const referenceService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching references:', error);
+      // logError('Error fetching references:', error);
       throw error;
     }
   },
@@ -685,6 +695,7 @@ export const referenceService = {
   // Update validation status for a reference
   async updateReferenceValidation(ingredientId: string, referenceId: string, validationData: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId);
       
@@ -700,7 +711,7 @@ export const referenceService = {
       
       return true;
     } catch (error) {
-      console.error('Error updating validation status:', error);
+      // logError('Error updating validation status:', error);
       throw error;
     }
   },
@@ -708,6 +719,7 @@ export const referenceService = {
   // Get references by population type
   async getReferencesByPopulation(ingredientId: string, populationType: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       // Handle child/pediatric mapping
       const searchTypes = [populationType];
       if (populationType === 'child') {
@@ -727,7 +739,7 @@ export const referenceService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching references by population:', error);
+      // logError('Error fetching references by population:', error);
       throw error;
     }
   },
@@ -735,11 +747,12 @@ export const referenceService = {
   // Get references across health systems for comparison
   async getReferencesForComparison(ingredientId: string, healthSystem: string | null = null) {
     try {
-      let q = collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references');
+      if (!db) throw new Error('Firebase not initialized');
+      const collectionRef = collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references');
       
-      if (healthSystem) {
-        q = query(q, where('healthSystem', '==', healthSystem));
-      }
+      const q = healthSystem 
+        ? query(collectionRef, where('healthSystem', '==', healthSystem))
+        : collectionRef;
       
       const snapshot = await getDocs(q);
       const references = snapshot.docs.map(doc => ({
@@ -748,23 +761,25 @@ export const referenceService = {
       }));
       
       // Group by population type for easy comparison
-      const grouped = {};
+      const grouped: Record<string, any[]> = {};
       references.forEach(ref => {
-        if (!grouped[ref.populationType]) {
-          grouped[ref.populationType] = [];
+        const popType = (ref as any).populationType;
+        if (!grouped[popType]) {
+          grouped[popType] = [];
         }
-        grouped[ref.populationType].push(ref);
+        grouped[popType].push(ref);
       });
       
       return grouped;
     } catch (error) {
-      console.error('Error fetching references for comparison:', error);
+      // logError('Error fetching references for comparison:', error);
       throw error;
     }
   },
   
   // Subscribe to reference changes for an ingredient
   subscribeToReferences(ingredientId: string, callback: (references: any[]) => void) {
+    if (!db) throw new Error('Firebase not initialized');
     const q = query(
       collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'),
       orderBy('populationType', 'asc')
@@ -782,6 +797,7 @@ export const referenceService = {
   // Delete a reference
   async deleteReference(ingredientId: string, referenceId: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       await deleteDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId));
       
       // Update ingredient's reference count
@@ -790,7 +806,7 @@ export const referenceService = {
         referenceCount: increment(-1)
       });
     } catch (error) {
-      console.error('Error deleting reference:', error);
+      // logError('Error deleting reference:', error);
       throw error;
     }
   }
@@ -801,16 +817,17 @@ export const migrationService = {
   // Migrate all localStorage data to Firebase
   async migrateFromLocalStorage(localStorageData: any) {
     try {
-      const batch = writeBatch(db);
+      if (!db) throw new Error('Firebase not initialized');
+      const batch = writeBatch(db!);
       const ingredientMap = new Map();
       
       // First pass: Create ingredients from all references
-      Object.values(localStorageData.referenceTexts || {}).forEach(reference => {
+      Object.values(localStorageData.referenceTexts || {}).forEach((reference: any) => {
         if (reference.ingredient && !ingredientMap.has(reference.ingredient)) {
           const ingredientId = normalizeIngredientId(reference.ingredient);
           ingredientMap.set(reference.ingredient, ingredientId);
           
-          batch.set(doc(db, COLLECTIONS.INGREDIENTS, ingredientId), {
+          batch.set(doc(db!, COLLECTIONS.INGREDIENTS, ingredientId!), {
             id: ingredientId,
             name: reference.ingredient,
             category: 'OTHER', // Default category, can be updated later
@@ -823,7 +840,7 @@ export const migrationService = {
       });
       
       // Second pass: Add references under their ingredients
-      Object.values(localStorageData.referenceTexts || {}).forEach(reference => {
+      Object.values(localStorageData.referenceTexts || {}).forEach((reference: any) => {
         if (reference.ingredient) {
           const ingredientId = ingredientMap.get(reference.ingredient);
           // Generate meaningful reference ID
@@ -834,8 +851,8 @@ export const migrationService = {
             version: reference.version || 'adult'
           });
           
-          batch.set(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', refId), {
-            ...reference,
+          batch.set(doc(db!, COLLECTIONS.INGREDIENTS, ingredientId!, 'references', refId), {
+            ...(reference as object),
             ingredientId,
             populationType: POPULATION_TYPES.ADULT, // Default, can be updated
             createdAt: serverTimestamp(),
@@ -843,7 +860,7 @@ export const migrationService = {
           });
           
           // Increment reference count for ingredient
-          batch.update(doc(db, COLLECTIONS.INGREDIENTS, ingredientId), {
+          batch.update(doc(db!, COLLECTIONS.INGREDIENTS, ingredientId!), {
             referenceCount: increment(1)
           });
         }
@@ -857,7 +874,7 @@ export const migrationService = {
         referenceCount: Object.keys(localStorageData.referenceTexts || {}).length
       };
     } catch (error) {
-      console.error('Migration error:', error);
+      // logError('Migration error:', error);
       throw error;
     }
   }
@@ -868,13 +885,14 @@ export const organizationService = {
   // Get all health systems
   async getHealthSystems() {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const snapshot = await getDocs(collection(db, COLLECTIONS.HEALTH_SYSTEMS));
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching health systems:', error);
+      // logError('Error fetching health systems:', error);
       throw error;
     }
   },
@@ -882,13 +900,14 @@ export const organizationService = {
   // Add a new health system
   async addHealthSystem(name: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const docRef = await addDoc(collection(db, COLLECTIONS.HEALTH_SYSTEMS), {
         name,
         createdAt: serverTimestamp()
       });
       return docRef.id;
     } catch (error) {
-      console.error('Error adding health system:', error);
+      // logError('Error adding health system:', error);
       throw error;
     }
   },
@@ -896,6 +915,7 @@ export const organizationService = {
   // Get domains for a health system
   async getDomains(healthSystemId: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const snapshot = await getDocs(
         collection(db, COLLECTIONS.HEALTH_SYSTEMS, healthSystemId, 'domains')
       );
@@ -904,7 +924,7 @@ export const organizationService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching domains:', error);
+      // logError('Error fetching domains:', error);
       throw error;
     }
   }
@@ -915,10 +935,11 @@ export const configService = {
   // Phase 3.2: Detect duplicates before import
   async detectDuplicatesBeforeImport(configData: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const report = {
-        duplicatesFound: [],
-        identicalIngredients: [],
-        variations: [],
+        duplicatesFound: [] as any[],
+        identicalIngredients: [] as any[],
+        variations: [] as any[],
         totalChecked: 0
       };
       
@@ -992,13 +1013,13 @@ export const configService = {
       
       return report;
     } catch (error) {
-      console.error('Error detecting duplicates:', error);
+      // logError('Error detecting duplicates:', error);
       return {
         duplicatesFound: [],
         identicalIngredients: [],
         variations: [],
         totalChecked: 0,
-        error: error.message
+        error: (error as Error).message
       };
     }
   },
@@ -1008,6 +1029,7 @@ export const configService = {
   // Phase 3.2: Now includes duplicate detection
   async saveImportedConfig(configData: any, metadata: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
       // Phase 3.2: Detect duplicates before import
@@ -1030,8 +1052,8 @@ export const configService = {
         }
         
         // Add to duplicate report for display
-        duplicateReport.autoDedupeActions = autoDedupeActions;
-        duplicateReport.autoDedupeEnabled = true;
+        (duplicateReport as any).autoDedupeActions = autoDedupeActions;
+        (duplicateReport as any).autoDedupeEnabled = true;
       }
       
       // Generate meaningful config ID
@@ -1096,8 +1118,8 @@ export const configService = {
         
         // Phase 2.1: Store baseline ingredients (only if baseline doesn't exist)
         if (!baselineExists.exists()) {
-          configData.INGREDIENT.forEach((ingredient, index) => {
-            const baselineIngredientRef = doc(collection(db, 'baselineConfigs', configId, 'ingredients'));
+          configData.INGREDIENT.forEach((ingredient: any, index: number) => {
+            const baselineIngredientRef = doc(collection(db!, 'baselineConfigs', configId, 'ingredients'));
             batch.set(baselineIngredientRef, {
               ...ingredient,
               index: index,
@@ -1120,7 +1142,7 @@ export const configService = {
         }
         
         // First, identify unique ingredients and their data
-        configData.INGREDIENT.forEach((ingredientData) => {
+        configData.INGREDIENT.forEach((ingredientData: any) => {
           // Handle both uppercase and lowercase property names
           const rawName = ingredientData.KEYNAME || ingredientData.keyname || 
                          ingredientData.Ingredient || ingredientData.ingredient || 
@@ -1144,17 +1166,17 @@ export const configService = {
           }
         });
         
-        console.log(`Processing ${processedIngredients.size} unique ingredients from config ${metadata.name}`);
-        console.log('DEBUG: Firebase project:', db?.app?.options?.projectId);
+        // console.log(`Processing ${processedIngredients.size} unique ingredients from config ${metadata.name}`);
+        // console.log('DEBUG: Firebase project:', db?.app?.options?.projectId);
         
         // Create or update ingredients in the main collection
         for (const [name, ingredientInfo] of processedIngredients) {
           // Use normalized name as ingredient ID
           const ingredientId = normalizeIngredientId(name);
-          console.log(`DEBUG: Processing "${name}" -> normalized ID: "${ingredientId}"`);
+          // console.log(`DEBUG: Processing "${name}" -> normalized ID: "${ingredientId}"`);
           
           const ingredientRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId);
-          console.log(`DEBUG: Document reference path: ${ingredientRef.path}, ID: ${ingredientRef.id}`);
+          // console.log(`DEBUG: Document reference path: ${ingredientRef.path}, ID: ${ingredientRef.id}`);
           
           // Check if ingredient already exists
           const existingIngredient = await getDoc(ingredientRef);
@@ -1169,25 +1191,25 @@ export const configService = {
               updatedAt: serverTimestamp(),
               updatedBy: user.uid
             };
-            console.log(`DEBUG: Creating new ingredient with ID "${ingredientId}" at path "${ingredientRef.path}"`);
+            // console.log(`DEBUG: Creating new ingredient with ID "${ingredientId}" at path "${ingredientRef.path}"`);
             batch.set(ingredientRef, ingredientData);
             importStats.newIngredients++;
           } else {
             // Update existing ingredient
-            console.log(`DEBUG: Updating existing ingredient "${ingredientId}"`);
-            const existingData = existingIngredient.data();
-            batch.update(ingredientRef, {
-              configSources: arrayUnion(configId),
-              updatedAt: serverTimestamp(),
-              updatedBy: user.uid,
+            // console.log(`DEBUG: Updating existing ingredient "${ingredientId}"`);
+      // const existingData = existingIngredient.data();
+      // batch.update(ingredientRef, {
+      // configSources: arrayUnion(configId),
+      // updatedAt: serverTimestamp(),
+      // updatedBy: user.uid,
               // Update description if it was empty
-              description: existingData.description || ingredientInfo.description
-            });
+      // description: existingData['description'] || ingredientInfo.description
+      // });
             importStats.updatedIngredients++;
           }
           
           // Find the matching ingredient data to get its notes
-          const matchingIngredientData = configData.INGREDIENT.find(ing => {
+          const matchingIngredientData = configData.INGREDIENT.find((ing: any) => {
             const rawIngName = ing.KEYNAME || ing.keyname || 
                               ing.Ingredient || ing.ingredient || 
                               ing.name;
@@ -1196,7 +1218,7 @@ export const configService = {
           });
           
           // Convert notes to sections if available
-          let sections = [];
+          let sections: any[] = [];
           const notes = matchingIngredientData?.NOTE || matchingIngredientData?.notes;
           if (notes) {
             sections = convertNotesToSections(notes);
@@ -1215,7 +1237,7 @@ export const configService = {
             version: metadata.version,
             populationType: versionToPopulationType(metadata.version),
             configId: configId,
-            sections: sections, // Populated from the imported data
+            sections: sections as any[], // Populated from the imported data
             createdAt: serverTimestamp(),
             createdBy: user.uid,
             updatedAt: serverTimestamp(),
@@ -1228,16 +1250,16 @@ export const configService = {
             // This ingredient is identical to an existing one and should be linked
             if (autoDedupeData.sharedIngredient) {
               // Link to existing shared ingredient
-              referenceData.sharedIngredientId = autoDedupeData.sharedIngredient.id;
-              referenceData.isShared = true;
-              referenceData.sharedAt = serverTimestamp();
-              referenceData.autoDeduped = true;
-              importStats.autoDeduped = (importStats.autoDeduped || 0) + 1;
+              (referenceData as any).sharedIngredientId = autoDedupeData.sharedIngredient.id;
+              (referenceData as any).isShared = true;
+              (referenceData as any).sharedAt = serverTimestamp();
+              (referenceData as any).autoDeduped = true;
+              (importStats as any).autoDeduped = ((importStats as any).autoDeduped || 0) + 1;
             } else {
               // Create new shared ingredient with this as the first reference
               // This is the first time we're seeing this content
-              const contentHash = generateIngredientHash({ sections });
-              referenceData.contentHash = contentHash;
+              const contentHash = generateIngredientHash({ sections: sections as any[] });
+              (referenceData as any).contentHash = contentHash;
             }
           }
           
@@ -1245,8 +1267,8 @@ export const configService = {
         }
         
         // Also store in the importedConfigs subcollection for reference
-        configData.INGREDIENT.forEach((ingredient, index) => {
-          const ingredientRef = doc(collection(db, 'importedConfigs', configId, 'ingredients'));
+        configData.INGREDIENT.forEach((ingredient: any, index: number) => {
+          const ingredientRef = doc(collection(db!, 'importedConfigs', configId, 'ingredients'));
           batch.set(ingredientRef, {
             ...ingredient,
             index: index, // Preserve original order
@@ -1254,22 +1276,24 @@ export const configService = {
           });
         });
         
-        console.log('DEBUG: About to commit batch...');
+        // console.log('DEBUG: About to commit batch...');
         await batch.commit();
-        console.log('DEBUG: Batch committed successfully');
+        // console.log('DEBUG: Batch committed successfully');
         
         // Verify what was actually written
-        console.log('DEBUG: Verifying ingredients after batch commit...');
-        const verifySnapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
-        const ingredientIds = verifySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-        console.log('DEBUG: Current ingredients in database:', ingredientIds);
+        // console.log('DEBUG: Verifying ingredients after batch commit...');
+        await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
+        // const verifySnapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
+        // const ingredientIds = verifySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data()['name'] }));
+        // console.log('DEBUG: Current ingredients in database:', ingredientIds);
         
         // Check specifically for some of the ingredients we just processed
-        console.log('DEBUG: Checking specific ingredients...');
+        // console.log('DEBUG: Checking specific ingredients...');
         const testIngredients = ['heparin', 'sodium', 'potassium', 'calcium'];
         for (const testId of testIngredients) {
-          const testDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, testId));
-          console.log(`DEBUG: Ingredient "${testId}" exists: ${testDoc.exists()}, data:`, testDoc.exists() ? testDoc.data() : 'N/A');
+          await getDoc(doc(db, COLLECTIONS.INGREDIENTS, testId));
+          // const testDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, testId));
+          // console.log(`DEBUG: Ingredient "${testId}" exists: ${testDoc.exists()}, data:`, testDoc.exists() ? testDoc.data() : 'N/A');
         }
       }
       
@@ -1288,14 +1312,15 @@ export const configService = {
         importStats
       };
     } catch (error) {
-      console.error('Error saving imported config:', error);
+      // logError('Error saving imported config:', error);
       throw error;
     }
   },
   
   // Get all imported configs
-  async getAllConfigs() {
+  async getAllConfigs(): Promise<ImportedConfig[]> {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, 'importedConfigs'),
         orderBy('importedAt', 'desc')
@@ -1305,16 +1330,17 @@ export const configService = {
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      } as ImportedConfig));
     } catch (error) {
-      console.error('Error fetching configs:', error);
+      // logError('Error fetching configs:', error);
       throw error;
     }
   },
   
   // Get ingredients for a specific config
-  async getConfigIngredients(configId) {
+  async getConfigIngredients(configId: any): Promise<ImportedIngredient[]> {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, 'importedConfigs', configId, 'ingredients'),
         orderBy('index', 'asc')
@@ -1324,16 +1350,17 @@ export const configService = {
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      } as ImportedIngredient));
     } catch (error) {
-      console.error('Error fetching config ingredients:', error);
+      // logError('Error fetching config ingredients:', error);
       throw error;
     }
   },
   
   // Get configs by health system
-  async getConfigsByHealthSystem(healthSystem) {
+  async getConfigsByHealthSystem(healthSystem: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, 'importedConfigs'),
         where('healthSystem', '==', healthSystem),
@@ -1346,7 +1373,7 @@ export const configService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching configs by health system:', error);
+      // logError('Error fetching configs by health system:', error);
       throw error;
     }
   },
@@ -1354,6 +1381,7 @@ export const configService = {
   // Delete a config and all its ingredients
   async deleteConfig(configId: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       // First delete all ingredients in the subcollection
       const ingredientsSnapshot = await getDocs(
         collection(db, 'importedConfigs', configId, 'ingredients')
@@ -1372,7 +1400,7 @@ export const configService = {
       // Log the deletion
       await auditService.logAction('CONFIG_DELETED', { configId });
     } catch (error) {
-      console.error('Error deleting config:', error);
+      // logError('Error deleting config:', error);
       throw error;
     }
   },
@@ -1380,6 +1408,7 @@ export const configService = {
   // Phase 2.1: Get baseline config data (immutable original)
   async getBaselineConfig(configId: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const baselineDoc = await getDoc(doc(db, 'baselineConfigs', configId));
       if (!baselineDoc.exists()) {
         return null;
@@ -1389,7 +1418,7 @@ export const configService = {
         ...baselineDoc.data()
       };
     } catch (error) {
-      console.error('Error fetching baseline config:', error);
+      // logError('Error fetching baseline config:', error);
       return null;
     }
   },
@@ -1397,6 +1426,7 @@ export const configService = {
   // Phase 2.1: Get baseline ingredients for a config
   async getBaselineIngredients(configId: string) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const q = query(
         collection(db, 'baselineConfigs', configId, 'ingredients'),
         orderBy('index', 'asc')
@@ -1408,18 +1438,19 @@ export const configService = {
         ...doc.data()
       }));
     } catch (error) {
-      console.error('Error fetching baseline ingredients:', error);
+      // logError('Error fetching baseline ingredients:', error);
       return [];
     }
   },
   
   // Phase 2.3: Compare working config with baseline to detect modifications
-  async compareWithBaseline(configId, ingredientName) {
+  async compareWithBaseline(configId: any, ingredientName: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       // Get baseline ingredient data
       const baselineIngredients = await this.getBaselineIngredients(configId);
-      const baselineIngredient = baselineIngredients.find(ing => {
-        const name = ing.KEYNAME || ing.keyname || ing.Ingredient || ing.ingredient || ing.name;
+      const baselineIngredient = baselineIngredients.find((ing: any) => {
+        const name = ing['KEYNAME'] || ing['keyname'] || ing['Ingredient'] || ing['ingredient'] || ing['name'];
         return name === ingredientName;
       });
       
@@ -1440,8 +1471,9 @@ export const configService = {
       const workingData = referenceDoc.data();
       
       // Compare sections (working) with NOTE (baseline)
-      const baselineSections = convertNotesToSections(baselineIngredient.NOTE || baselineIngredient.notes || []);
-      const workingSections = workingData.sections || [];
+      const baselineIng = baselineIngredient as ImportedIngredient;
+      const baselineSections = convertNotesToSections(baselineIng.NOTE || baselineIng.notes || []);
+      const workingSections = workingData['sections'] || [];
       
       // Simple comparison - could be enhanced with deep diff
       const sectionsMatch = JSON.stringify(baselineSections) === JSON.stringify(workingSections);
@@ -1454,20 +1486,21 @@ export const configService = {
         }
       };
     } catch (error) {
-      console.error('Error comparing with baseline:', error);
+      // logError('Error comparing with baseline:', error);
       return { status: 'ERROR', differences: null };
     }
   },
   
   // Phase 2.5: Revert working copy to baseline
-  async revertToBaseline(configId, ingredientName) {
+  async revertToBaseline(configId: any, ingredientName: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
       // Get baseline ingredient data
       const baselineIngredients = await this.getBaselineIngredients(configId);
-      const baselineIngredient = baselineIngredients.find(ing => {
-        const name = ing.KEYNAME || ing.keyname || ing.Ingredient || ing.ingredient || ing.name;
+      const baselineIngredient = baselineIngredients.find((ing: any) => {
+        const name = ing['KEYNAME'] || ing['keyname'] || ing['Ingredient'] || ing['ingredient'] || ing['name'];
         return name === ingredientName;
       });
       
@@ -1476,7 +1509,8 @@ export const configService = {
       }
       
       // Convert baseline NOTE to sections
-      const sections = convertNotesToSections(baselineIngredient.NOTE || baselineIngredient.notes || []);
+      const baselineIng = baselineIngredient as ImportedIngredient;
+      const sections = convertNotesToSections(baselineIng.NOTE || baselineIng.notes || []);
       
       // Update the reference with baseline data
       const ingredientId = normalizeIngredientId(ingredientName);
@@ -1492,7 +1526,7 @@ export const configService = {
       
       return true;
     } catch (error) {
-      console.error('Error reverting to baseline:', error);
+      // logError('Error reverting to baseline:', error);
       throw error;
     }
   },
@@ -1500,6 +1534,7 @@ export const configService = {
   // Migrate existing imported configs to ingredients collection
   async migrateExistingConfigs() {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const configs = await this.getAllConfigs();
       let totalIngredients = 0;
@@ -1511,17 +1546,17 @@ export const configService = {
         const processedIngredients = new Map();
         
         // Process each ingredient in the config
-        configIngredients.forEach((ingredientData) => {
-          const rawName = ingredientData.KEYNAME || ingredientData.Ingredient || ingredientData.name;
+        configIngredients.forEach((ingredientData: any) => {
+          const rawName = ingredientData['KEYNAME'] || ingredientData['Ingredient'] || ingredientData['name'];
           if (rawName) {
             const name = formatIngredientName(rawName);
             if (!processedIngredients.has(name)) {
               processedIngredients.set(name, {
                 name: name,
                 category: getKeyCategory(name) || 'OTHER',
-                description: ingredientData.DISPLAY || ingredientData.Description || '',
-                unit: ingredientData.Unit || '',
-                type: ingredientData.TYPE || '',
+                description: ingredientData['DISPLAY'] || ingredientData['Description'] || '',
+                unit: ingredientData['Unit'] || '',
+                type: ingredientData['TYPE'] || '',
                 configSources: [config.id]
               });
             }
@@ -1555,7 +1590,7 @@ export const configService = {
               configSources: arrayUnion(config.id),
               updatedAt: serverTimestamp(),
               updatedBy: user.uid,
-              description: existingData.description || ingredientInfo.description
+              description: existingData['description'] || ingredientInfo.description
             });
           }
           
@@ -1568,13 +1603,13 @@ export const configService = {
           
           if (existingRefs.empty) {
             // Find the matching ingredient data to get its notes
-            const matchingIngredientData = configIngredients.find(ing => {
+            const matchingIngredientData = configIngredients.find((ing: ImportedIngredient) => {
               const ingName = ing.KEYNAME || ing.Ingredient || ing.name;
               return ingName === name;
             });
             
             // Convert notes to sections if available
-            let sections = [];
+            let sections: Section[] = [];
             if (matchingIngredientData && matchingIngredientData.notes) {
               sections = convertNotesToSections(matchingIngredientData.notes);
             }
@@ -1603,10 +1638,10 @@ export const configService = {
         await batch.commit();
       }
       
-      console.log(`Migration complete: ${totalIngredients} new ingredients, ${totalReferences} new references`);
+      // console.log(`Migration complete: ${totalIngredients} new ingredients, ${totalReferences} new references`);
       return { totalIngredients, totalReferences, totalConfigs: configs.length };
     } catch (error) {
-      console.error('Error migrating configs:', error);
+      // logError('Error migrating configs:', error);
       throw error;
     }
   }
@@ -1614,8 +1649,9 @@ export const configService = {
 
 // Audit logging
 export const auditService = {
-  async logAction(action, details) {
+  async logAction(action: string, details: any) {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser();
       await addDoc(collection(db, COLLECTIONS.AUDIT_LOG), {
         action,
@@ -1624,7 +1660,7 @@ export const auditService = {
         timestamp: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error logging audit action:', error);
+      // console.error('Error logging audit action:', error);
     }
   }
 };

@@ -7,23 +7,23 @@
     title: 'Components/IngredientDiffViewer',
     component: IngredientDiffViewerMock,
     tags: ['autodocs'],
-    argTypes: {
+          argTypes: {
       ingredient: {
         control: 'object',
         description: 'The ingredient to compare references for'
       },
-      healthSystem: {
+            healthSystem: {
         control: 'text',
         description: 'Optional health system filter'
       },
-      onClose: {
+            onClose: {
         description: 'Callback when the viewer is closed'
       }
     },
-    args: {
+          args: {
       onClose: fn()
     },
-    parameters: {
+          parameters: {
       layout: 'fullscreen',
       docs: {
         description: {

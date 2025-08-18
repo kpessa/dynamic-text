@@ -8,14 +8,14 @@
     title: 'Example/Button',
     component: Button,
     tags: ['autodocs'],
-    argTypes: {
+          argTypes: {
       backgroundColor: { control: 'color' },
-      size: {
+            size: {
         control: { type: 'select' },
         options: ['small', 'medium', 'large'],
       },
     },
-    args: {
+          args: {
       onclick: fn(),
     }
   });

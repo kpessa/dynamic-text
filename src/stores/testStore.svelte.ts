@@ -113,7 +113,6 @@ class TestStore {
     if (!expectedStr) {
       return { passed: true }; // Empty expected means no validation
     }
-    
     try {
       switch (matchType) {
         case 'exact':

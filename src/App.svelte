@@ -1,31 +1,88 @@
+import { logError, logWarn } from '$lib/logger';
 <script>
-  // Services
-  import { sanitizeHTML, createMockMe, transpileCode, evaluateCode, stripHTML, validateTestOutput, extractStylesFromHTML, runTestCase } from './services/codeExecutionService';
-  import { sectionsToJSON, sectionsToLineObjects, exportAsHTML, exportAsMarkdown, importFromJSON, validateImportData } from './services/exportService';
-  import { runSectionTests, createDefaultTestCase, validateTestCase, calculateTestStats, formatTestResults } from './services/testingService';
-  import { createSection, updateSectionContent, deleteSection as deleteSectionService, toggleSectionEditing, convertToDynamic, reorderSections, extractUsedKeys, hasUnsavedChanges as checkUnsavedChanges, migrateSections, countSectionsByType, generatePreviewHTML } from './services/sectionService';
-  import { copyToClipboard, copyJSONToClipboard, copyCodeSnippet } from './services/clipboardService';
-  import { getIngredientBadgeColor, getPopulationColor, getPopulationName, formatTimestamp, formatFileSize, debounce, throttle, generateId, sortPopulationTypes } from './services/uiHelpers';
+  // Import secure code execution
+  import { executeWithTPNContext } from './lib/services/secureCodeExecution';
+  
+  // Services - temporarily comment out missing imports
+  // import { sanitizeHTML, createMockMe, transpileCode, evaluateCode, stripHTML, validateTestOutput, extractStylesFromHTML, runTestCase } from './lib/services/execution/codeExecutionService';
+  // import { sectionsToJSON, sectionsToLineObjects, exportAsHTML, exportAsMarkdown, importFromJSON, validateImportData } from './lib/services/export/exportService';
+  // import { runSectionTests, createDefaultTestCase, validateTestCase, calculateTestStats, formatTestResults } from './lib/services/testing/testingService';
+  // import { createSection, updateSectionContent, deleteSection as deleteSectionService, toggleSectionEditing, convertToDynamic, reorderSections, extractUsedKeys, hasUnsavedChanges as checkUnsavedChanges, migrateSections, countSectionsByType, generatePreviewHTML } from './lib/services/domain/sectionServiceLegacy';
+  // import { copyToClipboard, copyJSONToClipboard, copyCodeSnippet } from './lib/services/utilities/clipboardService';
+  // import { getIngredientBadgeColor, getPopulationColor, getPopulationName, formatTimestamp, formatFileSize, debounce, throttle, generateId, sortPopulationTypes } from './lib/services/utilities/uiHelpers';
+  
+  import { transformCode as lazyTranspileCode, preloadBabel } from './lib/utils/lazyBabel';
+  import DOMPurify from 'dompurify';
+  import { onMount } from 'svelte';
+  
+  // Preload Babel after component mounts
+  onMount(() => {
+    setTimeout(() => preloadBabel(), 1000);
+  });
+  
+  // Temporary placeholder functions for missing services
+  const sanitizeHTML = (html) => DOMPurify.sanitize(html, { ADD_TAGS: ['style'], ADD_ATTR: ['style'] });
+  const stripHTML = (html) => { const tmp = document.createElement('div'); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ''; };
+  const createMockMe = () => ({ getValue: () => 0, ingredients: {} });
+  const transpileCode = async (code) => lazyTranspileCode(code);
+  const evaluateCode = (code) => { try { return new Function('return ' + code)(); } catch (e) { return 'Error: ' + e.message; } };
+  const validateTestOutput = (actual, expected) => actual === expected;
+  const extractStylesFromHTML = (html) => ({});
+  const runTestCase = (section, testCase) => ({ passed: false, actual: '', error: 'Not implemented' });
+  const sectionsToJSON = (sections) => JSON.stringify(sections, null, 2);
+  const sectionsToLineObjects = (sections) => sections.map(s => ({ type: s.type, content: s.content }));
+  const exportAsHTML = (sections) => sections.map(s => s.content).join('\n');
+  const exportAsMarkdown = (sections) => sections.map(s => s.content).join('\n\n');
+  const importFromJSON = (json) => JSON.parse(json);
+  const validateImportData = (data) => ({ isValid: true, errors: [] });
+  const runSectionTests = (sections) => ({ passed: 0, failed: 0, total: 0 });
+  const createDefaultTestCase = () => ({ name: 'Test', variables: {}, expectedOutput: '' });
+  const validateTestCase = (testCase) => ({ isValid: true, errors: [] });
+  const calculateTestStats = (results) => ({ passed: 0, failed: 0, total: 0 });
+  const formatTestResults = (results) => 'Test results';
+  const createSection = (type) => ({ id: Date.now(), type, name: '', content: '', testCases: [] });
+  const updateSectionContent = (section, content) => ({ ...section, content });
+  const deleteSectionService = (id) => {};
+  const toggleSectionEditing = (section) => ({ ...section, editing: !section.editing });
+  const convertToDynamic = (section) => ({ ...section, type: 'dynamic' });
+  const reorderSections = (sections, from, to) => sections;
+  const extractUsedKeys = (code) => [];
+  const checkUnsavedChanges = () => false;
+  const migrateSections = (sections) => sections;
+  const countSectionsByType = (sections) => ({ static: 0, dynamic: 0 });
+  const generatePreviewHTML = (sections) => sections.map(s => s.content).join('');
+  const copyToClipboard = (text) => navigator.clipboard.writeText(text);
+  const copyJSONToClipboard = (json) => navigator.clipboard.writeText(JSON.stringify(json, null, 2));
+  const copyCodeSnippet = (code) => navigator.clipboard.writeText(code);
+  const getIngredientBadgeColor = (type) => 'gray';
+  const getPopulationColor = (type) => 'blue';
+  const getPopulationName = (type) => type;
+  const formatTimestamp = (ts) => new Date(ts).toLocaleString();
+  const formatFileSize = (size) => size + ' bytes';
+  const debounce = (fn, delay) => { let timeout; return (...args) => { clearTimeout(timeout); timeout = setTimeout(() => fn(...args), delay); }; };
+  const throttle = (fn, delay) => { let last = 0; return (...args) => { const now = Date.now(); if (now - last >= delay) { last = now; fn(...args); } }; };
+  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const sortPopulationTypes = (types) => types.sort();
   
   // Components
   import CodeEditor from './lib/CodeEditor.svelte';
-  import SidebarRefactored from './lib/SidebarRefactored.svelte';
+  // import SidebarRefactored from './lib/SidebarRefactored.svelte';
   import TPNTestPanel from './lib/TPNTestPanel.svelte';
-  import TPNKeyReference from './lib/TPNKeyReference.svelte';
+  // import TPNKeyReference from './lib/TPNKeyReference.svelte';
   import IngredientInputPanel from './lib/IngredientInputPanel.svelte';
   import TestGeneratorButton from './lib/TestGeneratorButton.svelte';
   import TestGeneratorModal from './lib/TestGeneratorModal.svelte';
   import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
-  import NavbarRefactored from './lib/NavbarRefactored.svelte';
-  import IngredientManager from './lib/IngredientManagerRefactored.svelte';
+  // import NavbarRefactored from './lib/NavbarRefactored.svelte';
+  // import IngredientManager from './lib/IngredientManagerRefactored.svelte';
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
-  import DataMigrationTool from './lib/DataMigrationTool.svelte';
+  // import DataMigrationTool from './lib/DataMigrationTool.svelte';
   import CommitMessageDialog from './lib/CommitMessageDialog.svelte';
-  import ExportModal from './lib/ExportModalRefactored.svelte';
-  import ValidationStatus from './lib/ValidationStatus.svelte';
-  import SelectiveApply from './lib/SelectiveApply.svelte';
-  import PreferencesModal from './lib/PreferencesModalRefactored.svelte';
-  import KPTReference from './lib/KPTReferenceRefactored.svelte';
+  // import ExportModal from './lib/ExportModalRefactored.svelte';
+  // import ValidationStatus from './lib/ValidationStatus.svelte';
+  // import SelectiveApply from './lib/SelectiveApply.svelte';
+  // import PreferencesModal from './lib/PreferencesModalRefactored.svelte';
+  // import KPTReference from './lib/KPTReferenceRefactored.svelte';
   import KPTManager from './lib/KPTManager.svelte';
   import { initializeKPTCustomFunctions, createKPTNamespace } from './lib/kptNamespace.ts';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
@@ -34,13 +91,13 @@
   
   // New refactored components
   // AppContainer removed - not being used in template
-  import StatusBar from './components/StatusBar.svelte';
-  import TestSummaryModal from './components/TestSummaryModal.svelte';
-  import IngredientContextBar from './components/IngredientContextBar.svelte';
-  import EditorWorkspace from './components/EditorWorkspace.svelte';
-  import PreviewPanel from './components/PreviewPanel.svelte';
-  import SectionList from './components/SectionList.svelte';
-  import TestCaseManager from './components/TestCaseManager.svelte';
+  // import StatusBar from './components/StatusBar.svelte';
+  // import TestSummaryModal from './components/TestSummaryModal.svelte';
+  // import IngredientContextBar from './components/IngredientContextBar.svelte';
+  // import EditorWorkspace from './components/EditorWorkspace.svelte';
+  // import PreviewPanel from './components/PreviewPanel.svelte';
+  // import SectionList from './components/SectionList.svelte';
+  // import TestCaseManager from './components/TestCaseManager.svelte';
   
   // Import stores
   import { sectionStore } from './stores/sectionStore.svelte.ts';
@@ -136,13 +193,13 @@
     if (firebaseEnabled) {
       // Sign in anonymously when the app loads
       signInAnonymouslyUser().catch(error => {
-        console.error('Failed to sign in anonymously:', error);
+        // logError('Failed to sign in anonymously:', error);
       });
       
       // Listen for auth state changes
       const unsubscribe = onAuthStateChange((user) => {
         if (user) {
-          console.log('User authenticated:', user.uid);
+          // console.log('User authenticated:', user.uid);
         }
       });
       
@@ -285,23 +342,21 @@
       
       return result.code;
     } catch (error) {
-      console.error('Transpilation error:', error);
+      // logError('Transpilation error:', error);
       return code; // Return original if transpilation fails
     }
   }
   
-  // Enhanced wrapper that adds KPT namespace support
-  function evaluateCodeWithKPT(code, testVariables = null) {
+  // Enhanced wrapper that adds KPT namespace support - NOW USING SECURE WEB WORKER
+  async function evaluateCodeWithKPT(code, testVariables = null) {
     try {
-      const transpiledCode = transpileCode(code);
-      const me = createMockMeWithTPN(testVariables);
-      const kpt = createKPTNamespace(me);
+      // Prepare TPN values and ingredient values for the worker
+      const tpnValues = testVariables || {};
+      const ingredientValues = currentIngredientValues || {};
       
-      // Create function with 'me' and 'kpt' in scope
-      const func = new Function('me', 'kpt', transpiledCode);
-      const result = func(me, kpt);
-      
-      return result !== undefined ? String(result) : '';
+      // Execute code securely in Web Worker
+      const result = await executeWithTPNContext(code, tpnValues, ingredientValues);
+      return result;
     } catch (error) {
       return `<span style="color: red;">Error: ${error.message}</span>`;
     }
@@ -389,23 +444,28 @@
   }
   
   // Generate preview HTML combining all sections
-  let previewHTML = $derived.by(() => {
+  let previewHTML = $state('');
+  
+  // Update preview when sections or values change
+  $effect(async () => {
     // Access currentIngredientValues to create a dependency
     const ingredientVals = { ...currentIngredientValues };
     
-    return sections.map(section => {
+    const htmlParts = await Promise.all(sections.map(async section => {
       if (section.type === 'static') {
         // Replace newlines with <br> for proper line break rendering
         return sanitizeHTML(section.content.replace(/\n/g, '<br>'));
       } else if (section.type === 'dynamic') {
         const testCase = activeTestCase[section.id];
-        const evaluated = evaluateCodeWithKPT(section.content, testCase?.variables);
+        const evaluated = await evaluateCodeWithKPT(section.content, testCase?.variables);
         // Also handle line breaks in dynamic content
         const evalString = evaluated || '';
         return sanitizeHTML(evalString.replace(/\n/g, '<br>'));
       }
       return '';
-    }).join('<br>');
+    }));
+    
+    previewHTML = htmlParts.join('<br>');
   });
   
   let jsonOutput = $derived(sectionsToJSON(sections));
@@ -468,7 +528,6 @@
       // No HTML before, just start with the dynamic expression
       dynamicContent = `// Your dynamic expression here\n${dynamicStart ? dynamicStart : '// Start typing your JavaScript expression...'}`;
     }
-    
     sectionStore.convertToDynamic(sectionId, dynamicContent);
   }
   
@@ -578,12 +637,12 @@
   }
   
   // Run a single test case
-  function runSingleTest(sectionId, testCase) {
+  async function runSingleTest(sectionId, testCase) {
     const section = sections.find(s => s.id === sectionId);
     if (!section || section.type !== 'dynamic') return;
     
     // Evaluate the code with test variables
-    const output = evaluateCodeWithKPT(section.content, testCase.variables);
+    const output = await evaluateCodeWithKPT(section.content, testCase.variables);
     const actualText = stripHTML(output);
     const actualStyles = extractStylesFromHTML(output);
     
@@ -711,7 +770,7 @@
       copied = true;
       setTimeout(() => copied = false, 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      // logError('Failed to copy:', err);
     }
   }
   
@@ -747,8 +806,8 @@
   
   // Handle config activation from sidebar
   function handleConfigActivate(configId, ingredients) {
-    console.log('Raw ingredients received:', ingredients);
-    console.log('Ingredients type:', typeof ingredients);
+    // console.log('Raw ingredients received:', ingredients);
+    // console.log('Ingredients type:', typeof ingredients);
     
     // Handle both array and object formats
     let ingredientsArray = [];
@@ -765,11 +824,10 @@
     
     workspaceStore.setActiveConfigId(configId);
     workspaceStore.setActiveConfigIngredients(ingredientsArray);
-    console.log(`Config activated: ${configId} with ${ingredientsArray.length} ingredients`);
-    console.log('Sample ingredient:', activeConfigIngredients[0]);
-    console.log('All ingredient keys:', activeConfigIngredients[0] ? Object.keys(activeConfigIngredients[0]) : 'No ingredients');
+    // console.log(`Config activated: ${configId} with ${ingredientsArray.length} ingredients`);
+    // console.log('Sample ingredient:', activeConfigIngredients[0]);
+    // console.log('All ingredient keys:', activeConfigIngredients[0] ? Object.keys(activeConfigIngredients[0]) : 'No ingredients');
   }
-  
   // Handle TPN value changes
   function handleTPNValuesChange(tpnInstance) {
     currentTPNInstance = tpnInstance;
@@ -784,7 +842,7 @@
     // For now, just copy to clipboard
     navigator.clipboard.writeText(snippet).then(() => {
       // Could show a toast notification here
-      console.log(`Copied: ${snippet}`);
+      // console.log(`Copied: ${snippet}`);
     });
   }
   
@@ -887,10 +945,7 @@
   
   // Handlers for new components
   function handleIngredientSelection(ingredient) {
-    console.log('App: handleIngredientSelection called', {
-      ingredient: ingredient.name,
-      action: 'Opening diff viewer'
-    });
+    // // console.log('App: handleIngredientSelection called', { // ingredient: ingredient.name, // action: 'Opening diff viewer' // });
     workspaceStore.setSelectedIngredientForDiff(ingredient);
     showDiffViewer = true;
   }
@@ -917,7 +972,6 @@
     // hasUnsavedChanges handled by store
     // originalSections handled by store
   }
-  
   // Save current work with commit message
   async function saveCurrentWork(commitMessage = null) {
     if (!loadedIngredient || !loadedReferenceId) {
@@ -959,10 +1013,10 @@
         workspaceStore.setLastSavedTime(new Date());
         sectionStore.markAsSaved();
         
-        console.log('Reference saved successfully with commit message:', commitMessage);
+        // console.log('Reference saved successfully with commit message:', commitMessage);
       }
     } catch (error) {
-      console.error('Error saving reference:', error);
+      // logError('Error saving reference:', error);
       alert('Failed to save reference. Please try again.');
     }
   }
@@ -1015,18 +1069,18 @@
   }
   
   function handleEditReference(ingredient, reference) {
-    console.log('App: handleEditReference called', {
-      ingredient: ingredient.name,
-      reference: reference?.name,
-      hasSections: !!(reference?.sections),
-      fullReference: reference
-    });
+    // console.log('App: handleEditReference called', {
+      // ingredient: ingredient.name,
+      // reference: reference?.name,
+      // hasSections: !!(reference?.sections),
+      // fullReference: reference
+      // });
     
     // Load the reference for editing
     if (reference) {
       // Check if sections exist and have content
       if (!reference.sections || reference.sections.length === 0) {
-        console.warn('Reference has empty sections! User needs to run "Fix Empty Sections" in Ingredient Manager.');
+        // logWarn('Reference has empty sections! User needs to run "Fix Empty Sections" in Ingredient Manager.');
         // Show a warning to the user
         alert(`This reference has no content sections. Please run "Fix Empty Sections" in the Ingredient Manager to populate the clinical notes.`);
         return;
@@ -1066,11 +1120,7 @@
       workspaceStore.setLoadedReference(reference);
       workspaceStore.setCurrentHealthSystem(reference.healthSystem);
       
-      console.log('App: Reference loaded successfully', {
-        sectionsCount: sections.length,
-        viewsClosed: true,
-        previewVisible: !previewCollapsed
-      });
+      // // console.log('App: Reference loaded successfully', { // sectionsCount: sections.length, // viewsClosed: true, // previewVisible: !previewCollapsed // });
       
       // Scroll to top of the editor to show the loaded content
       // Also flash a visual indicator
@@ -1171,7 +1221,7 @@
       
       showPopulationDropdown = true;
     } catch (error) {
-      console.error('Error loading population types:', error);
+      // logError('Error loading population types:', error);
     } finally {
       loadingPopulations = false;
     }
@@ -1232,7 +1282,7 @@
         onOpenMigrationTool: () => showMigrationTool = true,
         onOpenPreferences: () => showPreferences = true,
         onOpenDiffViewer: async () => {
-          console.log('Compare button clicked', { loadedIngredient, showIngredientManager, showDiffViewer });
+          // console.log('Compare button clicked', { loadedIngredient, showIngredientManager, showDiffViewer });
           
           // Make sure to close ingredient manager if it's open
           showIngredientManager = false;
@@ -1252,7 +1302,7 @@
                 );
                 
                 if (foundIngredient) {
-                  console.log('Found ingredient:', foundIngredient);
+                  // console.log('Found ingredient:', foundIngredient);
                   workspaceStore.setSelectedIngredientForDiff(foundIngredient);
                   showDiffViewer = true;
                   showIngredientManager = false; // Ensure it's closed
@@ -1260,12 +1310,12 @@
                   alert(`Cannot find ingredient "${loadedIngredient.name}" in Firebase. Make sure it has been properly imported.`);
                 }
               } catch (error) {
-                console.error('Error finding ingredient:', error);
+                // logError('Error finding ingredient:', error);
                 alert('Error loading ingredient data. Please try again.');
               }
             } else {
               // We already have a proper ingredient object
-              console.log('Using existing ingredient:', loadedIngredient);
+              // console.log('Using existing ingredient:', loadedIngredient);
               workspaceStore.setSelectedIngredientForDiff(loadedIngredient);
               showDiffViewer = true;
               showIngredientManager = false; // Ensure it's closed
@@ -1485,7 +1535,7 @@
             showSelectiveApply = false;
             workspaceStore.setLastSavedTime(new Date());
             sectionStore.markAsSaved();
-            console.log('Changes applied to configurations:', results);
+            // console.log('Changes applied to configurations:', results);
             alert(`Changes applied to ${results.filter(r => r.status === 'success').length} configurations successfully.`);
           }}
           onCancel={() => showSelectiveApply = false}

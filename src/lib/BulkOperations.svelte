@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { ingredientService, referenceService, configService } from './firebaseDataService.js';
   import { createSharedIngredient, removeFromSharedIngredient, getSharedIngredientInfo } from './sharedIngredientService.js';
@@ -167,7 +168,7 @@
       }
       
     } catch (error) {
-      console.error('Bulk operation failed:', error);
+      // logError('Bulk operation failed:', error);
       alert(`Operation failed: ${error.message}`);
     } finally {
       processing = false;

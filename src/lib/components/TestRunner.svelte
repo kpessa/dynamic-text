@@ -1,8 +1,9 @@
+import { logError } from '$lib/logger';
 <script>
   import { sectionStore } from '../../stores/sectionStore.svelte.ts';
   import { testStore } from '../../stores/testStore.svelte.ts';
   import { workspaceStore } from '../../stores/workspaceStore.svelte.ts';
-  import { sectionService } from '../services/sectionService.js';
+  import { sectionService } from '../services/domain/sectionService.js';
   
   // Props
   let { onRunAllTests = () => {} } = $props();
@@ -53,7 +54,7 @@
       onRunAllTests(summary);
       
     } catch (error) {
-      console.error('Error running tests:', error);
+      // logError('Error running tests:', error);
     } finally {
       testStore.setIsRunningTests(false);
     }

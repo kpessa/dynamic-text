@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { referenceService, configService } from './firebaseDataService.js';
   import { getSharedIngredientInfo } from './sharedIngredientService.js';
@@ -53,7 +54,7 @@
         selectedConfigs = new Set(selectedConfigs);
       }
     } catch (error) {
-      console.error('Failed to load shared configs:', error);
+      // logError('Failed to load shared configs:', error);
     } finally {
       loading = false;
     }
@@ -138,7 +139,7 @@
       onApply(results);
       
     } catch (error) {
-      console.error('Failed to apply changes:', error);
+      // logError('Failed to apply changes:', error);
       alert(`Failed to apply changes: ${error.message}`);
     } finally {
       applying = false;

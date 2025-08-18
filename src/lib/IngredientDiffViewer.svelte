@@ -1,9 +1,10 @@
+import { logError } from '$lib/logger';
 <script>
   import { onMount } from 'svelte';
   import { referenceService, POPULATION_TYPES } from './firebaseDataService.js';
   import { createSharedIngredient } from './sharedIngredientService.js';
   import DOMPurify from 'dompurify';
-  import * as Babel from '@babel/standalone';
+  // Babel will be loaded dynamically when needed
   import { LegacyElementWrapper } from './tpnLegacy.js';
   import DiffDisplay from './DiffDisplay.svelte';
   
@@ -83,7 +84,7 @@
       processReferences();
       loading = false;
     } catch (err) {
-      console.error('Error loading references:', err);
+      // logError('Error loading references:', err);
       error = err.message;
       loading = false;
     }
@@ -162,7 +163,6 @@
     selectedVersionIndex = { ...selectedVersionIndex };
     processReferences(); // Reprocess with new selection
   }
-  
   // Find identical references across different versions
   function findIdenticalReferences() {
     const identical = [];
@@ -292,7 +292,7 @@
       
       return code; // Return original if extraction fails
     } catch (error) {
-      console.error('Transpilation error:', error);
+      // logError('Transpilation error:', error);
       return code; // Return original if transpilation fails
     }
   }
@@ -428,14 +428,14 @@
           });
           
           if (identicalRefs.length > 1) {
-            console.log('Linking identical references:', {
-              ingredientId: ingredient.id,
-              refs: identicalRefs.map(ref => ({
-                id: ref.id,
-                healthSystem: ref.healthSystem,
-                domain: ref.domain
-              }))
-            });
+            // console.log('Linking identical references:', {
+            //   ingredientId: ingredient.id,
+            //   refs: identicalRefs.map(ref => ({
+            //     id: ref.id,
+            //     healthSystem: ref.healthSystem,
+            //     domain: ref.domain
+            //   }))
+            // });
             
             // Link all identical references
             const result = await createSharedIngredient(
@@ -453,14 +453,14 @@
             
             if (result.success) {
               successCount++;
-              console.log('Successfully linked references with shared ID:', result.sharedId);
+              // console.log('Successfully linked references with shared ID:', result.sharedId);
             } else {
               errorCount++;
-              console.error('Failed to link:', result.error);
+              // logError('Failed to link:', result.error);
             }
           }
         } catch (error) {
-          console.error('Error linking references:', error);
+          // logError('Error linking references:', error);
           errorCount++;
         }
       }
@@ -479,7 +479,7 @@
         linkingMessage = `❌ Failed to link references. Please try again.`;
       }
     } catch (error) {
-      console.error('Error in linking process:', error);
+      // logError('Error in linking process:', error);
       linkingMessage = '❌ An error occurred while linking. Please try again.';
     } finally {
       linkingInProgress = false;
@@ -493,33 +493,29 @@
   // Generate HTML from sections (similar to App.svelte logic)
   function generateHTMLFromSections(sections, evaluateDynamic = true) {
     if (!sections) {
-      console.log('No sections provided');
-      return '';
-    }
-    
-    console.log('generateHTMLFromSections:', {
-      sectionsLength: sections.length,
-      evaluateDynamic,
-      firstSection: sections[0]
-    });
+      // console.log('No sections provided');
+      // return '';
+      }
+      // 
+    // // console.log('generateHTMLFromSections:', { // sectionsLength: sections.length, // evaluateDynamic, // firstSection: sections[0] // });
     
     // Handle legacy NOTE format if sections is actually a NOTE array
     if (sections.length > 0 && sections[0].TEXT !== undefined) {
-      console.log('Converting NOTE format to sections');
+      // console.log('Converting NOTE format to sections');
       sections = convertNotesToSections(sections);
     }
     
     const results = sections.map((section, index) => {
       if (!section || !section.content) {
-        console.log(`Section ${index} has no content`);
-        return '';
+        // console.log(`Section ${index} has no content`);
+      // return '';
       }
-      
-      console.log(`Processing section ${index}:`, {
-        type: section.type,
-        contentLength: section.content?.length,
-        contentPreview: section.content?.substring(0, 50)
-      });
+      // 
+      // console.log(`Processing section ${index}:`, {
+      // type: section.type,
+      // contentLength: section.content?.length,
+      // contentPreview: section.content?.substring(0, 50)
+      // });
       
       if (section.type === 'static') {
         const html = section.content.replace(/\n/g, '<br>');
@@ -538,7 +534,7 @@
             <div class="dynamic-header">⚡ Dynamic JavaScript</div>
             <pre>${escapeHtml(section.content)}</pre>
           </div>`;
-          console.log(`Generated code block for section ${index}:`, codeBlock.substring(0, 100));
+          // console.log(`Generated code block for section ${index}:`, codeBlock.substring(0, 100));
           return codeBlock;
         }
       }
@@ -546,7 +542,7 @@
     });
     
     const finalHTML = results.filter(r => r).join('<br>');
-    console.log('Final HTML length:', finalHTML.length);
+    // console.log('Final HTML length:', finalHTML.length);
     
     // Filter out empty results and join
     return finalHTML;

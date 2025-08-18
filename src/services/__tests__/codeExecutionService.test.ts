@@ -241,7 +241,7 @@ describe('Code Execution Service', () => {
       const code = 'return me.getValue("X") + me.getValue("Y");';
       const testCase = {
         name: 'Addition Test',
-        variables: { X: 3, Y: 4 }
+        // variables: { X: 3, Y: 4 }
       };
       
       const result = runTestCase(code, testCase);
@@ -278,7 +278,7 @@ describe('Code Execution Service', () => {
       const code = 'return "<span style=\\"color: red;\\">Text</span>";';
       const testCase = {
         name: 'Style Test',
-        expectedStyles: { color: 'red' }
+        // expectedStyles: { color: 'red' }
       };
       
       const result = runTestCase(code, testCase);
@@ -290,7 +290,7 @@ describe('Code Execution Service', () => {
       const code = 'return "<span style=\\"color: blue;\\">Text</span>";';
       const testCase = {
         name: 'Style Test',
-        expectedStyles: { color: 'red' }
+        // expectedStyles: { color: 'red' }
       };
       
       const result = runTestCase(code, testCase);

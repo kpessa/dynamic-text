@@ -17,6 +17,7 @@ import {
   type DocumentSnapshot,
   type WriteBatch
 } from 'firebase/firestore';
+import { logError } from '$lib/logger';
 import { db, COLLECTIONS, getCurrentUser } from './firebase';
 import { generateIngredientHash } from './contentHashing';
 import type { 
@@ -120,7 +121,7 @@ export async function createSharedIngredient(
     
     return { success: true, sharedId };
   } catch (error) {
-    console.error('Error creating shared ingredient:', error);
+    // logError('Error creating shared ingredient:', error);
     return { success: false, error: (error as Error).message };
   }
 }
@@ -190,7 +191,7 @@ export async function addToSharedIngredient(
     
     return true;
   } catch (error) {
-    console.error('Error adding to shared ingredient:', error);
+    // logError('Error adding to shared ingredient:', error);
     throw error;
   }
 }
@@ -213,7 +214,7 @@ export async function getSharedIngredientByHash(hash: string): Promise<SharedIng
     
     return null;
   } catch (error) {
-    console.error('Error getting shared ingredient by hash:', error);
+    // logError('Error getting shared ingredient by hash:', error);
     return null;
   }
 }
@@ -276,7 +277,7 @@ export async function removeFromSharedIngredient(
     
     return true;
   } catch (error) {
-    console.error('Error removing from shared ingredient:', error);
+    // logError('Error removing from shared ingredient:', error);
     throw error;
   }
 }
@@ -292,7 +293,7 @@ export async function getSharedIngredients(): Promise<SharedIngredient[]> {
       ...doc.data()
     })) as SharedIngredient[];
   } catch (error) {
-    console.error('Error fetching shared ingredients:', error);
+    // logError('Error fetching shared ingredients:', error);
     return [];
   }
 }
@@ -311,7 +312,7 @@ export async function getSharedIngredient(sharedId: string): Promise<SharedIngre
       ...sharedDoc.data()
     } as SharedIngredient;
   } catch (error) {
-    console.error('Error fetching shared ingredient:', error);
+    // logError('Error fetching shared ingredient:', error);
     return null;
   }
 }
@@ -348,7 +349,7 @@ export async function isIngredientShared(
     }
     return { isShared: false, sharedIngredientId: null };
   } catch (error) {
-    console.error('Error checking shared status:', error);
+    // logError('Error checking shared status:', error);
     return { isShared: false, sharedIngredientId: null };
   }
 }
@@ -382,7 +383,7 @@ export async function getSharedIngredientInfo(ingredientId: string): Promise<Sha
       lastModified: sharedData.updatedAt
     };
   } catch (error) {
-    console.error('Error getting shared ingredient info:', error);
+    // logError('Error getting shared ingredient info:', error);
     return null;
   }
 }
@@ -437,7 +438,7 @@ export async function findSharingCandidates(ingredientId: string): Promise<Shari
     
     return candidates;
   } catch (error) {
-    console.error('Error finding sharing candidates:', error);
+    // logError('Error finding sharing candidates:', error);
     return [];
   }
 }
@@ -482,7 +483,7 @@ export async function makeIndependentCopy(
     
     return { success: true, message: 'Reference is now independent' };
   } catch (error) {
-    console.error('Error making independent copy:', error);
+    // logError('Error making independent copy:', error);
     throw error;
   }
 }

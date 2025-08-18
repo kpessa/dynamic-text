@@ -112,7 +112,7 @@
   {#if ingredient.lastModified}
     <div class="card-metadata">
       <span class="last-modified">
-        Updated: {new Date(ingredient.lastModified?.seconds * 1000 || ingredient.lastModified).toLocaleDateString()}
+        // Updated: {new Date(ingredient.lastModified?.seconds * 1000 || ingredient.lastModified).toLocaleDateString()}
       </span>
     </div>
   {/if}

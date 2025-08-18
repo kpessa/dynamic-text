@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getIngredientBadgeColor } from '../services/uiHelpers';
+  import { getIngredientBadgeColor } from '../lib/services/utilities/uiHelpers';
   import { extractKeysFromCode } from '../lib/tpnLegacy';
   import TestCaseManager from './TestCaseManager.svelte';
   import CodeEditor from '../lib/CodeEditor.svelte';

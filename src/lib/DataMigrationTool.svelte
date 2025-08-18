@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { migrationService, POPULATION_TYPES } from './firebaseDataService.js';
   import { isFirebaseConfigured } from './firebase.js';
@@ -32,7 +33,7 @@
         error = 'No data found in localStorage';
       }
     } catch (err) {
-      console.error('Error loading localStorage:', err);
+      // logError('Error loading localStorage:', err);
       error = 'Failed to load localStorage data';
     }
   }
@@ -76,7 +77,7 @@
       // Add population type to all references before migration
       const modifiedData = {
         ...localStorageData,
-        referenceTexts: {}
+        // referenceTexts: {}
       };
       
       Object.entries(localStorageData.referenceTexts || {}).forEach(([id, ref]) => {
@@ -95,7 +96,7 @@
       
       onMigrationComplete(result);
     } catch (err) {
-      console.error('Migration error:', err);
+      // logError('Migration error:', err);
       error = err.message;
       migrationStatus = 'error';
     }

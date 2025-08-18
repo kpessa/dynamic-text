@@ -110,7 +110,7 @@
           <h3>{baselineComparisonData.ingredient.name}</h3>
           <p>
             Health System: {baselineComparisonData.reference.healthSystem}<br>
-            Population: {baselineComparisonData.reference.populationType}
+            // Population: {baselineComparisonData.reference.populationType}
           </p>
         </div>
         

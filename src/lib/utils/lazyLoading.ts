@@ -1,3 +1,4 @@
+import { logError, logWarn } from '$lib/logger';
 /**
  * Lazy Loading Utilities for TPN Dynamic Text Editor
  * Provides dynamic imports and lazy loading strategies for heavy components
@@ -59,7 +60,7 @@ export async function lazyImport<T>(
   
   const loadPromise = (async () => {
     try {
-      console.log(`[LazyLoad] Loading ${moduleName}...`)
+      // console.log(`[LazyLoad] Loading ${moduleName}...`)
       
       // Create timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -70,7 +71,7 @@ export async function lazyImport<T>(
       const module = await Promise.race([importFn(), timeoutPromise])
       
       const endTime = performance.now()
-      console.log(`[LazyLoad] Successfully loaded ${moduleName} in ${Math.round(endTime - startTime)}ms`)
+      // console.log(`[LazyLoad] Successfully loaded ${moduleName} in ${Math.round(endTime - startTime)}ms`)
       
       // Optionally report to performance monitor if available
       if (typeof window !== 'undefined' && (window as any).__performanceMonitor) {
@@ -79,10 +80,10 @@ export async function lazyImport<T>(
       
       return module
     } catch (error) {
-      console.error(`[LazyLoad] Failed to load ${moduleName}:`, error)
+      // logError(`[LazyLoad] Failed to load ${moduleName}:`, error, 'Validation')
       
       if (fallback) {
-        console.log(`[LazyLoad] Using fallback for ${moduleName}`)
+        // console.log(`[LazyLoad] Using fallback for ${moduleName}`)
         return fallback
       }
       
@@ -244,7 +245,7 @@ class PreloadManager {
           rootMargin: '50px'
         })
       } catch (error) {
-        console.warn('[Preload] IntersectionObserver setup failed:', error)
+        // logWarn('[Preload] IntersectionObserver setup failed:', error)
       }
     }
   }
@@ -256,7 +257,7 @@ class PreloadManager {
           this.preloadCriticalModules()
         }, { timeout: 5000 })
       } catch (error) {
-        console.warn('[Preload] requestIdleCallback failed:', error)
+        // logWarn('[Preload] requestIdleCallback failed:', error)
         setTimeout(() => this.preloadCriticalModules(), 2000)
       }
     } else {
@@ -302,12 +303,11 @@ class PreloadManager {
           await LazyLibraries.loadGeminiAI()
           break
         default:
-          console.warn(`[Preload] Unknown module: ${moduleName}`)
+          // logWarn(`[Preload] Unknown module: ${moduleName}`)
       }
-      
-      console.log(`[Preload] Successfully preloaded ${moduleName}`)
+      // console.log(`[Preload] Successfully preloaded ${moduleName}`)
     } catch (error) {
-      console.warn(`[Preload] Failed to preload ${moduleName}:`, error)
+      // logWarn(`[Preload] Failed to preload ${moduleName}:`, error, 'Validation')
     }
   }
   
@@ -343,7 +343,7 @@ class PreloadManager {
       try {
         window.cancelIdleCallback(this.idleCallback)
       } catch (error) {
-        console.warn('[Preload] cancelIdleCallback failed:', error)
+        // logWarn('[Preload] cancelIdleCallback failed:', error)
       }
     }
   }

@@ -7,7 +7,7 @@ vi.mock('svelte', () => ({
 }));
 
 vi.mock('../App.svelte', () => ({
-  default: {}
+  // default: {}
 }));
 
 vi.mock('../main', () => ({
@@ -71,9 +71,7 @@ describe('Application Startup Tests', () => {
       // Component mounting is mocked
       const mount = vi.fn(() => ({ destroy: vi.fn() }));
       
-      const app = mount({}, {
-        target: container
-      });
+      const app = mount();
 
       expect(app).toBeDefined();
     });

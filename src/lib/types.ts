@@ -28,20 +28,16 @@ export const POPULATION_TYPES = {
 } as const;
 
 // Section types for dynamic text content
-export interface StaticSection {
-  id: number;
-  type: 'static';
+export interface Section {
+  id: string;
+  type: 'html' | 'javascript' | 'static' | 'dynamic';
   content: string;
+  testCases?: TestCase[];
+  isEditing?: boolean;
+  activeTestCase?: any;
+  testResults?: any;
+  showTests?: boolean;
 }
-
-export interface DynamicSection {
-  id: number;
-  type: 'dynamic';
-  content: string;
-  testCases: TestCase[];
-}
-
-export type Section = StaticSection | DynamicSection;
 
 export interface TestCase {
   name: string;
@@ -169,8 +165,8 @@ export interface ImportedConfig {
   importedBy: string;
   metadata: ConfigMetadata;
   baselineId?: string;
+  [key: string]: any; // Allow additional properties from Firebase
 }
-
 // Duplicate detection types
 export interface DuplicateIngredient {
   name: string;

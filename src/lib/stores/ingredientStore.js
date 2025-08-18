@@ -1,4 +1,5 @@
 import { ingredientService } from '../firebaseDataService.js';
+import { logError } from '$lib/logger';
 
 // Core ingredient data - using plain variables since this is a store module
 let ingredients = [];
@@ -14,12 +15,12 @@ async function init() {
   try {
     // Subscribe to real-time updates
     unsubscribe = ingredientService.subscribeToIngredients((updatedIngredients) => {
-      console.log('Received ingredients update:', updatedIngredients.length);
+      // console.log('Received ingredients update:', updatedIngredients.length);
       ingredients = updatedIngredients;
       loading = false;
     });
   } catch (err) {
-    console.error('Failed to initialize ingredient store:', err);
+    // logError('Failed to initialize ingredient store:', err);
     error = err.message;
     loading = false;
   }
@@ -64,7 +65,7 @@ async function reload() {
     ingredients = loadedIngredients;
     loading = false;
   } catch (err) {
-    console.error('Failed to reload ingredients:', err);
+    // logError('Failed to reload ingredients:', err);
     error = err.message;
     loading = false;
   }

@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { onMount } from 'svelte';
   import {
@@ -33,10 +34,10 @@
       // Find sharing candidates
       candidates = await findSharingCandidates(ingredientId);
       
-      console.log('Sharing candidates:', candidates);
-      console.log('Current shared status:', currentSharedStatus);
+      // console.log('Sharing candidates:', candidates);
+      // console.log('Current shared status:', currentSharedStatus);
     } catch (err) {
-      console.error('Error loading sharing data:', err);
+      // logError('Error loading sharing data:', err);
       error = err.message;
     } finally {
       loading = false;
@@ -102,7 +103,7 @@
       
       alert(`Successfully shared ${references.length} reference(s)`);
     } catch (err) {
-      console.error('Error sharing ingredients:', err);
+      // logError('Error sharing ingredients:', err);
       error = err.message;
     } finally {
       actionInProgress = false;
@@ -130,7 +131,7 @@
       
       alert('Reference has been unshared and is now independent');
     } catch (err) {
-      console.error('Error unsharing reference:', err);
+      // logError('Error unsharing reference:', err);
       error = err.message;
     } finally {
       actionInProgress = false;
@@ -150,7 +151,7 @@
       // For now, we'll just show the concept
       alert('To make a specific reference independent, use the unshare button next to it');
     } catch (err) {
-      console.error('Error making independent:', err);
+      // logError('Error making independent:', err);
       error = err.message;
     } finally {
       actionInProgress = false;

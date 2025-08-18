@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { extractKeysFromCode, isValidKey, getKeyCategory } from './tpnLegacy.js';
   
@@ -98,14 +99,14 @@
       allDocumentKeys: Array.from(allDocumentKeys),
       allDocumentTpnKeys: Array.from(allDocumentKeys).filter(v => isValidKey(v)),
       allDocumentCustomKeys: Array.from(allDocumentKeys).filter(v => !isValidKey(v)),
-      documentStats: {
+            documentStats: {
         totalSections: allSections.length,
         staticSections: allSections.filter(s => s.type === 'static').length,
         dynamicSections: allSections.filter(s => s.type === 'dynamic').length,
         totalTestCases: allSections.reduce((sum, s) => sum + (s.testCases?.length || 0), 0),
         totalVariables: allDocumentKeys.size
       },
-      codeStats: {
+            codeStats: {
         lines: currentSection.content.split('\n').length,
         characters: currentSection.content.length,
         hasReturn: currentSection.content.includes('return'),
@@ -152,14 +153,14 @@
       aiRequest = {
         endpoint: '/api/generate-tests',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // headers: { 'Content-Type': 'application/json' },
         body: requestData,
         timestamp: new Date().toISOString()
       };
       
       const response = await fetch('/api/generate-tests', {
         method: 'POST',
-        headers: {
+              headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestData)
@@ -216,7 +217,7 @@
       }
       
     } catch (err) {
-      console.error('Test generation error:', err);
+      // logError('Test generation error:', err);
       
       // Provide helpful error messages based on the error type
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {

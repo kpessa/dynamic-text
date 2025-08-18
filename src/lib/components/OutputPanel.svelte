@@ -1,7 +1,8 @@
+import { logError } from '$lib/logger';
 <script>
   import { sectionStore } from '../../stores/sectionStore.svelte.ts';
   import { uiStore } from '../../stores/uiStore.svelte.ts';
-  import { sectionService } from '../services/sectionService.js';
+  import { sectionService } from '../services/domain/sectionService.js';
   
   // Reactive state
   const sections = $derived(sectionStore.sections);
@@ -26,7 +27,7 @@
     navigator.clipboard.writeText(currentOutput).then(() => {
       uiStore.showCopiedFeedback();
     }).catch(err => {
-      console.error('Failed to copy to clipboard:', err);
+      // logError('Failed to copy to clipboard:', err);
     });
   }
   

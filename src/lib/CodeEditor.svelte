@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { EditorView } from '@codemirror/view';
@@ -168,12 +169,12 @@
         parent: element
       });
     } catch (error) {
-      console.error('CodeMirror initialization error:', error);
-      console.error('Extensions that caused the error:', extensions);
+      // logError('CodeMirror initialization error:', error);
+      // logError('Extensions that caused the error:', extensions);
       
       // Fallback: try with minimal extensions
       try {
-        console.log('Attempting fallback with minimal extensions...');
+        // console.log('Attempting fallback with minimal extensions...');
         const fallbackState = EditorState.create({
           doc: value,
           extensions: [
@@ -198,9 +199,9 @@
           state: fallbackState,
           parent: element
         });
-        console.log('Fallback successful');
+        // console.log('Fallback successful');
       } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
+        // logError('Fallback also failed:', fallbackError);
         // Create a simple textarea as last resort
         const textarea = document.createElement('textarea');
         textarea.value = value;
@@ -241,14 +242,14 @@
     if (view && value !== view.state.doc.toString()) {
       try {
         view.dispatch({
-          changes: {
+                changes: {
             from: 0,
             to: view.state.doc.length,
             insert: value
           }
         });
       } catch (error) {
-        console.error('CodeMirror update error:', error);
+        // logError('CodeMirror update error:', error);
         // If we have a textarea fallback, update it directly
         const textarea = element.querySelector('textarea');
         if (textarea) {

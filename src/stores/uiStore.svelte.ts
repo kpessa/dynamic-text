@@ -108,7 +108,7 @@ class UIStore {
   setShowKPTManager(show: boolean) { showKPTManager.set(show); }
   setShowPopulationDropdown(show: boolean) { showPopulationDropdown.set(show); }
   setLoadingPopulations(loading: boolean) { loadingPopulations.set(loading); }
-  setCopied(copied: boolean) { copied.set(copied); }
+  setCopied(isCopied: boolean) { copied.set(isCopied); }
 
   // Convenience methods
   toggleSidebar() { showSidebar.update(val => !val); }

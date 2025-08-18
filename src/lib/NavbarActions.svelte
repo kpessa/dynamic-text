@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import Icons from './Icons.svelte';
   
@@ -13,28 +14,28 @@
   // Wrapper functions with error logging
   function handleNewDocument() {
     try {
-      console.log('NavbarActions: New Document clicked');
+      // console.log('NavbarActions: New Document clicked');
       onNewDocument();
     } catch (error) {
-      console.error('NavbarActions: Error in onNewDocument:', error);
+      // logError('NavbarActions: Error in onNewDocument:', error);
     }
   }
   
   function handleSave() {
     try {
-      console.log('NavbarActions: Save clicked');
+      // console.log('NavbarActions: Save clicked');
       onSave();
     } catch (error) {
-      console.error('NavbarActions: Error in onSave:', error);
+      // logError('NavbarActions: Error in onSave:', error);
     }
   }
   
   function handleExport() {
     try {
-      console.log('NavbarActions: Export clicked');
+      // console.log('NavbarActions: Export clicked');
       onExport();
     } catch (error) {
-      console.error('NavbarActions: Error in onExport:', error);
+      // logError('NavbarActions: Error in onExport:', error);
     }
   }
   

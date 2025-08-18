@@ -3,7 +3,6 @@ export interface LoadedIngredient {
   name: string;
   // Add other ingredient properties as needed
 }
-
 export interface LoadedReference {
   id: string;
   name?: string;
@@ -17,7 +16,6 @@ export interface LoadedReference {
   version?: string;
   // Add other reference properties as needed
 }
-
 export interface ValidationData {
   status: 'untested' | 'passed' | 'failed' | 'partial';
   notes: string;

@@ -16,7 +16,7 @@
     if (key) {
       const currentVars = section.testCases[testCaseIndex].variables || {};
       onUpdateTestCase(testCaseIndex, {
-        variables: { ...currentVars, [key]: '' }
+        // variables: { ...currentVars, [key]: '' }
       });
     }
   }
@@ -24,7 +24,7 @@
   function updateVariable(testCaseIndex, key, value) {
     const currentVars = section.testCases[testCaseIndex].variables || {};
     onUpdateTestCase(testCaseIndex, {
-      variables: { ...currentVars, [key]: value }
+      // variables: { ...currentVars, [key]: value }
     });
   }
   
@@ -39,7 +39,7 @@
     if (prop) {
       const currentStyles = section.testCases[testCaseIndex].expectedStyles || {};
       onUpdateTestCase(testCaseIndex, {
-        expectedStyles: { ...currentStyles, [prop]: '' }
+        // expectedStyles: { ...currentStyles, [prop]: '' }
       });
     }
   }
@@ -47,7 +47,7 @@
   function updateStyleExpectation(testCaseIndex, prop, value) {
     const currentStyles = section.testCases[testCaseIndex].expectedStyles || {};
     onUpdateTestCase(testCaseIndex, {
-      expectedStyles: { ...currentStyles, [prop]: value }
+      // expectedStyles: { ...currentStyles, [prop]: value }
     });
   }
   

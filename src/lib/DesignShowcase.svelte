@@ -1,4 +1,6 @@
 <script>
+  import { logger } from './logger';
+  
   // Design system showcase component for testing and documentation
   let activeSection = $state('colors');
   
@@ -20,7 +22,7 @@
       message: `This is a sample ${type} notification with enhanced styling.`,
       action: type === 'info' ? {
         label: 'Learn More',
-        handler: () => console.log('Action clicked')
+        handler: () => logger.info('[DesignShowcase] Action clicked')
       } : null
     };
     

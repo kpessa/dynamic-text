@@ -17,7 +17,7 @@ export function getPreferences(): UserPreferences {
       return { ...DEFAULT_PREFERENCES, ...JSON.parse(stored) };
     }
   } catch (error) {
-    console.error('Error loading preferences:', error);
+    // logError('Error loading preferences:', error);
   }
   return { ...DEFAULT_PREFERENCES };
 }
@@ -27,7 +27,7 @@ export function savePreferences(preferences: UserPreferences): boolean {
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
     return true;
   } catch (error) {
-    console.error('Error saving preferences:', error);
+    // logError('Error saving preferences:', error);
     return false;
   }
 }

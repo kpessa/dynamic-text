@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { getKeyUnit, isValidKey } from './tpnLegacy.js';
   
@@ -93,7 +94,7 @@
       }
       
     } catch (err) {
-      console.error('Test generation error:', err);
+      // logError('Test generation error:', err);
       
       // Provide helpful error messages based on the error type
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {

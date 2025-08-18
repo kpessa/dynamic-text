@@ -30,7 +30,6 @@ function normalizeContent(content: string): string {
         .replace(/\s+/g, ' ')     // Normalize whitespace
         .trim();                  // Remove leading/trailing whitespace
 }
-
 /**
  * Generate hash for ingredient sections
  */

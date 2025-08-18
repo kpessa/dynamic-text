@@ -13,7 +13,7 @@ describe('TPN Reference Ranges', () => {
       const range = getReferenceRange('DOSE_WEIGHT', 'Neonatal', 2.5);
       expect(range).toBeDefined();
       expect(range?.min).toBeGreaterThanOrEqual(0);
-      expect(range?.max).toBeGreaterThan(range?.min);
+      expect(range?.max).toBeGreaterThan(range?.min ?? 0);
     });
 
     it('should return correct range for pediatric fluid volume', () => {

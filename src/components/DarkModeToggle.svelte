@@ -23,7 +23,6 @@
     }
     // Auto mode relies on prefers-color-scheme media query
   }
-  
   function toggleTheme() {
     const themes = ['auto', 'light', 'dark'];
     const currentIndex = themes.indexOf(theme);

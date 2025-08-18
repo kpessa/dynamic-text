@@ -3,7 +3,7 @@
   import { workspaceStore } from '../../stores/workspaceStore.svelte.ts';
   import { testStore } from '../../stores/testStore.svelte.ts';
   import { uiStore } from '../../stores/uiStore.svelte.ts';
-  import { sectionService } from '../services/sectionService.js';
+  import { sectionService } from '../services/domain/sectionService.js';
   import CodeEditor from '../CodeEditor.svelte';
   import TestGeneratorButton from '../TestGeneratorButton.svelte';
   import { extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, getCanonicalKey } from '../tpnLegacy.js';
@@ -112,10 +112,9 @@
       testCase.expectedStyles
     );
     
-    console.log('Test result:', result);
+    // console.log('Test result:', result);
     // You could show a toast or update some UI state here
   }
-  
   function addTestVariable(testCaseIndex) {
     const varName = prompt('Variable name:');
     if (varName) {
@@ -160,7 +159,6 @@
     }
     return '#dc3545'; // Red for custom/unknown keys
   }
-  
   function handleTestsGenerated(tests) {
     testStore.setCurrentGeneratedTests(tests);
     testStore.setTargetSectionId(section.id);

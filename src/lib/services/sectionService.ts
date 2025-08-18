@@ -1,7 +1,8 @@
-import * as Babel from '@babel/standalone';
 import DOMPurify from 'dompurify';
 import type { Section } from '../../types/section.js';
 import { tpnStore } from '../../stores/tpnStore.svelte.ts';
+import { logWarn } from '$lib/logger';
+import { transformCode } from '../utils/lazyBabel';
 
 // Service for section-related operations and transformations
 export class SectionService {
@@ -14,29 +15,29 @@ export class SectionService {
     });
   }
 
-  // Code transpilation
-  transpileCode(code: string): string {
+  // Code transpilation (now async with lazy loading)
+  async transpileCode(code: string): Promise<string> {
     try {
-      const result = Babel.transform(code, {
+      const result = await transformCode(code, {
         presets: ['env'],
         plugins: [
           ['transform-runtime', { regenerator: false }]
         ]
       });
-      return result.code || code;
+      return result || code;
     } catch (error) {
-      console.warn('Babel transpilation failed, using original code:', error);
+      logWarn('Babel transpilation failed, using original code:', error);
       return code;
     }
   }
 
   // Code evaluation with TPN context and KPT namespace
-  evaluateCode(
+  async evaluateCode(
     code: string, 
     testVariables: Record<string, any> | null = null
-  ): { result: any; actualHTML?: string; actualStyles?: any } {
+  ): Promise<{ result: any; actualHTML?: string; actualStyles?: any }> {
     try {
-      const transpiledCode = this.transpileCode(code);
+      const transpiledCode = await this.transpileCode(code);
       const context = tpnStore.createEvaluationContext(testVariables || {});
       
       // Create evaluation function with both me and kpt in scope
@@ -92,7 +93,7 @@ export class SectionService {
       
       return styles;
     } catch (error) {
-      console.warn('Error extracting styles:', error);
+      logWarn('Error extracting styles:', error);
       return {};
     }
   }
@@ -140,19 +141,19 @@ export class SectionService {
   }
 
   // Generate preview HTML from sections
-  generatePreviewHTML(
+  async generatePreviewHTML(
     sections: Section[], 
     activeTestCases: Record<number, any>
-  ): string {
+  ): Promise<string> {
     let html = '';
     
-    sections.forEach(section => {
+    for (const section of sections) {
       if (section.type === 'static') {
         html += this.sanitizeHTML(section.content);
       } else {
         try {
           const testCase = activeTestCases[section.id];
-          const evaluation = this.evaluateCode(section.content, testCase?.variables);
+          const evaluation = await this.evaluateCode(section.content, testCase?.variables);
           
           if (typeof evaluation.result === 'string' && evaluation.result.includes('<')) {
             html += this.sanitizeHTML(evaluation.result);
@@ -163,7 +164,7 @@ export class SectionService {
           html += `<div class="error">Error: ${error instanceof Error ? error.message : String(error)}</div>`;
         }
       }
-    });
+    }
     
     return html;
   }
@@ -176,7 +177,7 @@ export class SectionService {
   }
 
   // Validate section content
-  validateSection(section: Section): { isValid: boolean; errors: string[] } {
+  async validateSection(section: Section): Promise<{ isValid: boolean; errors: string[] }> {
     const errors: string[] = [];
     
     if (!section.name?.trim()) {
@@ -190,7 +191,7 @@ export class SectionService {
     if (section.type === 'dynamic') {
       // Try to transpile the code to check for syntax errors
       try {
-        this.transpileCode(section.content);
+        await this.transpileCode(section.content);
       } catch (error) {
         errors.push(`JavaScript syntax error: ${error instanceof Error ? error.message : String(error)}`);
       }

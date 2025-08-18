@@ -6,7 +6,7 @@
     title: 'Components/DiffDisplay',
     component: DiffDisplay,
     tags: ['autodocs'],
-    argTypes: {
+          argTypes: {
       content1: {
         control: 'text',
         description: 'First content to compare'
@@ -23,26 +23,26 @@
         control: 'text',
         description: 'Label for second content'
       },
-      outputFormat: {
+            outputFormat: {
         control: { type: 'select' },
         options: ['side-by-side', 'line-by-line'],
         description: 'Diff display format'
       },
-      diffStyle: {
+            diffStyle: {
         control: { type: 'select' },
         options: ['word', 'char'],
         description: 'Granularity of diff'
       },
-      minHeight: {
+            minHeight: {
         control: 'text',
         description: 'Minimum height of diff display'
       },
-      maxHeight: {
+            maxHeight: {
         control: 'text',
         description: 'Maximum height of diff display'
       }
     },
-    parameters: {
+          parameters: {
       layout: 'padded',
       docs: {
         description: {

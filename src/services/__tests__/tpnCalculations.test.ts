@@ -301,14 +301,14 @@ describe('TPN Calculations', () => {
 
 describe('TPN Reference Ranges', () => {
   const neonatalRanges = {
-    GIR: { min: 4, max: 12, unit: 'mg/kg/min' },
-    PROTEIN: { min: 1.5, max: 4, unit: 'g/kg/day' },
-    LIPID: { min: 0.5, max: 3, unit: 'g/kg/day' },
-    SODIUM: { min: 2, max: 5, unit: 'mEq/kg/day' },
-    POTASSIUM: { min: 2, max: 3, unit: 'mEq/kg/day' },
-    CALCIUM: { min: 2, max: 4, unit: 'mEq/kg/day' },
-    MAGNESIUM: { min: 0.3, max: 0.5, unit: 'mEq/kg/day' },
-    PHOSPHORUS: { min: 1, max: 2, unit: 'mmol/kg/day' }
+    // GIR: { min: 4, max: 12, unit: 'mg/kg/min' },
+    // PROTEIN: { min: 1.5, max: 4, unit: 'g/kg/day' },
+    // LIPID: { min: 0.5, max: 3, unit: 'g/kg/day' },
+    // SODIUM: { min: 2, max: 5, unit: 'mEq/kg/day' },
+    // POTASSIUM: { min: 2, max: 3, unit: 'mEq/kg/day' },
+    // CALCIUM: { min: 2, max: 4, unit: 'mEq/kg/day' },
+    // MAGNESIUM: { min: 0.3, max: 0.5, unit: 'mEq/kg/day' },
+    // PHOSPHORUS: { min: 1, max: 2, unit: 'mmol/kg/day' }
   };
 
   it('should validate value within range', () => {

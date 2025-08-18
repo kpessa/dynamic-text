@@ -1,4 +1,5 @@
 import { referenceService } from '../firebaseDataService.js';
+import { logError } from '$lib/logger';
 
 // UI state - using plain variables since this is a store module
 let expandedIngredients = new Map();
@@ -101,7 +102,7 @@ async function loadReferencesForIngredient(ingredientId) {
     
     return grouped;
   } catch (error) {
-    console.error('Failed to load references:', error);
+    // logError('Failed to load references:', error);
     throw error;
   } finally {
     // Clear loading state

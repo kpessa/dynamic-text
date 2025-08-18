@@ -146,7 +146,6 @@ export class TouchGestureHandler {
         }
       }, 500); // 500ms for long press
     }
-    
     // Visual feedback for medical use
     this.element.classList.add('touch-active');
     

@@ -1,3 +1,4 @@
+import { logError, logWarn } from '$lib/logger';
 /**
  * PWA Utilities
  * Helper functions for PWA features and debugging
@@ -74,7 +75,7 @@ export class PWAInstallManager {
       try {
         callback(available)
       } catch (error) {
-        console.error('PWA install callback error:', error)
+        // logError('PWA install callback error:', error)
       }
     })
   }
@@ -105,7 +106,7 @@ export class PWAInstallManager {
    */
   async install(): Promise<boolean> {
     if (!this.installPrompt) {
-      console.warn('Install prompt not available')
+      // logWarn('Install prompt not available')
       return false
     }
 
@@ -114,15 +115,15 @@ export class PWAInstallManager {
       const choiceResult = await this.installPrompt.userChoice
       
       if (choiceResult.outcome === 'accepted') {
-        console.log('User accepted PWA installation')
+        // console.log('User accepted PWA installation')
         this.installPrompt = null
         return true
       } else {
-        console.log('User dismissed PWA installation')
+        // console.log('User dismissed PWA installation')
         return false
       }
     } catch (error) {
-      console.error('Install prompt failed:', error)
+      // logError('Install prompt failed:', error)
       return false
     }
   }
@@ -156,7 +157,7 @@ export class NetworkStatusManager {
       try {
         callback(online)
       } catch (error) {
-        console.error('Network status callback error:', error)
+        // logError('Network status callback error:', error)
       }
     })
   }
@@ -246,7 +247,7 @@ export async function collectPWADebugInfo() {
       
       swInfo = await swInfoPromise
     } catch (error) {
-      console.warn('Could not get SW info:', error)
+      // logWarn('Could not get SW info:', error)
     }
   }
   

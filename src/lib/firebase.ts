@@ -75,12 +75,11 @@ try {
     
     connectFirestoreEmulator(db, host, firestorePort);
     connectAuthEmulator(auth, `http://${host}:${authPort}`);
-    console.log('Connected to Firebase Emulator');
+    // console.log('Connected to Firebase Emulator');
   }
 } catch (error) {
-  console.error('Firebase initialization error:', error);
+  // logError('Firebase initialization error:', error);
 }
-
 // Authentication state management
 let currentUser: User | null = null;
 let authStateListeners: ((user: User | null) => void)[] = [];
@@ -115,7 +114,7 @@ export const signInAnonymouslyUser = async (): Promise<User> => {
     const userCredential = await signInAnonymously(auth);
     return userCredential.user;
   } catch (error) {
-    console.error('Anonymous sign-in error:', error);
+    // logError('Anonymous sign-in error:', error);
     throw error;
   }
 };

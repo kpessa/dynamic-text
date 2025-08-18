@@ -26,7 +26,7 @@ export function usePerformance(
   } = options;
 
   let mountTime: number;
-  let reportTimer: NodeJS.Timeout | null = null;
+  let reportTimer: ReturnType<typeof setInterval> | null = null;
 
   onMount(() => {
     mountTime = performance.now();
@@ -44,7 +44,8 @@ export function usePerformance(
 
     // Track memory if enabled
     if (trackMemory) {
-      performanceMonitor.startMemoryTracking();
+      // Memory tracking would be implemented here
+      // performanceMonitor.startMemoryTracking();
     }
     
     // Track bundle size once
@@ -56,8 +57,7 @@ export function usePerformance(
     if (reportInterval > 0) {
       reportTimer = setInterval(() => {
         if (enableLogging) {
-          console.log(`[${componentName}] Performance:`, 
-            performanceMonitor.getSummary());
+          // console.log(`[${componentName}] Performance:`, performanceMonitor.getSummary());
         }
       }, reportInterval);
     }

@@ -109,9 +109,9 @@
       };
       
       // Save the function
-      console.log('[KPT Editor] Saving function to localStorage:', func);
+      // console.log('[KPT Editor] Saving function to localStorage:', func);
       KPTPersistence.saveFunction(func);
-      console.log('[KPT Editor] Function saved, calling parent onSave handler');
+      // console.log('[KPT Editor] Function saved, calling parent onSave handler');
       
       // Call parent save handler
       onSave(func);
@@ -195,7 +195,7 @@
 }`,
       description: 'Format text with primary color and bold styling'
     },
-    numberValidator: {
+          numberValidator: {
       code: `function validateRange(value, min, max) {
   if (typeof value !== 'number') {
     return 'INVALID TYPE';

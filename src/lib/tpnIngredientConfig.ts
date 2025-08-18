@@ -1,5 +1,6 @@
 import neonatalData from '../../cert-west-neonatal.json';
 import type { IngredientConfig, IngredientDisplay, NoteItem, ReferenceRange } from './types.js';
+import { logError } from '$lib/logger';
 
 /**
  * TPN Ingredient Configuration System
@@ -41,7 +42,7 @@ if ((neonatalData as NeonatalData)?.INGREDIENT) {
 
 // Default configurations for common ingredients not in JSON
 const defaultConfigs: Record<string, IngredientConfig> = {
-  DoseWeightKG: {
+      DoseWeightKG: {
     KEYNAME: 'DoseWeightKG',
     DISPLAY: 'Dose Weight',
     UOM_DISP: 'kg',
@@ -55,7 +56,7 @@ const defaultConfigs: Record<string, IngredientConfig> = {
       { THRESHOLD: 'Feasible High', VALUE: 250 }
     ]
   },
-  VolumePerKG: {
+      VolumePerKG: {
     KEYNAME: 'VolumePerKG',
     DISPLAY: 'Volume per kg',
     UOM_DISP: 'mL/kg/day',
@@ -72,7 +73,7 @@ const defaultConfigs: Record<string, IngredientConfig> = {
       { THRESHOLD: 'Feasible High', VALUE: 300 }
     ]
   },
-  MultiVitamin: {
+      MultiVitamin: {
     KEYNAME: 'MultiVitamin',
     DISPLAY: 'Multivitamin',
     UOM_DISP: 'mL/day',
@@ -86,7 +87,7 @@ const defaultConfigs: Record<string, IngredientConfig> = {
       { THRESHOLD: 'Feasible High', VALUE: 10 }
     ]
   },
-  IVAdminSite: {
+      IVAdminSite: {
     KEYNAME: 'IVAdminSite',
     DISPLAY: 'Administration Site',
     UOM_DISP: '',
@@ -98,7 +99,7 @@ const defaultConfigs: Record<string, IngredientConfig> = {
     ],
     REFERENCE_RANGE: []
   },
-  InfuseOver: {
+      InfuseOver: {
     KEYNAME: 'InfuseOver',
     DISPLAY: 'Infuse Over',
     UOM_DISP: 'hours',
@@ -210,7 +211,7 @@ export function processDynamicNote(noteText: string, meObject: any): string {
       // Ensure we return a string
       return result !== undefined && result !== null ? String(result) : '';
     } catch (error) {
-      console.error('Error evaluating dynamic note:', error);
+      // logError('Error evaluating dynamic note:', error);
       return `<span style="color: red;">Error: ${(error as Error).message}</span>`;
     }
   }

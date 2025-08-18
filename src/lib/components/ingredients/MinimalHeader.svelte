@@ -16,7 +16,7 @@
     <div class="header-stats">
       {#if activeConfigId}
         <span class="stat-badge config">
-          Config: {activeConfigId}
+          // Config: {activeConfigId}
         </span>
       {/if}
       {#if filteredCount < totalIngredients}

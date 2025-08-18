@@ -1,3 +1,4 @@
+import { logWarn, logError } from '$lib/logger';
 <script>
   import { onMount, onDestroy } from 'svelte'
   // Lazy load performance services to prevent blocking initialization
@@ -9,13 +10,13 @@
   
   // Performance data state
   let performanceData = $state({
-    webVitals: {},
-    customMetrics: {},
-    userExperience: {},
-    systemInfo: {},
-    workerMetrics: {},
-    cacheStats: {},
-    budgetCheck: { passed: true, violations: [] }
+    // webVitals: {},
+    // customMetrics: {},
+    // userExperience: {},
+    // systemInfo: {},
+    // workerMetrics: {},
+    // cacheStats: {},
+    // budgetCheck: { passed: true, violations: [] }
   })
   
   let isVisible = $state(false)
@@ -25,15 +26,14 @@
   
   // Chart configuration
   const metricConfig = {
-    lcp: { name: 'Largest Contentful Paint', unit: 'ms', target: 2500, color: '#ff6b6b' },
-    fid: { name: 'First Input Delay', unit: 'ms', target: 100, color: '#4ecdc4' },
-    cls: { name: 'Cumulative Layout Shift', unit: '', target: 0.1, color: '#45b7d1' },
-    fcp: { name: 'First Contentful Paint', unit: 'ms', target: 1800, color: '#f39c12' },
-    ttfb: { name: 'Time to First Byte', unit: 'ms', target: 600, color: '#9b59b6' },
-    tpnCalculation: { name: 'TPN Calculation', unit: 'ms', target: 100, color: '#e74c3c' },
-    sectionRender: { name: 'Section Render', unit: 'ms', target: 50, color: '#2ecc71' }
+    // lcp: { name: 'Largest Contentful Paint', unit: 'ms', target: 2500, color: '#ff6b6b' },
+    // fid: { name: 'First Input Delay', unit: 'ms', target: 100, color: '#4ecdc4' },
+    // cls: { name: 'Cumulative Layout Shift', unit: '', target: 0.1, color: '#45b7d1' },
+    // fcp: { name: 'First Contentful Paint', unit: 'ms', target: 1800, color: '#f39c12' },
+    // ttfb: { name: 'Time to First Byte', unit: 'ms', target: 600, color: '#9b59b6' },
+    // tpnCalculation: { name: 'TPN Calculation', unit: 'ms', target: 100, color: '#e74c3c' },
+    // sectionRender: { name: 'Section Render', unit: 'ms', target: 50, color: '#2ecc71' }
   }
-  
   onMount(async () => {
     // Lazy load performance services
     try {
@@ -50,9 +50,8 @@
       // Update performance data every 10 seconds
       updateInterval = setInterval(updatePerformanceData, 10000)
     } catch (error) {
-      console.warn('[PerformanceDashboard] Failed to load services:', error)
+      // logWarn('[PerformanceDashboard] Failed to load services:', error)
     }
-    
     // Listen for keyboard shortcut to toggle dashboard
     document.addEventListener('keydown', handleKeyDown)
   })
@@ -76,7 +75,6 @@
     if (!performanceService || !workerService) {
       return // Services not loaded yet
     }
-    
     try {
       const report = performanceService.getPerformanceReport()
       const budgetCheck = performanceService.checkPerformanceBudget()
@@ -89,18 +87,16 @@
           workerMetrics = await tpnWorkerService.getPerformanceMetrics()
         }
       } catch (error) {
-        console.warn('Failed to get worker metrics:', error)
+        // logWarn('Failed to get worker metrics:', error)
       }
-      
       // Get cache stats from service worker
       let cacheStats = {}
       try {
         const monitor = performanceService.getPerformanceMonitor()
         cacheStats = await monitor.getCacheStats() || {}
       } catch (error) {
-        console.warn('Failed to get cache stats:', error)
+        // logWarn('Failed to get cache stats:', error)
       }
-      
       performanceData = {
         ...report,
         workerMetrics,
@@ -112,7 +108,7 @@
       updateChartData()
       
     } catch (error) {
-      console.error('Failed to update performance data:', error)
+      // logError('Failed to update performance data:', error)
     }
   }
   
@@ -161,7 +157,7 @@
   function clearCache() {
     if (confirm('Clear all caches? This will remove stored performance data and may affect loading times.')) {
       // Service worker cache clearing disabled
-      console.log('[Performance] Service worker cache clearing disabled')
+      // console.log('[Performance] Service worker cache clearing disabled')
       
       // Clear TPN worker cache
       if (workerService) {

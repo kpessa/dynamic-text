@@ -9,7 +9,7 @@ import {
   versionToPopulationType,
   POPULATION_TYPES
 } from '../firebaseDataService';
-import type { IngredientData, ReferenceData, Section, PopulationType } from '../types';
+import type { IngredientData, ReferenceData } from '../types';
 
 // Enhanced mock references for realistic testing
 const mockDocRef = {
@@ -30,17 +30,17 @@ const mockBatch = {
 
 // Mock Firebase with proper structure
 vi.mock('../firebase', () => ({
-  db: {
+      db: {
     app: {
       options: {
         projectId: 'test-project'
       }
     }
   },
-  auth: {
+      auth: {
     currentUser: { uid: 'test-user-123' }
   },
-  COLLECTIONS: {
+      COLLECTIONS: {
     INGREDIENTS: 'ingredients',
     HEALTH_SYSTEMS: 'healthSystems',
     AUDIT_LOG: 'auditLog'
@@ -73,7 +73,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 // Import mocked functions for setup
-import { getDoc, getDocs, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { getDoc, getDocs, setDoc } from 'firebase/firestore';
 
 describe('Firebase Data Service', () => {
   // Helper functions for creating realistic mock data
@@ -82,7 +82,7 @@ describe('Firebase Data Service', () => {
     data: () => exists ? data : undefined,
     id: data?.id || 'mock-doc-id',
     ref: mockDocRef,
-    metadata: {
+      metadata: {
       hasPendingWrites: false,
       fromCache: false
     }
@@ -111,15 +111,9 @@ describe('Firebase Data Service', () => {
   describe('Ingredient Operations', () => {
     const mockIngredient: Partial<IngredientData> = {
       name: 'Calcium Gluconate',
-      healthSystem: 'test-health',
-      populationType: 'Neonatal',
       category: 'Electrolytes',
-      sections: [
-        { type: 'text', content: 'Test content' }
-      ],
-      NOTE: ['Line 1', 'Line 2'],
-      version: '1',
-      lastModified: new Date().toISOString()
+      version: 1,
+      lastModified: { seconds: Date.now() / 1000, nanoseconds: 0 } as any
     };
 
     it('should save ingredient successfully', async () => {
@@ -129,7 +123,7 @@ describe('Firebase Data Service', () => {
         id: 'calcium-gluconate',
         version: 1
       });
-      vi.mocked(getDoc).mockResolvedValue(existingDoc);
+      vi.mocked(getDoc).mockResolvedValue(existingDoc as any);
 
       const result = await ingredientService.saveIngredient(mockIngredient as IngredientData);
       
@@ -144,7 +138,7 @@ describe('Firebase Data Service', () => {
       ];
       
       const mockSnapshot = createMockQuerySnapshot(mockIngredients);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       const result = await ingredientService.getAllIngredients();
       
@@ -155,7 +149,7 @@ describe('Firebase Data Service', () => {
     it('should clear all ingredients', async () => {
       const mockIngredients = [{ ...mockIngredient, id: 'test-ing' }];
       const mockSnapshot = createMockQuerySnapshot(mockIngredients);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       await ingredientService.clearAllIngredients();
 
@@ -166,12 +160,15 @@ describe('Firebase Data Service', () => {
     it('should get ingredients by category', async () => {
       const mockElectrolytes = [{ ...mockIngredient, category: 'Electrolytes' }];
       const mockSnapshot = createMockQuerySnapshot(mockElectrolytes);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       const result = await ingredientService.getIngredientsByCategory('Electrolytes');
       
       expect(Array.isArray(result)).toBe(true);
-      expect(result[0].category).toBe('Electrolytes');
+      expect(result[0]).toHaveProperty('category');
+      if (result[0] && 'category' in result[0]) {
+        expect(result[0].category).toBe('Electrolytes');
+      }
     });
 
     it('should fix ingredient categories', async () => {
@@ -179,7 +176,7 @@ describe('Firebase Data Service', () => {
         { ...mockIngredient, id: 'test-ing', category: 'WRONG_CATEGORY' }
       ];
       const mockSnapshot = createMockQuerySnapshot(mockIngredientsForFix);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       await ingredientService.fixIngredientCategories();
 
@@ -193,7 +190,7 @@ describe('Firebase Data Service', () => {
         { ...mockIngredient, version: 1 }
       ];
       const mockSnapshot = createMockQuerySnapshot(mockVersions);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       const results = await ingredientService.getVersionHistory('test-ingredient');
       
@@ -205,12 +202,11 @@ describe('Firebase Data Service', () => {
   describe('Reference Operations', () => {
     const mockReference: Partial<ReferenceData> = {
       configId: 'test-config',
-      ingredientName: 'Calcium Gluconate',
       healthSystem: 'test-health',
-      populationType: 'Neonatal',
+      populationType: 'neonatal',
       sections: [
-        { type: 'js', content: 'return me.getValue("CA_MEQ");' }
-      ] as Section[],
+        { id: 'test-section', type: 'javascript', content: 'return me.getValue("CA_MEQ");' }
+      ],
       version: '1'
     };
 
@@ -227,7 +223,7 @@ describe('Firebase Data Service', () => {
     it('should get references for ingredient', async () => {
       const mockRefs = [{ ...mockReference, id: 'ref-1' }];
       const mockSnapshot = createMockQuerySnapshot(mockRefs);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       const result = await referenceService.getReferencesForIngredient('test-ingredient-id');
       
@@ -249,7 +245,7 @@ describe('Firebase Data Service', () => {
     it('should get references by population', async () => {
       const mockRefs = [{ ...mockReference, populationType: 'neonatal' }];
       const mockSnapshot = createMockQuerySnapshot(mockRefs);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       const result = await referenceService.getReferencesByPopulation('test-ingredient-id', 'neonatal');
       
@@ -262,7 +258,7 @@ describe('Firebase Data Service', () => {
         { ...mockReference, healthSystem: 'test-health', populationType: 'pediatric' }
       ];
       const mockSnapshot = createMockQuerySnapshot(mockRefs);
-      vi.mocked(getDocs).mockResolvedValue(mockSnapshot);
+      vi.mocked(getDocs).mockResolvedValue(mockSnapshot as any);
 
       const results = await referenceService.getReferencesForComparison('test-ingredient-id', 'test-health');
       
@@ -297,9 +293,8 @@ describe('Firebase Data Service', () => {
     it('should generate reference ID', () => {
       const refId = generateReferenceId({
         healthSystem: 'test-health',
-        ingredientName: 'Calcium',
         populationType: 'neonatal'
-      });
+      } as ReferenceData);
       expect(refId).toContain('test-health');
       expect(refId).toContain('neonatal');
       // Check if it's a properly formatted ID

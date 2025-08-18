@@ -43,7 +43,7 @@ class SectionStore {
         : '// Enter your JavaScript code here\nreturn "Hello, World!";',
       testCases: type === 'dynamic' ? [{
         name: 'Default Test',
-        variables: {},
+        // variables: {},
         expected: '',
         matchType: 'contains'
       }] : []
@@ -114,7 +114,7 @@ class SectionStore {
     if (section && section.type === 'dynamic') {
       const newTestCase: TestCase = {
         name: `Test ${section.testCases.length + 1}`,
-        variables: {},
+        // variables: {},
         expected: '',
         matchType: 'contains'
       };
@@ -262,7 +262,7 @@ class SectionStore {
         content: jsContent,
         testCases: [{
           name: 'Default Test',
-          variables: {},
+          // variables: {},
           expected: '',
           matchType: 'contains'
         }]

@@ -1,6 +1,7 @@
 import { mount } from 'svelte'
 import './app.scss'
 import { healthMonitor } from './lib/services/healthMonitor'
+import { logError, logWarn } from '$lib/logger';
 
 // Simple, non-blocking app initialization to fix freezing issues
 async function initializeApp() {
@@ -28,7 +29,7 @@ async function initializeApp() {
     return app
     
   } catch (error) {
-    console.error('[App] Failed to initialize application:', error)
+    logError('[App] Failed to initialize application:', error)
     
     // Report to health monitor
     healthMonitor.reportComponentError('App', error as Error)
@@ -73,7 +74,7 @@ async function initializeBackgroundServices() {
       console.log('[KPT] Custom functions initialized successfully');
     }
   } catch (error) {
-    console.warn('[KPT] Failed to initialize custom functions:', error);
+    logWarn('[KPT] Failed to initialize custom functions:', error);
   }
   
   console.log('[App] Background services initialization complete')

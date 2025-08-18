@@ -75,7 +75,7 @@
     
     return () => {
       if (unsubscribe) {
-        console.log('[KPT Manager] Cleaning up subscription...');
+        // console.log('[KPT Manager] Cleaning up subscription...');
         unsubscribe();
         unsubscribe = null;
       }
@@ -145,7 +145,7 @@
   function handleDeleteFunction(functionName: string) {
     if (confirm(`Are you sure you want to delete the function "${functionName}"?`)) {
       if (KPTPersistence.deleteFunction(functionName)) {
-        console.log('[KPT Manager] Function deleted:', functionName);
+        // console.log('[KPT Manager] Function deleted:', functionName);
         // The delete function doesn't trigger notifications, so reload manually
         loadCustomFunctions();
       } else {
@@ -155,7 +155,7 @@
   }
   
   function handleSaveFunction(func: KPTFunction) {
-    console.log('[KPT Manager] Function saved, updating list...', func.name);
+    // console.log('[KPT Manager] Function saved, updating list...', func.name);
     
     // The KPTPersistence.saveFunction will trigger our subscription
     // So we don't need to manually update the local state here
@@ -163,9 +163,8 @@
     showEditor = false;
     editingFunction = null;
     
-    console.log('[KPT Manager] Function save handled, editor closed');
+    // console.log('[KPT Manager] Function save handled, editor closed');
   }
-  
   function handleCancelEdit() {
     showEditor = false;
     editingFunction = null;
@@ -185,7 +184,7 @@
     try {
       importResult = KPTPersistence.importFunctions(importText);
       if (importResult.success) {
-        console.log('[KPT Manager] Import successful:', importResult.imported, 'functions');
+        // console.log('[KPT Manager] Import successful:', importResult.imported, 'functions');
         importText = '';
         if (importResult.errors.length === 0) {
           setTimeout(() => {
@@ -383,7 +382,7 @@
                 <div class="function-dates">
                   <small>
                     Created: {formatDate(func.createdAt)}<br>
-                    Modified: {formatDate(func.modifiedAt)}
+                    // Modified: {formatDate(func.modifiedAt)}
                   </small>
                 </div>
               </div>

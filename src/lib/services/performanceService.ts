@@ -1,3 +1,4 @@
+import { logWarn } from '$lib/logger';
 /**
  * Performance Monitoring Service for TPN Dynamic Text Editor
  * Implements comprehensive performance tracking, Web Vitals monitoring,
@@ -104,7 +105,7 @@ class PerformanceMonitor {
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] })
         this.observers.push(lcpObserver)
       } catch (e) {
-        console.warn('[Performance] LCP not supported')
+        logWarn('[Performance] LCP not supported')
       }
     }
     
@@ -122,7 +123,7 @@ class PerformanceMonitor {
         fidObserver.observe({ entryTypes: ['first-input'] })
         this.observers.push(fidObserver)
       } catch (e) {
-        console.warn('[Performance] FID not supported')
+        logWarn('[Performance] FID not supported')
       }
     }
     
@@ -144,7 +145,7 @@ class PerformanceMonitor {
         clsObserver.observe({ entryTypes: ['layout-shift'] })
         this.observers.push(clsObserver)
       } catch (e) {
-        console.warn('[Performance] CLS not supported')
+        logWarn('[Performance] CLS not supported')
       }
     }
     
@@ -162,7 +163,7 @@ class PerformanceMonitor {
         navigationObserver.observe({ entryTypes: ['navigation'] })
         this.observers.push(navigationObserver)
       } catch (e) {
-        console.warn('[Performance] Navigation timing not supported')
+        logWarn('[Performance] Navigation timing not supported')
       }
       
       const paintObserver = new PerformanceObserver((list) => {
@@ -179,7 +180,7 @@ class PerformanceMonitor {
         paintObserver.observe({ entryTypes: ['paint'] })
         this.observers.push(paintObserver)
       } catch (e) {
-        console.warn('[Performance] Paint timing not supported')
+        logWarn('[Performance] Paint timing not supported')
       }
     }
   }
@@ -200,7 +201,7 @@ class PerformanceMonitor {
         longTaskObserver.observe({ entryTypes: ['longtask'] })
         this.observers.push(longTaskObserver)
       } catch (e) {
-        console.warn('[Performance] Long task timing not supported')
+        logWarn('[Performance] Long task timing not supported')
       }
     }
   }
@@ -225,7 +226,7 @@ class PerformanceMonitor {
         resourceObserver.observe({ entryTypes: ['resource'] })
         this.observers.push(resourceObserver)
       } catch (e) {
-        console.warn('[Performance] Resource timing not supported')
+        logWarn('[Performance] Resource timing not supported')
       }
     }
   }
@@ -269,7 +270,7 @@ class PerformanceMonitor {
         this.metrics.interactionLatency = clickLatency
         
         if (clickLatency > 100) {
-          console.warn(`[Performance] Slow click response: ${clickLatency}ms`)
+          logWarn(`[Performance] Slow click response: ${clickLatency}ms`, 'Ui')
         }
       }
     })
@@ -285,7 +286,7 @@ class PerformanceMonitor {
     this.reportMetric('TPN_CALCULATION', this.metrics.tpnCalculationTime)
     
     if (this.metrics.tpnCalculationTime > 100) {
-      console.warn(`[Performance] Slow TPN calculation: ${this.metrics.tpnCalculationTime}ms`)
+      logWarn(`[Performance] Slow TPN calculation: ${this.metrics.tpnCalculationTime}ms`, 'Tpn')
     }
     
     return result
@@ -337,7 +338,7 @@ class PerformanceMonitor {
       this.reportMetric('FIREBASE_QUERY', this.metrics.firebaseQueryTime)
       
       if (this.metrics.firebaseQueryTime > 1000) {
-        console.warn(`[Performance] Slow Firebase query: ${this.metrics.firebaseQueryTime}ms`)
+        logWarn(`[Performance] Slow Firebase query: ${this.metrics.firebaseQueryTime}ms`, 'Firebase')
       }
       
       return result
@@ -469,7 +470,7 @@ class PerformanceMonitor {
         })
       }
     } catch (error) {
-      console.warn('[Performance] Failed to send metrics:', error)
+      logWarn('[Performance] Failed to send metrics:', error)
     }
   }
   
@@ -535,7 +536,7 @@ class PerformanceMonitor {
     }
     
     if (violations.length > 0) {
-      console.warn('[Performance] Budget violations:', violations)
+      logWarn('[Performance] Budget violations:', violations)
     }
     
     return {
@@ -579,7 +580,7 @@ export const performanceMonitor = new Proxy({} as PerformanceMonitor, {
 // Optional initialization function
 export async function initializePerformanceMonitoring(): Promise<boolean> {
   if (typeof window === 'undefined') {
-    console.warn('[Performance] Performance monitoring not available in server environment')
+    logWarn('[Performance] Performance monitoring not available in server environment')
     return false
   }
 
@@ -589,7 +590,7 @@ export async function initializePerformanceMonitoring(): Promise<boolean> {
     console.log('[Performance] Performance monitoring initialized')
     return true
   } catch (error) {
-    console.warn('[Performance] Failed to initialize performance monitoring:', error)
+    logWarn('[Performance] Failed to initialize performance monitoring:', error)
     return false
   }
 }

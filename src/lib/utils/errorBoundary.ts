@@ -1,3 +1,4 @@
+import { logError, logWarn } from '$lib/logger';
 /**
  * Error Boundary Utilities for Svelte
  * Provides error handling and recovery mechanisms
@@ -43,9 +44,8 @@ class ErrorBoundaryManager {
     }, this.errorResetTime)
 
     this.isInitialized = true
-    console.log('[ErrorBoundary] Error handling initialized')
+    // console.log('[ErrorBoundary] Error handling initialized')
   }
-
   handleError(error: Error, context?: string) {
     this.errorCount++
 
@@ -57,20 +57,20 @@ class ErrorBoundaryManager {
       userAgent: navigator.userAgent
     }
 
-    console.error(`[ErrorBoundary] Error in ${context}:`, error)
+    // logError(`[ErrorBoundary] Error in ${context}:`, error, 'Validation')
 
     // Report to callbacks
     this.errorCallbacks.forEach(callback => {
       try {
         callback(errorInfo)
       } catch (callbackError) {
-        console.error('[ErrorBoundary] Error in error callback:', callbackError)
+        // logError('[ErrorBoundary] Error in error callback:', callbackError)
       }
     })
 
     // Check if we've hit too many errors (circuit breaker)
     if (this.errorCount >= this.maxErrors) {
-      console.warn('[ErrorBoundary] Too many errors detected, triggering recovery')
+      // logWarn('[ErrorBoundary] Too many errors detected, triggering recovery')
       this.triggerRecovery()
     }
   }
@@ -106,11 +106,10 @@ class ErrorBoundaryManager {
         localStorage.setItem(key, value)
       })
       
-      console.log('[ErrorBoundary] Storage cleared, preserved important data')
+      // console.log('[ErrorBoundary] Storage cleared, preserved important data')
     } catch (error) {
-      console.warn('[ErrorBoundary] Failed to clear storage:', error)
+      // logWarn('[ErrorBoundary] Failed to clear storage:', error)
     }
-
     // Show recovery message and reload
     this.showRecoveryMessage()
   }
@@ -211,12 +210,12 @@ class ErrorBoundaryManager {
       if (import.meta.env.PROD) {
         await fetch('/api/errors', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          // headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(errorInfo)
         })
       }
     } catch (error) {
-      console.warn('[ErrorBoundary] Failed to report error:', error)
+      // logWarn('[ErrorBoundary] Failed to report error:', error)
     }
   }
 

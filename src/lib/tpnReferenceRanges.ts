@@ -321,7 +321,7 @@ export function validateTPNValue(
 
 export function getPopulationLimits(populationType: string): any {
   const limits: Record<string, any> = {
-    Neonatal: {
+      Neonatal: {
       maxDextroseConcentration: 12.5,
       maxOsmolarity: {
         peripheral: 900,
@@ -334,7 +334,7 @@ export function getPopulationLimits(populationType: string): any {
         max: 1.3
       }
     },
-    Pediatric: {
+      Pediatric: {
       maxDextroseConcentration: 25,
       maxOsmolarity: {
         peripheral: 900,
@@ -347,7 +347,7 @@ export function getPopulationLimits(populationType: string): any {
         max: 1.3
       }
     },
-    Adolescent: {
+      Adolescent: {
       maxDextroseConcentration: 30,
       maxOsmolarity: {
         peripheral: 900,
@@ -360,7 +360,7 @@ export function getPopulationLimits(populationType: string): any {
         max: 1.3
       }
     },
-    Adult: {
+      Adult: {
       maxDextroseConcentration: 35,
       maxOsmolarity: {
         peripheral: 900,

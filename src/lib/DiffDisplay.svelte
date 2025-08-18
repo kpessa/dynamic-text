@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import * as Diff2Html from 'diff2html';
   import 'diff2html/bundles/css/diff2html.min.css';
@@ -65,7 +66,7 @@
       
       return diffHtml || '<div class="no-differences">No differences found</div>';
     } catch (error) {
-      console.error('Error generating diff:', error);
+      // logError('Error generating diff:', error);
       return '<div class="diff-error">Error generating diff display</div>';
     }
   }

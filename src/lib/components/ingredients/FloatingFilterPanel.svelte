@@ -35,7 +35,6 @@
     // Optionally close panel after selection
     // setTimeout(() => isOpen = false, 500);
   }
-  
   function clearAllFilters() {
     searchQuery = '';
     selectedCategory = 'ALL';

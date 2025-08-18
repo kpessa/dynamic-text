@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { onMount } from 'svelte';
   import { 
@@ -49,7 +50,7 @@
       // Calculate statistics
       stats = getVariationStats(allIngredients);
     } catch (error) {
-      console.error('Error loading variations:', error);
+      // logError('Error loading variations:', error);
     } finally {
       loading = false;
     }

@@ -1,3 +1,4 @@
+import { logWarn, logError } from '$lib/logger';
 /**
  * Performance Monitoring Service
  * Tracks and reports application performance metrics
@@ -59,7 +60,7 @@ class PerformanceMonitor {
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
         this.observers.set('lcp', lcpObserver);
       } catch (e) {
-        console.warn('LCP observer not supported');
+        logWarn('LCP observer not supported');
       }
 
       // First Input Delay
@@ -76,7 +77,7 @@ class PerformanceMonitor {
         fidObserver.observe({ entryTypes: ['first-input'] });
         this.observers.set('fid', fidObserver);
       } catch (e) {
-        console.warn('FID observer not supported');
+        logWarn('FID observer not supported');
       }
 
       // Cumulative Layout Shift
@@ -94,7 +95,7 @@ class PerformanceMonitor {
         clsObserver.observe({ entryTypes: ['layout-shift'] });
         this.observers.set('cls', clsObserver);
       } catch (e) {
-        console.warn('CLS observer not supported');
+        logWarn('CLS observer not supported');
       }
     }
 
@@ -128,7 +129,7 @@ class PerformanceMonitor {
         
         // Warn if memory usage is high
         if (usedMemoryMB > this.thresholds.memoryUsage) {
-          console.warn(`High memory usage: ${usedMemoryMB.toFixed(2)}MB`);
+          logWarn(`High memory usage: ${usedMemoryMB.toFixed(2)}MB`);
         }
       }, 10000); // Check every 10 seconds
     }
@@ -149,14 +150,14 @@ class PerformanceMonitor {
             });
             
             if (entry.duration > 50) {
-              console.warn(`Long task detected: ${entry.duration.toFixed(2)}ms`);
+              logWarn(`Long task detected: ${entry.duration.toFixed(2)}ms`);
             }
           });
         });
         longTaskObserver.observe({ entryTypes: ['longtask'] });
         this.observers.set('longtask', longTaskObserver);
       } catch (e) {
-        console.warn('Long task observer not supported');
+        logWarn('Long task observer not supported');
       }
     }
   }
@@ -195,7 +196,7 @@ class PerformanceMonitor {
   private checkThreshold(name: string, value: number): void {
     const threshold = this.thresholds[name as keyof PerformanceThresholds];
     if (threshold && value > threshold) {
-      console.warn(`Performance threshold exceeded for ${name}: ${value} > ${threshold}`);
+      logWarn(`Performance threshold exceeded for ${name}: ${value} > ${threshold}`, 'Ui');
       this.reportToAnalytics(name, value, true);
     }
   }
@@ -256,7 +257,7 @@ class PerformanceMonitor {
         this.recordMetric(name, measure.duration, 'ms');
       }
     } catch (error) {
-      console.error(`Failed to measure between ${startMark} and ${endMark}:`, error);
+      logError(`Failed to measure between ${startMark} and ${endMark}:`, error, 'Validation');
     }
   }
 
@@ -276,7 +277,7 @@ class PerformanceMonitor {
     this.recordMetric('BundleSize', totalSizeKB, 'KB');
     
     if (totalSizeKB > this.thresholds.bundleSize) {
-      console.warn(`Bundle size exceeds threshold: ${totalSizeKB.toFixed(2)}KB`);
+      logWarn(`Bundle size exceeds threshold: ${totalSizeKB.toFixed(2)}KB`);
     }
   }
 
@@ -287,7 +288,7 @@ class PerformanceMonitor {
     this.recordMetric(`TPN_${calculationType}`, duration, 'ms');
     
     if (duration > this.thresholds.calculationTime) {
-      console.warn(`Slow TPN calculation (${calculationType}): ${duration.toFixed(2)}ms`);
+      logWarn(`Slow TPN calculation (${calculationType}, 'Tpn'): ${duration.toFixed(2)}ms`);
     }
   }
 

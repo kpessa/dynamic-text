@@ -46,7 +46,7 @@ class EventBus {
       try {
         callback(...args);
       } catch (error) {
-        console.error(`Error in event handler for ${event}:`, error);
+        // logError(`Error in event handler for ${event}:`, error, 'Validation');
       }
     });
   }

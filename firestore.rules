@@ -1,280 +1,213 @@
-// Firestore Security Rules for TPN Medical Application
-// Optimized for medical data integrity and security
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ========================
-    // Helper Functions
-    // ========================
-    
-    function isSignedIn() {
+    // Helper functions
+    function isAuthenticated() {
       return request.auth != null;
     }
     
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function isAdmin() {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && request.auth.uid == userId;
     }
     
     function hasRole(role) {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny([role]);
+      return isAuthenticated() && 
+        request.auth.token.role == role;
     }
     
-    function isValidTimestamp(field) {
-      return request.resource.data[field] == request.time;
+    function isValidHealthSystem(healthSystem) {
+      return healthSystem in ['default', 'system1', 'system2', 'system3'];
     }
     
-    function isValidMedicalData() {
-      // Basic medical data validation
-      return request.resource.data.name is string &&
-             request.resource.data.name.size() > 0 &&
-             request.resource.data.name.size() <= 200;
-    }
-    
-    function hasValidMetadata() {
-      return request.resource.data.keys().hasAll(['lastModified', 'modifiedBy']) &&
-             request.resource.data.lastModified == request.time &&
-             request.resource.data.modifiedBy == request.auth.uid;
+    function isValidPopulationType(popType) {
+      return popType in ['Neonatal', 'Pediatric', 'Adolescent', 'Adult'];
     }
     
     // Rate limiting helper (basic implementation)
-    function rateLimit() {
-      // Allow up to 100 writes per minute per user
-      // This would need server-side implementation for full effectiveness
-      return true; // Simplified for now
+    function rateLimitCheck() {
+      // In production, implement proper rate limiting
+      return true;
     }
     
-    // ========================
-    // User Management
-    // ========================
-    
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId) &&
-        isValidTimestamp('createdAt') &&
-        hasValidMetadata();
-      allow update: if isOwner(userId) &&
-        hasValidMetadata() &&
-        // Prevent modification of critical fields
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy']);
-      allow delete: if isOwner(userId) || isAdmin();
+    // Validate medical data ranges
+    function isValidMedicalValue(value) {
+      return value is number && value >= 0 && value <= 10000;
     }
     
-    // ========================
-    // TPN Ingredients
-    // ========================
-    
-    match /ingredients/{ingredientId} {
-      allow read: if isSignedIn();
-      
-      allow create: if isSignedIn() &&
-        isValidMedicalData() &&
-        hasValidMetadata() &&
-        isValidTimestamp('createdAt') &&
-        request.resource.data.createdBy == request.auth.uid &&
-        rateLimit();
-      
-      allow update: if isSignedIn() &&
-        isValidMedicalData() &&
-        hasValidMetadata() &&
-        // Preserve creation metadata
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy']) &&
-        // Ensure version is incremented
-        request.resource.data.version > resource.data.version &&
-        rateLimit();
-      
-      allow delete: if isAdmin(); // Only admins can delete ingredients
-      
-      // ========================
-      // Ingredient References (Nested)
-      // ========================
-      
-      match /references/{referenceId} {
-        allow read: if isSignedIn();
-        
-        allow create: if isSignedIn() &&
-          hasValidMetadata() &&
-          isValidTimestamp('createdAt') &&
-          request.resource.data.createdBy == request.auth.uid &&
-          // Validate required medical fields
-          request.resource.data.keys().hasAll(['name', 'healthSystem', 'populationType']) &&
-          request.resource.data.populationType in ['neonatal', 'child', 'pediatric', 'adolescent', 'adult'] &&
-          rateLimit();
-        
-        allow update: if isSignedIn() &&
-          hasValidMetadata() &&
-          // Preserve creation metadata
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy']) &&
-          // Ensure version is incremented
-          request.resource.data.version > resource.data.version &&
-          rateLimit();
-        
-        allow delete: if isSignedIn() && (
-          resource.data.createdBy == request.auth.uid ||
-          isAdmin()
-        );
-        
-        // Reference version history
-        match /versions/{versionId} {
-          allow read: if isSignedIn();
-          allow create: if isSignedIn(); // System creates these automatically
-          allow update, delete: if false; // Versions are immutable
-        }
-      }
-      
-      // Ingredient version history
-      match /versions/{versionId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn(); // System creates these automatically
-        allow update, delete: if false; // Versions are immutable
-      }
+    // Validate TPN calculation data
+    function isValidTPNData(data) {
+      return data.keys().hasAll(['name', 'content', 'version']) &&
+        data.name is string && data.name.size() <= 500 &&
+        data.content is string && data.content.size() <= 50000 &&
+        data.version is number && data.version >= 0;
     }
     
-    // ========================
-    // Imported Configurations
-    // ========================
-    
-    match /importedConfigs/{configId} {
-      allow read: if isSignedIn();
+    // References collection - TPN calculation references
+    match /references/{referenceId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated() && rateLimitCheck();
       
-      allow create: if isSignedIn() &&
-        hasValidMetadata() &&
-        isValidTimestamp('importedAt') &&
-        request.resource.data.importedBy == request.auth.uid &&
-        // Validate config metadata
-        request.resource.data.keys().hasAll(['name', 'healthSystem']) &&
-        rateLimit();
-      
-      allow update: if isSignedIn() &&
-        hasValidMetadata() &&
-        // Only allow updates to non-critical fields
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'importedAt', 'importedBy', 'baselineId'
-        ]) &&
-        rateLimit();
-      
-      allow delete: if isSignedIn() && (
-        resource.data.importedBy == request.auth.uid ||
-        isAdmin()
-      );
-      
-      // Config ingredients subcollection
-      match /ingredients/{ingredientDocId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn(); // Created during import
-        allow update, delete: if isAdmin(); // Only admins can modify imported data
-      }
-    }
-    
-    // ========================
-    // Baseline Configurations (Immutable)
-    // ========================
-    
-    match /baselineConfigs/{configId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && 
-        request.resource.data.isBaseline == true &&
-        hasValidMetadata();
-      allow update, delete: if false; // Baselines are completely immutable
-      
-      // Baseline ingredients subcollection
-      match /ingredients/{ingredientDocId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn(); // Created during import
-        allow update, delete: if false; // Immutable baseline data
-      }
-    }
-    
-    // ========================
-    // Shared Ingredients
-    // ========================
-    
-    match /sharedIngredients/{sharedId} {
-      allow read: if isSignedIn();
-      
-      allow create: if isSignedIn() &&
-        hasValidMetadata() &&
-        isValidTimestamp('createdAt') &&
-        request.resource.data.createdBy == request.auth.uid &&
-        // Validate content hash is provided
-        request.resource.data.contentHash is string &&
-        rateLimit();
-      
-      allow update: if isSignedIn() &&
-        hasValidMetadata() &&
-        // Only allow incrementing reference count and metadata updates
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'createdAt', 'createdBy', 'contentHash', 'masterReferenceId'
-        ]) &&
-        rateLimit();
-      
-      allow delete: if isAdmin(); // Only admins can delete shared ingredients
-    }
-    
-    // ========================
-    // Audit Log (Write-only for users, read for admins)
-    // ========================
-    
-    match /auditLog/{logId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn() &&
+      // Allow create with validation
+      allow create: if isAuthenticated() && 
+        isValidTPNData(request.resource.data) &&
         request.resource.data.userId == request.auth.uid &&
-        isValidTimestamp('timestamp');
-      allow update, delete: if false; // Audit logs are immutable
-    }
-    
-    // ========================
-    // Health Systems and Domains
-    // ========================
-    
-    match /healthSystems/{systemId} {
-      allow read: if isSignedIn();
-      allow create, update: if hasRole('admin') || hasRole('system-manager');
-      allow delete: if isAdmin();
+        request.resource.data.createdAt == request.time &&
+        rateLimitCheck();
       
-      match /domains/{domainId} {
-        allow read: if isSignedIn();
-        allow create, update: if hasRole('admin') || hasRole('system-manager');
-        allow delete: if isAdmin();
-      }
+      // Allow update only by owner with version increment
+      allow update: if isOwner(resource.data.userId) &&
+        isValidTPNData(request.resource.data) &&
+        request.resource.data.version == resource.data.version + 1 &&
+        request.resource.data.modifiedAt == request.time &&
+        rateLimitCheck();
+      
+      // Allow delete only by owner or admin
+      allow delete: if isOwner(resource.data.userId) || hasRole('admin');
     }
     
-    // ========================
-    // Rate Limiting Data (System-managed)
-    // ========================
-    
-    match /rateLimits/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create, update: if false; // System-managed only
-      allow delete: if isAdmin();
+    // Configs collection - TPN configuration data
+    match /configs/{configId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated() && rateLimitCheck();
+      
+      // Allow create with validation
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasAll(['name', 'healthSystem', 'populationType']) &&
+        isValidHealthSystem(request.resource.data.healthSystem) &&
+        isValidPopulationType(request.resource.data.populationType) &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.createdAt == request.time &&
+        rateLimitCheck();
+      
+      // Allow update only by creator or admin
+      allow update: if (isOwner(resource.data.createdBy) || hasRole('admin')) &&
+        isValidHealthSystem(request.resource.data.healthSystem) &&
+        isValidPopulationType(request.resource.data.populationType) &&
+        request.resource.data.modifiedAt == request.time &&
+        rateLimitCheck();
+      
+      // Allow delete only by creator or admin
+      allow delete: if isOwner(resource.data.createdBy) || hasRole('admin');
     }
     
-    // ========================
-    // System Health and Metrics (Admin-only)
-    // ========================
-    
-    match /systemHealth/{document=**} {
-      allow read, write: if isAdmin();
+    // Ingredients collection - Medical ingredient data
+    match /ingredients/{healthSystem}/populationTypes/{populationType}/ingredients/{ingredientId} {
+      // Validate health system and population type in path
+      allow read: if isAuthenticated() && 
+        isValidHealthSystem(healthSystem) &&
+        isValidPopulationType(populationType) &&
+        rateLimitCheck();
+      
+      // Allow create with medical data validation
+      allow create: if isAuthenticated() &&
+        isValidHealthSystem(healthSystem) &&
+        isValidPopulationType(populationType) &&
+        request.resource.data.keys().hasAll(['name', 'content', 'version']) &&
+        request.resource.data.name is string &&
+        request.resource.data.content is string &&
+        request.resource.data.version == 1 &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.createdAt == request.time &&
+        rateLimitCheck();
+      
+      // Allow update with version control
+      allow update: if isAuthenticated() &&
+        request.resource.data.version == resource.data.version + 1 &&
+        request.resource.data.modifiedBy == request.auth.uid &&
+        request.resource.data.modifiedAt == request.time &&
+        rateLimitCheck();
+      
+      // Restrict delete to admins only (medical data protection)
+      allow delete: if hasRole('admin');
     }
     
-    match /metrics/{document=**} {
-      allow read, write: if isAdmin();
+    // Baseline configs - Immutable reference data
+    match /baselineConfigs/{configId} {
+      // Read-only for all authenticated users
+      allow read: if isAuthenticated() && rateLimitCheck();
+      
+      // Only admins can create baseline configs
+      allow create: if hasRole('admin') &&
+        request.resource.data.keys().hasAll(['name', 'content', 'version']) &&
+        request.resource.data.isBaseline == true;
+      
+      // Baseline configs are immutable - no updates allowed
+      allow update: if false;
+      
+      // Only admins can delete baseline configs
+      allow delete: if hasRole('admin');
     }
     
-    // ========================
-    // Default Deny
-    // ========================
+    // Shared ingredients - Cross-reference ingredient data
+    match /sharedIngredients/{sharedId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated() && rateLimitCheck();
+      
+      // Allow create with reference validation
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasAll(['contentHash', 'references']) &&
+        request.resource.data.contentHash is string &&
+        request.resource.data.references is list &&
+        request.resource.data.createdBy == request.auth.uid &&
+        rateLimitCheck();
+      
+      // Allow update to add/remove references
+      allow update: if isAuthenticated() &&
+        request.resource.data.references is list &&
+        request.resource.data.modifiedBy == request.auth.uid &&
+        rateLimitCheck();
+      
+      // Only allow delete if no references remain
+      allow delete: if isAuthenticated() &&
+        resource.data.references.size() == 0;
+    }
     
-    // Explicitly deny access to any other documents
+    // Audit logs - Write-only for compliance
+    match /auditLogs/{logId} {
+      // No read access except for admins
+      allow read: if hasRole('admin');
+      
+      // Allow authenticated users to write audit logs
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasAll(['action', 'timestamp', 'userId']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.timestamp == request.time;
+      
+      // Audit logs are immutable
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // User preferences and settings
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if isOwner(userId);
+      
+      // Users can create their own profile
+      allow create: if isOwner(userId) &&
+        request.resource.data.keys().hasAll(['email', 'createdAt']) &&
+        request.resource.data.createdAt == request.time;
+      
+      // Users can update their own profile
+      allow update: if isOwner(userId) &&
+        request.resource.data.modifiedAt == request.time;
+      
+      // Users cannot delete their profile (for audit trail)
+      allow delete: if false;
+    }
+    
+    // Health system configurations (admin only)
+    match /healthSystems/{systemId} {
+      // All authenticated users can read
+      allow read: if isAuthenticated();
+      
+      // Only admins can modify
+      allow create, update: if hasRole('admin');
+      allow delete: if hasRole('admin');
+    }
+    
+    // Default deny all other access
     match /{document=**} {
       allow read, write: if false;
     }

@@ -1,3 +1,4 @@
+import { logError } from '$lib/logger';
 <script>
   import { ColorContrastManager } from './utils/accessibility.js';
   
@@ -45,7 +46,7 @@
       await testImages();
       
     } catch (error) {
-      console.error('Accessibility testing error:', error);
+      // logError('Accessibility testing error:', error);
     } finally {
       isRunning = false;
     }
