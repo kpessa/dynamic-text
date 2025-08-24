@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script>
+  import { logError } from '$lib/logger';
   import { migrationService, POPULATION_TYPES } from './firebaseDataService.js';
   import { isFirebaseConfigured } from './firebase.js';
   

@@ -88,7 +88,7 @@ export async function loadBabel(): Promise<any> {
   
   // Start loading
   loadingPromise = loadBabelFromCDN()
-    .catch(async (cdnError) => {
+    .catch(async (_cdnError) => {
       logWarn('CDN loading failed, falling back to bundled version', 'lazyBabelCDN');
       // Fallback to dynamic import if CDN fails
       const Babel = await import('@babel/standalone');

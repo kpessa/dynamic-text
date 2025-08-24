@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script>
+  import { logError } from '$lib/logger';
   import { extractKeysFromCode, isValidKey, getKeyCategory } from './tpnLegacy.js';
   
   let { 

@@ -43,7 +43,7 @@ class SectionStore {
         : '// Enter your JavaScript code here\nreturn "Hello, World!";',
       testCases: type === 'dynamic' ? [{
         name: 'Default Test',
-        // variables: {},
+        variables: {},
         expected: '',
         matchType: 'contains'
       }] : []
@@ -114,7 +114,7 @@ class SectionStore {
     if (section && section.type === 'dynamic') {
       const newTestCase: TestCase = {
         name: `Test ${section.testCases.length + 1}`,
-        // variables: {},
+        variables: {},
         expected: '',
         matchType: 'contains'
       };
@@ -130,14 +130,17 @@ class SectionStore {
       const currentTestCase = section.testCases[index];
       const updatedTestCases = [...section.testCases];
       const newTestCase: TestCase = {
-        name: currentTestCase.name,
-        variables: currentTestCase.variables,
-        expected: currentTestCase.expected,
-        matchType: currentTestCase.matchType,
+        name: currentTestCase?.name || '',
+        variables: currentTestCase?.variables || {},
+        expected: currentTestCase?.expected || '',
+        matchType: currentTestCase?.matchType || 'contains',
         ...updates
       };
-      if (currentTestCase.expectedStyles !== undefined || updates.expectedStyles !== undefined) {
-        newTestCase.expectedStyles = updates.expectedStyles ?? currentTestCase.expectedStyles;
+      if (currentTestCase?.expectedStyles !== undefined || updates.expectedStyles !== undefined) {
+        const expectedStyles = updates.expectedStyles ?? currentTestCase?.expectedStyles;
+        if (expectedStyles !== undefined) {
+          newTestCase.expectedStyles = expectedStyles;
+        }
       }
       updatedTestCases[index] = newTestCase;
       
@@ -262,7 +265,7 @@ class SectionStore {
         content: jsContent,
         testCases: [{
           name: 'Default Test',
-          // variables: {},
+          variables: {},
           expected: '',
           matchType: 'contains'
         }]

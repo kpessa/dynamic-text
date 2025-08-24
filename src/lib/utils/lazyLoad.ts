@@ -28,7 +28,7 @@ export async function lazyLoad<T>(
 /**
  * Lazy load Babel standalone for code transpilation
  */
-export async function loadBabel() {
+export async function loadBabel(): Promise<any> {
   return lazyLoad(
     () => import('@babel/standalone'),
     'babel'
@@ -97,7 +97,7 @@ export async function loadCodeMirror() {
 /**
  * Lazy load Firebase services
  */
-export async function loadFirebase() {
+export async function loadFirebase(): Promise<any> {
   return lazyLoad(
     async () => {
       const [app, firestore, auth] = await Promise.all([

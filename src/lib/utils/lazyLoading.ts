@@ -1,4 +1,3 @@
-import { logError, logWarn } from '$lib/logger';
 /**
  * Lazy Loading Utilities for TPN Dynamic Text Editor
  * Provides dynamic imports and lazy loading strategies for heavy components
@@ -16,11 +15,11 @@ interface RequestIdleCallbackDeadline {
 
 declare global {
   interface Window {
-    requestIdleCallback?(
+    requestIdleCallback(
       callback: (deadline: RequestIdleCallbackDeadline) => void,
       opts?: RequestIdleCallbackOptions,
     ): RequestIdleCallbackHandle;
-    cancelIdleCallback?(handle: RequestIdleCallbackHandle): void;
+    cancelIdleCallback(handle: RequestIdleCallbackHandle): void;
   }
 }
 
@@ -45,7 +44,7 @@ export async function lazyImport<T>(
     fallback?: T
   } = {}
 ): Promise<T> {
-  const { preload = false, timeout = 10000, fallback } = options
+  const { timeout = 10000, fallback } = options
   
   // Check cache first
   if (moduleCache.has(moduleName)) {
@@ -99,10 +98,22 @@ export async function lazyImport<T>(
   return loadPromise
 }
 
+interface LazyLibrariesType {
+  loadCodeMirror: () => Promise<any>;
+  loadCodeMirrorLanguages: () => Promise<any>;
+  loadFirebase: () => Promise<any>;
+  loadFirebaseAuth: () => Promise<any>;
+  loadFirebaseFirestore: () => Promise<any>;
+  loadGeminiAI: () => Promise<any>;
+  loadBabel: () => Promise<any>;
+  loadDOMPurify: () => Promise<any>;
+  loadDiffUtils: () => Promise<any>;
+}
+
 /**
  * Lazy load heavy libraries
  */
-export const LazyLibraries = {
+export const LazyLibraries: LazyLibrariesType = {
   // CodeMirror lazy loading
   async loadCodeMirror() {
     return lazyImport(
@@ -172,6 +183,15 @@ export const LazyLibraries = {
       ])
       return { diff, diff2html }
     }, 'DIFF_UTILS')
+  },
+
+  // DOMPurify for HTML sanitization
+  async loadDOMPurify() {
+    return lazyImport(
+      () => import('dompurify'),
+      'DOMPURIFY',
+      { timeout: 3000 }
+    )
   }
 }
 
@@ -462,7 +482,7 @@ export function setupImageLazyLoading() {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           const img = entry.target as HTMLImageElement
-          img.src = img.dataset.src!
+          img.src = img.dataset['src']!
           img.removeAttribute('data-src')
           img.classList.add('loaded')
           imageObserver.unobserve(img)

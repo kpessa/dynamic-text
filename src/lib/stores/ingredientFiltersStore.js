@@ -6,18 +6,28 @@ let selectedCategory = 'ALL';
 let selectedHealthSystem = 'ALL';
 let showOnlyWithDiffs = false;
 let debouncedSearchQuery = '';
-let searchTimeout = null;
+/** @type {NodeJS.Timeout | undefined} */
+let searchTimeout = undefined;
 
 // Method to update search with debouncing
+/**
+ * @param {string} query
+ */
 function updateSearch(query) {
   searchQuery = query;
-  clearTimeout(searchTimeout);
+  if (searchTimeout !== undefined) {
+    clearTimeout(searchTimeout);
+  }
   searchTimeout = setTimeout(() => {
     debouncedSearchQuery = query;
   }, 300);
 }
 
 // Apply filters to ingredients list
+/**
+ * @param {any[]} ingredients
+ * @param {Record<string, any>} ingredientReferences
+ */
 function applyFilters(ingredients, ingredientReferences = {}) {
   return ingredients.filter(ingredient => {
     // Search filter
@@ -71,6 +81,9 @@ function getState() {
 }
 
 // Set filter state
+/**
+ * @param {{searchQuery?: string, selectedCategory?: string, selectedHealthSystem?: string, showOnlyWithDiffs?: boolean, debouncedSearchQuery?: string}} state
+ */
 function setState(state) {
   if (state.searchQuery !== undefined) searchQuery = state.searchQuery;
   if (state.selectedCategory !== undefined) selectedCategory = state.selectedCategory;

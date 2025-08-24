@@ -1,4 +1,3 @@
-import { logError, logWarn } from '$lib/logger';
 /**
  * PWA Utilities
  * Helper functions for PWA features and debugging
@@ -258,7 +257,7 @@ export async function collectPWADebugInfo() {
     capabilities,
     metrics,
     serviceWorkerInfo: swInfo,
-    cacheInfo: swInfo?.info || null
+    cacheInfo: swInfo && typeof swInfo === 'object' && 'info' in swInfo ? swInfo.info : null
   }
 }
 

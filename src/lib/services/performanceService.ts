@@ -48,7 +48,7 @@ class PerformanceMonitor {
   private observers: PerformanceObserver[] = []
   private isInitialized = false
   private reportingInterval: number | null = null
-  private serviceWorker: ServiceWorkerRegistration | null = null
+  // private _serviceWorker: ServiceWorkerRegistration | null = null  // Reserved for future use
   
   constructor() {
     // Don't auto-initialize - wait for explicit call
@@ -98,7 +98,7 @@ class PerformanceMonitor {
         const entries = list.getEntries()
         const lastEntry = entries[entries.length - 1] as PerformanceEntry
         this.metrics.lcp = (lastEntry as any).renderTime || (lastEntry as any).loadTime
-        this.reportMetric('LCP', this.metrics.lcp)
+        this.reportMetric('LCP', this.metrics.lcp || 0)
       })
       
       try {
@@ -394,8 +394,8 @@ class PerformanceMonitor {
   // Report individual metrics
   private reportMetric(name: string, value: number) {
     // Send to analytics if available
-    if (typeof gtag !== 'undefined') {
-      gtag('event', 'performance', {
+    if (typeof (window as any).gtag !== 'undefined') {
+      (window as any).gtag('event', 'performance', {
         metric_name: name,
         value: Math.round(value),
         metric_value: value
@@ -470,7 +470,7 @@ class PerformanceMonitor {
         })
       }
     } catch (error) {
-      logWarn('[Performance] Failed to send metrics:', error)
+      logWarn('[Performance] Failed to send metrics:', error as string)
     }
   }
   
@@ -536,7 +536,7 @@ class PerformanceMonitor {
     }
     
     if (violations.length > 0) {
-      logWarn('[Performance] Budget violations:', violations)
+      logWarn('[Performance] Budget violations:', violations.join(', '))
     }
     
     return {
@@ -572,7 +572,7 @@ export function getPerformanceMonitor(): PerformanceMonitor {
 
 // Legacy export for backward compatibility
 export const performanceMonitor = new Proxy({} as PerformanceMonitor, {
-  get(target, prop) {
+  get(_target, prop) {
     return getPerformanceMonitor()[prop as keyof PerformanceMonitor]
   }
 })
@@ -590,7 +590,7 @@ export async function initializePerformanceMonitoring(): Promise<boolean> {
     console.log('[Performance] Performance monitoring initialized')
     return true
   } catch (error) {
-    logWarn('[Performance] Failed to initialize performance monitoring:', error)
+    logWarn('[Performance] Failed to initialize performance monitoring:', error as string)
     return false
   }
 }

@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script>
+  import { logError } from '$lib/logger';
   import { referenceService, configService } from './firebaseDataService.js';
   import { getSharedIngredientInfo } from './sharedIngredientService.js';
   

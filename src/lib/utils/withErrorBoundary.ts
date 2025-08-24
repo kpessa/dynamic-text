@@ -39,8 +39,8 @@ export function withErrorBoundary<T extends Record<string, any>>(
     onError,
     fallback,
     isolate = false,
-    retryable = true,
-    maxRetries = 3
+    // retryable = true,
+    // maxRetries = 3
   } = options;
   
   return {
@@ -188,7 +188,7 @@ export function wrapComponents(
 /**
  * Create a medical-critical component wrapper
  */
-export function createMedicalComponent<T extends Record<string, any>>(
+export function createMedicalComponent(
   Component: any,
   componentName: string
 ): any {
@@ -222,7 +222,7 @@ export function createMedicalComponent<T extends Record<string, any>>(
         `Please refresh the page and contact support immediately.`
       );
     },
-    fallback: ({ error, errorId }) => ({
+    fallback: ({ errorId }: { error: any; errorId: any }) => ({
       render: () => `
         <div style="
           padding: 2rem;

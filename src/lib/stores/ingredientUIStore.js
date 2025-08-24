@@ -1,28 +1,42 @@
 import { referenceService } from '../firebaseDataService.js';
-import { logError } from '$lib/logger';
+// import { logError } from '$lib/logger';  // Unused import
 
 // UI state - using plain variables since this is a store module
+/** @type {Map<string, boolean>} */
 let expandedIngredients = new Map();
 let selectionMode = false;
+/** @type {Set<string>} */
 let selectedIngredients = new Set();
+/** @type {any} */
 let currentIngredient = null;
+/** @type {Map<string, boolean>} */
 let referenceLoadingStates = new Map();
+/** @type {Map<string, any>} */
 let referenceCache = new Map();
+/** @type {Record<string, any>} */
 let ingredientReferences = {};
+/** @type {Record<string, any>} */
 let sharedStatuses = {};
 
 // Modal states
 let showVersionHistory = false;
+/** @type {string | null} */
 let versionHistoryIngredientId = null;
 let showSharedManager = false;
+/** @type {any} */
 let sharedManagerIngredient = null;
 let showVariationDetector = false;
+/** @type {any} */
 let variationTargetIngredient = null;
 let showBaselineComparison = false;
+/** @type {any} */
 let baselineComparisonData = null;
 let showBulkOperations = false;
 
 // Toggle ingredient expansion
+/**
+ * @param {string} ingredientId
+ */
 function toggleExpanded(ingredientId) {
   const newMap = new Map(expandedIngredients);
   if (newMap.has(ingredientId)) {
@@ -34,6 +48,10 @@ function toggleExpanded(ingredientId) {
 }
 
 // Check if ingredient is expanded
+/**
+ * @param {string} ingredientId
+ * @returns {boolean}
+ */
 function isExpanded(ingredientId) {
   return expandedIngredients.has(ingredientId);
 }
@@ -47,6 +65,9 @@ function toggleSelectionMode() {
 }
 
 // Toggle ingredient selection
+/**
+ * @param {string} ingredientId
+ */
 function toggleIngredientSelection(ingredientId) {
   const newSet = new Set(selectedIngredients);
   if (newSet.has(ingredientId)) {
@@ -58,6 +79,9 @@ function toggleIngredientSelection(ingredientId) {
 }
 
 // Select all ingredients
+/**
+ * @param {string[]} ingredientIds
+ */
 function selectAll(ingredientIds) {
   selectedIngredients = new Set(ingredientIds);
 }
@@ -68,6 +92,9 @@ function clearSelection() {
 }
 
 // Load references for an ingredient
+/**
+ * @param {string} ingredientId
+ */
 async function loadReferencesForIngredient(ingredientId) {
   // Check cache first
   if (referenceCache.has(ingredientId)) {
@@ -85,12 +112,16 @@ async function loadReferencesForIngredient(ingredientId) {
     const references = await referenceService.getReferencesForIngredient(ingredientId);
     
     // Group by population type
+    /** @type {Record<string, any[]>} */
     const grouped = {};
-    references.forEach(ref => {
-      if (!grouped[ref.populationType]) {
-        grouped[ref.populationType] = [];
+    /** @type {any[]} */
+    const refsArray = references;
+    refsArray.forEach((ref) => {
+      const populationType = ref.populationType || 'Unknown';
+      if (!grouped[populationType]) {
+        grouped[populationType] = [];
       }
-      grouped[ref.populationType].push(ref);
+      grouped[populationType].push(ref);
     });
     
     // Update cache and state
@@ -113,6 +144,9 @@ async function loadReferencesForIngredient(ingredientId) {
 }
 
 // Clear reference cache for an ingredient
+/**
+ * @param {string} ingredientId
+ */
 function clearReferenceCache(ingredientId) {
   if (referenceCache.has(ingredientId)) {
     const newCache = new Map(referenceCache);
@@ -126,21 +160,34 @@ function clearReferenceCache(ingredientId) {
 }
 
 // Modal management functions
+/**
+ * @param {any} ingredient
+ */
 function openVersionHistory(ingredient) {
   versionHistoryIngredientId = ingredient.id;
   showVersionHistory = true;
 }
 
+/**
+ * @param {any} ingredient
+ */
 function openSharedManager(ingredient) {
   sharedManagerIngredient = ingredient;
   showSharedManager = true;
 }
 
+/**
+ * @param {any} ingredient
+ */
 function openVariationDetector(ingredient) {
   variationTargetIngredient = ingredient;
   showVariationDetector = true;
 }
 
+/**
+ * @param {any} ingredient
+ * @param {any} reference
+ */
 function openBaselineComparison(ingredient, reference) {
   baselineComparisonData = { ingredient, reference };
   showBaselineComparison = true;

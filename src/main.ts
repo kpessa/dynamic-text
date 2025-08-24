@@ -1,7 +1,23 @@
 import { mount } from 'svelte'
-import './app.scss'
+import './styles/global.css' // Import global theme styles
+import './app.css'  // Import Tailwind/Skeleton styles
+import './app.scss' // Then our custom SCSS
 import { healthMonitor } from './lib/services/healthMonitor'
 import { logError, logWarn } from '$lib/logger';
+
+// Initialize theme from localStorage
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  } else {
+    // Default to light theme
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+}
+
+// Initialize theme before app loads
+initializeTheme();
 
 // Simple, non-blocking app initialization to fix freezing issues
 async function initializeApp() {
@@ -29,7 +45,7 @@ async function initializeApp() {
     return app
     
   } catch (error) {
-    logError('[App] Failed to initialize application:', error)
+    logError('[App] Failed to initialize application:', error instanceof Error ? error : new Error(String(error)))
     
     // Report to health monitor
     healthMonitor.reportComponentError('App', error as Error)
@@ -74,7 +90,7 @@ async function initializeBackgroundServices() {
       console.log('[KPT] Custom functions initialized successfully');
     }
   } catch (error) {
-    logWarn('[KPT] Failed to initialize custom functions:', error);
+    logWarn('[KPT] Failed to initialize custom functions:', String(error));
   }
   
   console.log('[App] Background services initialization complete')

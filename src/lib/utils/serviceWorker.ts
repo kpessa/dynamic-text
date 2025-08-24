@@ -1,4 +1,3 @@
-import { logWarn, logError } from '$lib/logger';
 /**
  * Service Worker Registration and Management
  * Handles PWA service worker lifecycle and updates
@@ -85,7 +84,7 @@ class ServiceWorkerManager {
   }
 
   private handleServiceWorkerMessage(event: MessageEvent) {
-    const { type, ...data } = event.data || {}
+    const { type } = event.data || {}
     
     switch (type) {
       case 'SW_ACTIVATED':

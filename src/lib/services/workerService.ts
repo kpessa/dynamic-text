@@ -46,7 +46,7 @@ class WorkerManager {
       }
       
       this.worker.onerror = (error) => {
-        logError('[WorkerService] Worker error:', error)
+        logError('[WorkerService] Worker error:', new Error(error.message || 'Worker error occurred'))
         this.handleWorkerError(error)
       }
       
@@ -57,7 +57,7 @@ class WorkerManager {
       console.log('[WorkerService] Worker initialized successfully')
       
     } catch (error) {
-      logError('[WorkerService] Failed to initialize worker:', error)
+      logError('[WorkerService] Failed to initialize worker:', error as Error)
       throw error
     }
   }
@@ -81,7 +81,7 @@ class WorkerManager {
   }
   
   private handleWorkerError(error: ErrorEvent) {
-    logError('[WorkerService] Worker error:', error)
+    logError('[WorkerService] Worker error:', new Error(error.message || 'Worker error occurred'))
     
     // Reject all pending messages
     this.pendingMessages.forEach(({ reject }) => {
@@ -107,7 +107,7 @@ class WorkerManager {
         console.log('[WorkerService] Worker restarted successfully')
         return
       } catch (error) {
-        logError(`[WorkerService] Restart attempt ${i + 1} failed:`, error, 'Validation')
+        logError(`[WorkerService] Restart attempt ${i + 1} failed:`, error as Error, 'Validation')
       }
     }
     
@@ -224,7 +224,7 @@ class TPNWorkerService {
       
       return result
     } catch (error) {
-      logError('[TPNWorkerService] TPN calculation failed:', error)
+      logError('[TPNWorkerService] TPN calculation failed:', error as Error)
       throw error
     }
   }
@@ -238,7 +238,7 @@ class TPNWorkerService {
       
       return results
     } catch (error) {
-      logError('[TPNWorkerService] Batch calculation failed:', error)
+      logError('[TPNWorkerService] Batch calculation failed:', error as Error)
       throw error
     }
   }
@@ -252,7 +252,7 @@ class TPNWorkerService {
       
       return result
     } catch (error) {
-      logError('[TPNWorkerService] Requirements calculation failed:', error)
+      logError('[TPNWorkerService] Requirements calculation failed:', error as Error)
       throw error
     }
   }
@@ -267,7 +267,7 @@ class TPNWorkerService {
       
       return result
     } catch (error) {
-      logError('[TPNWorkerService] TPN validation failed:', error)
+      logError('[TPNWorkerService] TPN validation failed:', error as Error)
       throw error
     }
   }
@@ -278,7 +278,7 @@ class TPNWorkerService {
       const metrics = await this.workerManager.sendMessage('GET_PERFORMANCE_METRICS')
       return metrics
     } catch (error) {
-      logError('[TPNWorkerService] Failed to get performance metrics:', error)
+      logError('[TPNWorkerService] Failed to get performance metrics:', error as Error)
       return null
     }
   }
@@ -290,7 +290,7 @@ class TPNWorkerService {
       this.calculationCache.clear()
       console.log('[TPNWorkerService] Cache cleared')
     } catch (error) {
-      logError('[TPNWorkerService] Failed to clear cache:', error)
+      logError('[TPNWorkerService] Failed to clear cache:', error as Error)
     }
   }
   
@@ -298,7 +298,9 @@ class TPNWorkerService {
     // Implement LRU cache
     if (this.calculationCache.size >= this.cacheMaxSize) {
       const firstKey = this.calculationCache.keys().next().value
-      this.calculationCache.delete(firstKey)
+      if (firstKey !== undefined) {
+        this.calculationCache.delete(firstKey)
+      }
     }
     
     this.calculationCache.set(key, result)
@@ -344,7 +346,7 @@ class CodeExecutionWorkerService {
       
       return result
     } catch (error) {
-      logError('[CodeExecutionWorkerService] Code execution failed:', error)
+      logError('[CodeExecutionWorkerService] Code execution failed:', error as Error)
       throw error
     }
   }
@@ -357,7 +359,7 @@ class CodeExecutionWorkerService {
       
       return results
     } catch (error) {
-      logError('[CodeExecutionWorkerService] Batch execution failed:', error)
+      logError('[CodeExecutionWorkerService] Batch execution failed:', error as Error)
       throw error
     }
   }
@@ -388,13 +390,13 @@ export function getCodeExecutionWorkerService(): CodeExecutionWorkerService {
 
 // Legacy exports for backward compatibility (but lazy)
 export const tpnWorkerService = new Proxy({} as TPNWorkerService, {
-  get(target, prop) {
+  get(_target, prop) {
     return getTpnWorkerService()[prop as keyof TPNWorkerService]
   }
 })
 
 export const codeExecutionWorkerService = new Proxy({} as CodeExecutionWorkerService, {
-  get(target, prop) {
+  get(_target, prop) {
     return getCodeExecutionWorkerService()[prop as keyof CodeExecutionWorkerService]
   }
 })
@@ -421,7 +423,7 @@ export async function initializeWorkers(timeout: number = 5000): Promise<{ tpn: 
     results.tpn = true
     console.log('[WorkerService] TPN worker initialized successfully')
   } catch (error) {
-    logWarn('[WorkerService] Failed to initialize TPN worker:', error)
+    logWarn('[WorkerService] Failed to initialize TPN worker:', error as string)
   }
 
   try {
@@ -437,7 +439,7 @@ export async function initializeWorkers(timeout: number = 5000): Promise<{ tpn: 
     results.code = true
     console.log('[WorkerService] Code execution worker initialized successfully')
   } catch (error) {
-    logWarn('[WorkerService] Failed to initialize code execution worker:', error)
+    logWarn('[WorkerService] Failed to initialize code execution worker:', error as string)
   }
 
   return results
@@ -456,7 +458,7 @@ export function terminateAllWorkers(): void {
     }
     console.log('[WorkerService] All workers terminated')
   } catch (error) {
-    logWarn('[WorkerService] Error terminating workers:', error)
+    logWarn('[WorkerService] Error terminating workers:', error as string)
   }
 }
 

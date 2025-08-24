@@ -56,7 +56,7 @@ class SecureCodeExecutor {
       };
 
       this.worker.onerror = (error) => {
-        logError('Worker error:', error as Error);
+        logError('Worker error:', new Error(error.message || 'Worker error occurred'));
         this.handleWorkerError(error);
       };
 
@@ -187,7 +187,7 @@ class SecureCodeExecutor {
   /**
    * Handle worker errors
    */
-  private handleWorkerError(error: ErrorEvent) {
+  private handleWorkerError(_error: ErrorEvent) {
     // Reject all pending executions
     this.pendingExecutions.forEach(({ reject }) => {
       reject(new Error('Worker crashed'));

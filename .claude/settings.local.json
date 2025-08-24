@@ -21,7 +21,18 @@
       "Bash(./scripts/pre-commit-check.sh:*)",
       "Bash(pnpm run:*)",
       "Bash(git push:*)",
-      "Bash(pnpm test:unit:*)"
+      "Bash(pnpm test:unit:*)",
+      "WebSearch",
+      "WebFetch(domain:svelte.dev)",
+      "WebFetch(domain:skeleton.dev)",
+      "WebFetch(domain:www.skeleton.dev)",
+      "WebFetch(domain:bits-ui.com)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(npx:*)",
+      "Bash(pnpm exec playwright:*)",
+      "Bash(pnpm exec @playwright/mcp:*)",
+      "Bash(git log:*)"
     ],
     "deny": []
   }

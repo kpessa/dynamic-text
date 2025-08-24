@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script>
+  import { logError } from '$lib/logger';
   import { getKeyUnit, isValidKey } from './tpnLegacy.js';
   
   let { section, onTestsGenerated, tpnMode = false } = $props();

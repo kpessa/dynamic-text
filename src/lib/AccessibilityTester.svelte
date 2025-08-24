@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script>
+  import { logError } from '$lib/logger';
   import { ColorContrastManager } from './utils/accessibility.js';
   
   let { isOpen = $bindable(false) } = $props();

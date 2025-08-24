@@ -60,7 +60,7 @@ class EventBus {
         try {
           callback(...args);
         } catch (error) {
-          logError(`Error in event handler for ${event}:`, error, 'Validation');
+          logError(`Error in event handler for ${event}:`, error instanceof Error ? error : new Error(String(error)), 'Validation');
         }
       });
     }

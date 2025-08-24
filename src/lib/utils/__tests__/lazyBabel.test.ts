@@ -3,7 +3,7 @@
  * Validates dynamic loading and performance optimization
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { 
   loadBabel, 
   isBabelLoaded, 
@@ -14,7 +14,7 @@ import {
 
 // Mock Babel module
 const mockBabel = {
-  transform: vi.fn((code: string, options: any) => ({
+  transform: vi.fn((code: string, _options: any) => ({
     code: `transformed: ${code}`,
     map: null,
     ast: null
@@ -142,7 +142,7 @@ describe('Lazy Babel Loader', () => {
     });
 
     it('should not preload if already loading', () => {
-      const promise1 = loadBabel();
+      loadBabel();
       preloadBabel();
       
       // Should return the same loading promise
@@ -181,21 +181,21 @@ describe('Lazy Babel Loader', () => {
   describe('Error Handling', () => {
     it('should handle import failures gracefully', async () => {
       // Mock failed import
-      const originalImport = global.import;
-      global.import = vi.fn().mockRejectedValueOnce(new Error('Network error'));
+      const originalImport = (global as any).import;
+      (global as any).import = vi.fn().mockRejectedValueOnce(new Error('Network error'));
       
       await expect(loadBabel()).rejects.toThrow('Network error');
       
       // Should reset loading state on failure
       expect(getBabelLoadingStatus()).toBe('not-loaded');
       
-      global.import = originalImport;
+      (global as any).import = originalImport;
     });
 
     it('should retry loading after failure', async () => {
       // First attempt fails
-      const originalImport = global.import;
-      global.import = vi.fn()
+      const originalImport = (global as any).import;
+      (global as any).import = vi.fn()
         .mockRejectedValueOnce(new Error('First failure'))
         .mockResolvedValueOnce(mockBabel);
       
@@ -206,7 +206,7 @@ describe('Lazy Babel Loader', () => {
       expect(babel).toBe(mockBabel);
       expect(getBabelLoadingStatus()).toBe('loaded');
       
-      global.import = originalImport;
+      (global as any).import = originalImport;
     });
   });
 

@@ -10,14 +10,14 @@ import {
   where,
   writeBatch,
   arrayUnion,
-  arrayRemove,
+  arrayRemove as _arrayRemove,
   serverTimestamp,
-  type DocumentData,
-  type QuerySnapshot,
-  type DocumentSnapshot,
-  type WriteBatch
+  type DocumentData as _DocumentData,
+  type QuerySnapshot as _QuerySnapshot,
+  type DocumentSnapshot as _DocumentSnapshot,
+  type WriteBatch as _WriteBatch
 } from 'firebase/firestore';
-import { logError } from '$lib/logger';
+import { logError as _logError } from './logger';
 import { db, COLLECTIONS, getCurrentUser } from './firebase';
 import { generateIngredientHash } from './contentHashing';
 import type { 
@@ -26,7 +26,7 @@ import type {
   SharedIngredientInfo,
   SharingCandidate,
   ReferenceWithId,
-  User,
+  User as _User,
   CreateSharedIngredientResponse,
   SharedStatus
 } from './types.js';
@@ -69,7 +69,7 @@ export async function createSharedIngredient(
     }
     
     const refData = firstRefDoc.data();
-    const contentHash = refData.contentHash || generateIngredientHash(refData);
+    const contentHash = refData['contentHash'] || generateIngredientHash(refData);
     
     if (!contentHash) {
       throw new Error('Cannot share ingredient without content');
@@ -136,6 +136,7 @@ export async function addToSharedIngredient(
   try {
     const user = getCurrentUser();
     if (!user) throw new Error('User not authenticated');
+    if (!db) throw new Error('Database not initialized');
     
     const sharedRef = doc(db, SHARED_INGREDIENTS_COLLECTION, sharedId);
     const sharedDoc = await getDoc(sharedRef);
@@ -153,7 +154,7 @@ export async function addToSharedIngredient(
     }
     
     const refData = refDoc.data();
-    const refHash = refData.contentHash || generateIngredientHash(refData);
+    const refHash = refData['contentHash'] || generateIngredientHash(refData);
     
     if (refHash !== sharedData.contentHash) {
       throw new Error('Reference content does not match shared ingredient');
@@ -185,7 +186,7 @@ export async function addToSharedIngredient(
     const masterDoc = await getDoc(masterRef);
     if (masterDoc.exists()) {
       await updateDoc(masterRef, {
-        sharedCount: ((masterDoc.data().sharedCount as number) || 0) + 1
+        sharedCount: ((masterDoc.data()['sharedCount'] as number) || 0) + 1
       });
     }
     
@@ -201,6 +202,7 @@ export async function addToSharedIngredient(
  */
 export async function getSharedIngredientByHash(hash: string): Promise<SharedIngredient | null> {
   try {
+    if (!db) throw new Error('Database not initialized');
     const sharedId = `shared_${hash}`;
     const sharedRef = doc(db, SHARED_INGREDIENTS_COLLECTION, sharedId);
     const sharedDoc = await getDoc(sharedRef);
@@ -229,6 +231,7 @@ export async function removeFromSharedIngredient(
   try {
     const user = getCurrentUser();
     if (!user) throw new Error('User not authenticated');
+    if (!db) throw new Error('Database not initialized');
     
     const sharedRef = doc(db, SHARED_INGREDIENTS_COLLECTION, sharedId);
     const sharedDoc = await getDoc(sharedRef);
@@ -287,6 +290,7 @@ export async function removeFromSharedIngredient(
  */
 export async function getSharedIngredients(): Promise<SharedIngredient[]> {
   try {
+    if (!db) throw new Error('Database not initialized');
     const snapshot = await getDocs(collection(db, SHARED_INGREDIENTS_COLLECTION));
     return snapshot.docs.map(doc => ({
       id: doc.id,
@@ -303,6 +307,7 @@ export async function getSharedIngredients(): Promise<SharedIngredient[]> {
  */
 export async function getSharedIngredient(sharedId: string): Promise<SharedIngredient | null> {
   try {
+    if (!db) throw new Error('Database not initialized');
     const sharedDoc = await getDoc(doc(db, SHARED_INGREDIENTS_COLLECTION, sharedId));
     if (!sharedDoc.exists()) {
       return null;
@@ -325,14 +330,15 @@ export async function isIngredientShared(
   configId: string | null = null
 ): Promise<SharedStatus> {
   try {
+    if (!db) throw new Error('Database not initialized');
     if (configId) {
       // Check specific reference
       const refDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', configId));
       if (refDoc.exists()) {
         const data = refDoc.data();
         return {
-          isShared: data.isShared || false,
-          sharedIngredientId: data.sharedIngredientId || null
+          isShared: data['isShared'] || false,
+          sharedIngredientId: data['sharedIngredientId'] || null
         };
       }
     } else {
@@ -341,9 +347,9 @@ export async function isIngredientShared(
       if (ingredientDoc.exists()) {
         const data = ingredientDoc.data();
         return {
-          isShared: data.isSharedMaster || false,
-          sharedIngredientId: data.sharedIngredientId || null,
-          sharedCount: data.sharedCount || 0
+          isShared: data['isSharedMaster'] || false,
+          sharedIngredientId: data['sharedIngredientId'] || null,
+          sharedCount: data['sharedCount'] || 0
         };
       }
     }
@@ -359,6 +365,7 @@ export async function isIngredientShared(
  */
 export async function getSharedIngredientInfo(ingredientId: string): Promise<SharedIngredientInfo | null> {
   try {
+    if (!db) throw new Error('Database not initialized');
     // First check if this ingredient is shared
     const sharedStatus = await isIngredientShared(ingredientId);
     
@@ -393,13 +400,14 @@ export async function getSharedIngredientInfo(ingredientId: string): Promise<Sha
  */
 export async function findSharingCandidates(ingredientId: string): Promise<SharingCandidate[]> {
   try {
+    if (!db) throw new Error('Database not initialized');
     const ingredientDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId));
     if (!ingredientDoc.exists()) {
       return [];
     }
     
     const ingredientData = ingredientDoc.data();
-    const contentHash = ingredientData.contentHash || generateIngredientHash(ingredientData);
+    const contentHash = ingredientData['contentHash'] || generateIngredientHash(ingredientData);
     
     if (!contentHash) {
       return [];
@@ -428,10 +436,10 @@ export async function findSharingCandidates(ingredientId: string): Promise<Shari
         
         candidates.push({
           ingredientId: doc.id,
-          ingredientName: data.name,
+          ingredientName: data['name'],
           references: references,
-          isShared: data.isSharedMaster || false,
-          sharedIngredientId: data.sharedIngredientId || null
+          isShared: data['isSharedMaster'] || false,
+          sharedIngredientId: data['sharedIngredientId'] || null
         });
       }
     }
@@ -453,6 +461,7 @@ export async function makeIndependentCopy(
   try {
     const user = getCurrentUser();
     if (!user) throw new Error('User not authenticated');
+    if (!db) throw new Error('Database not initialized');
     
     // Get the reference
     const refDoc = await getDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', configId));
@@ -462,13 +471,13 @@ export async function makeIndependentCopy(
     
     const refData = refDoc.data();
     
-    if (!refData.isShared) {
+    if (!refData['isShared']) {
       return { success: true, message: 'Reference is already independent' };
     }
     
     // Remove from shared ingredient
-    if (refData.sharedIngredientId) {
-      await removeFromSharedIngredient(refData.sharedIngredientId, {
+    if (refData['sharedIngredientId']) {
+      await removeFromSharedIngredient(refData['sharedIngredientId'], {
         ingredientId,
         configId
       });

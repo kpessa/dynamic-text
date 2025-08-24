@@ -1,6 +1,5 @@
 import neonatalData from '../../cert-west-neonatal.json';
 import type { IngredientConfig, IngredientDisplay, NoteItem, ReferenceRange } from './types.js';
-import { logError } from '$lib/logger';
 
 /**
  * TPN Ingredient Configuration System

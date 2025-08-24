@@ -18,7 +18,7 @@ export interface User {
 }
 
 // Population types
-export type PopulationType = 'neonatal' | 'child' | 'adolescent' | 'adult';
+export type PopulationType = 'neonatal' | 'child' | 'pediatric' | 'adolescent' | 'adult';
 
 export const POPULATION_TYPES = {
   NEONATAL: 'neonatal' as const,

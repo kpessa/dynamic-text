@@ -1,0 +1,79 @@
+/* Tailwind CSS Directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Skeleton Theme CSS Variables */
+@import '@skeletonlabs/skeleton/themes/theme-skeleton.css';
+@import '@skeletonlabs/skeleton/styles/skeleton.css';
+
+/* Custom global styles */
+@layer base {
+  /* Medical-grade font smoothing */
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar for medical UI */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-400 rounded;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-500;
+  }
+}
+
+/* Utility classes for medical UI */
+@layer utilities {
+  .medical-card {
+    @apply card p-4 variant-ghost-surface;
+  }
+
+  .medical-input {
+    @apply input variant-form-material;
+  }
+
+  .medical-button-primary {
+    @apply btn variant-filled-primary;
+  }
+
+  /* Screen reader only - hides content visually but keeps it for accessibility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .medical-button-secondary {
+    @apply btn variant-ghost-secondary;
+  }
+
+  .medical-alert-success {
+    @apply alert variant-filled-success;
+  }
+
+  .medical-alert-warning {
+    @apply alert variant-filled-warning;
+  }
+
+  .medical-alert-error {
+    @apply alert variant-filled-error;
+  }
+}

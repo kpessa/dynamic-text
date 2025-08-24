@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script lang="ts">
+  import { logError } from '$lib/logger';
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { EditorView } from '@codemirror/view';
   import { EditorState } from '@codemirror/state';
@@ -223,12 +223,7 @@ import { logError } from '$lib/logger';
     if (editorElement) {
       editorElement.setAttribute('role', 'textbox');
       editorElement.setAttribute('aria-multiline', 'true');
-      editorElement.setAttribute('aria-label', `${language} code editor`);
-      if (language === 'javascript') {
-        editorElement.setAttribute('aria-describedby', 'js-editor-help');
-      } else if (language === 'html') {
-        editorElement.setAttribute('aria-describedby', 'html-editor-help');
-      }
+      editorElement.setAttribute('aria-label', `${language === 'javascript' ? 'JavaScript' : 'HTML'} editor`);
     }
   });
   
@@ -261,13 +256,6 @@ import { logError } from '$lib/logger';
 </script>
 
 <div bind:this={element} class="medical-code-editor">
-  <!-- Hidden helper text for screen readers -->
-  <div id="js-editor-help" class="sr-only">
-    Medical JavaScript code editor. Use me.getValue('keyname') to access TPN values. Press Tab to move to next element. This editor supports TPN calculation functions.
-  </div>
-  <div id="html-editor-help" class="sr-only">
-    Medical HTML content editor. Type [f( to convert to dynamic JavaScript section. Press Tab to move to next element. Use this for static medical content.
-  </div>
 </div>
 
 <style lang="scss">

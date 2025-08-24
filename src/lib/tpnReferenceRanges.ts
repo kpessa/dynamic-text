@@ -49,7 +49,7 @@ export class TPNReferenceRangeValidator {
   checkValue(
     value: number, 
     rangeChecker: RangeChecker, 
-    keyname: string, 
+    _keyname: string, 
     uom: string = ''
   ): ValidationResult {
     const result: ValidationResult = {
@@ -210,7 +210,7 @@ export class TPNReferenceRangeValidator {
    * Format number for display
    */
   formatValue(n: number, p: number): string {
-    if (typeof n !== 'number') return n.toString();
+    if (typeof n !== 'number') return String(n);
     let rv = n.toFixed(p);
     if (rv.includes('.')) {
       rv = rv.replace(/\.?0+$/, '').replace(/\.$/, '');
@@ -249,7 +249,7 @@ interface TPNReferenceRange {
 export function getReferenceRange(
   key: string,
   populationType: string,
-  weight: number
+  _weight: number
 ): TPNReferenceRange | undefined {
   // Mock implementation for testing
   const mockRange = {
@@ -313,7 +313,7 @@ export function validateTPNValue(
   return {
     status: warnings.length > 0 ? 'invalid' : 'valid',
     severity: severity,
-    message: warnings.length > 0 ? warnings[0] : 'Value within range',
+    message: warnings.length > 0 ? warnings[0]! : 'Value within range',
     threshold: warnings.length > 0 ? (value > range.max ? range.max : range.min) : null,
     thresholdName: range.THRESHOLD || 'Normal'
   };
@@ -375,7 +375,7 @@ export function getPopulationLimits(populationType: string): any {
     }
   };
   
-  return limits[populationType] || limits.Adult;
+  return limits[populationType] || limits['Adult'];
 }
 
 export function calculateAgeInMonths(birthDate: string | Date): number {

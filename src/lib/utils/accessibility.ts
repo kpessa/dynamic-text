@@ -160,12 +160,12 @@ export class FocusManager {
       if (e.shiftKey) {
         if (document.activeElement === firstElement) {
           e.preventDefault();
-          lastElement.focus();
+          lastElement?.focus();
         }
       } else {
         if (document.activeElement === lastElement) {
           e.preventDefault();
-          firstElement.focus();
+          firstElement?.focus();
         }
       }
     };
@@ -174,7 +174,7 @@ export class FocusManager {
     this.trapElements.push({ container, handler: handleTabKey });
 
     // Focus first element
-    firstElement.focus();
+    firstElement?.focus();
 
     return () => {
       container.removeEventListener('keydown', handleTabKey);
@@ -256,9 +256,9 @@ export class KeyboardManager {
     if (openModals.length > 0) {
       // Close the topmost modal
       const topModal = openModals[openModals.length - 1];
-      const closeButton = topModal.querySelector<HTMLElement>('[data-close-modal]') || 
-                         topModal.querySelector<HTMLElement>('.close-btn') ||
-                         topModal.querySelector<HTMLElement>('[aria-label*="close"]');
+      const closeButton = topModal?.querySelector<HTMLElement>('[data-close-modal]') || 
+                         topModal?.querySelector<HTMLElement>('.close-btn') ||
+                         topModal?.querySelector<HTMLElement>('[aria-label*="close"]');
       if (closeButton) {
         closeButton.click();
       }
@@ -295,7 +295,7 @@ export class ColorContrastManager {
       return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     });
 
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
   }
 
   // Calculate contrast ratio
@@ -321,9 +321,9 @@ export class ColorContrastManager {
   static hexToRgb(hex: string): RGB | null {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
+      r: parseInt(result[1]!, 16),
+      g: parseInt(result[2]!, 16),
+      b: parseInt(result[3]!, 16)
     } : null;
   }
 

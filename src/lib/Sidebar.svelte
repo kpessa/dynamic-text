@@ -1,0 +1,4247 @@
+<script>
+  import { onMount } from 'svelte';
+  import { isFirebaseConfigured } from './firebase.js';
+  import { configService, normalizeConfigId } from './firebaseDataService.js';
+  import { convertNotesToSections } from './services/domain/ConfigService';
+  import DuplicateReportModal from './DuplicateReportModal.svelte';
+  
+  let { 
+    onLoadReference = () => {}, 
+    onSaveReference = () => {},
+    onConfigActivate = () => {},
+    currentSections = [],
+    activeConfigId = null,
+    activeConfigIngredients = [],
+    onCloseSidebar = () => {}
+  } = $props();
+  
+  let referenceTexts = $state({});
+  let folders = $state({});
+  let expandedFolders = $state({});
+  let selectedReference = $state(null);
+  let showSaveDialog = $state(false);
+  let searchQuery = $state('');
+  let configSearchQuery = $state('');
+  let lastImportReport = $state(null);
+  let showDuplicateReport = $state(false);
+  
+  // Filter states
+  let filters = $state({
+    healthSystem: '',
+    domain: '',
+    subdomain: '',
+    version: '',
+    ingredient: ''
+  });
+  
+  // Save dialog states
+  let saveData = $state({
+    name: '',
+    ingredient: '',
+    healthSystem: 'UHS',
+    domain: 'west',
+    subdomain: 'prod',
+    version: 'adult',
+    tags: ''
+  });
+  
+  // Available options - now editable
+  let healthSystems = $state(['UHS', 'Other']);
+  let domains = $state(['west', 'central', 'east']);
+  let subdomains = $state(['build', 'cert', 'mock', 'prod']);
+  let versions = $state(['neonatal', 'child', 'adolescent', 'adult']);
+  
+  // Management dialogs
+  let showHealthSystemDialog = $state(false);
+  let showDomainDialog = $state(false);
+  let showSubdomainDialog = $state(false);
+  let showIngredientDialog = $state(false);
+  let showImportDialog = $state(false);
+  let showManageDropdown = $state(false);
+  let newItemName = $state('');
+  
+  // Ingredient type configuration
+  const ingredientTypeConfig = {
+    'Diluent': { icon: '💧', color: '#3182ce', name: 'Diluent' },
+    'Macronutrient': { icon: '🥩', color: '#059669', name: 'Macronutrient' },
+    'Micronutrient': { icon: '💊', color: '#7c3aed', name: 'Micronutrient' },
+    'Salt': { icon: '🧂', color: '#ea580c', name: 'Salt' },
+    'Additive': { icon: '➕', color: '#ec4899', name: 'Additive' },
+    'Other': { icon: '📦', color: '#6b7280', name: 'Other' }
+  };
+  
+  function getIngredientTypeInfo(type) {
+    return ingredientTypeConfig[type] || ingredientTypeConfig['Other'];
+  }
+  
+  // Group active config ingredients by type
+  let groupedConfigIngredients = $derived.by(() => {
+    if (!activeConfigId || !activeConfigIngredients || activeConfigIngredients.length === 0) {
+      return [];
+    }
+    
+    // Filter ingredients based on search query
+    let filteredIngredients = activeConfigIngredients;
+    if (configSearchQuery) {
+      const query = configSearchQuery.toLowerCase();
+      filteredIngredients = activeConfigIngredients.filter(ingredient => {
+        const name = (ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname || '').toLowerCase();
+        const keyname = (ingredient.KEYNAME || ingredient.keyname || '').toLowerCase();
+        return name.includes(query) || keyname.includes(query);
+      });
+    }
+    
+    const groups = {};
+    const typeOrder = ['Diluent', 'Macronutrient', 'Micronutrient', 'Salt', 'Additive', 'Other'];
+    
+    // Group ingredients by type
+    filteredIngredients.forEach(ingredient => {
+      const type = ingredient.TYPE || ingredient.type || 'Other';
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(ingredient);
+    });
+    
+    // Sort groups by predefined order
+    return typeOrder
+      .filter(type => groups[type] && groups[type].length > 0)
+      .map(type => ({
+        type,
+        ingredients: groups[type].sort((a, b) => {
+          const nameA = (a.DISPLAY || a.display || a.KEYNAME || a.keyname || '').toLowerCase();
+          const nameB = (b.DISPLAY || b.display || b.KEYNAME || b.keyname || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        })
+      }));
+  });
+  
+  // Track expanded state for config ingredient groups
+  let expandedConfigGroups = $state({});
+  
+  // Import state
+  let importData = $state({
+    jsonText: '',
+    healthSystem: 'UHS',
+    domain: 'west',
+    subdomain: 'prod',
+    version: 'adult',
+    parseError: '',
+    parsedIngredients: [],
+    parsedConfig: null,
+    isImporting: false,
+    importProgress: 0,
+    importStatus: '',
+    importResults: {
+      successful: [],
+      failed: [],
+      skipped: []
+    }
+  });
+  
+  // Resize state
+  let isResizing = $state(false);
+  let sidebarWidth = $state(300); // Default width
+  let minWidth = 200;
+  let maxWidth = 600;
+  
+  // Edit state
+  let editingFolderId = $state(null);
+  let editingFolderName = $state('');
+  let editingReferenceId = $state(null);
+  let editingIngredientName = $state('');
+  
+  // Context menu state
+  let contextMenu = $state(null);
+  
+  // Drag state
+  let draggedReference = $state(null);
+  let dragOverFolderId = $state(null);
+  
+  // Breadcrumb navigation state
+  let navigationPath = $state([]);
+  let expandedTypeGroups = $state({});
+  
+  // Config management state
+  let tpnConfigs = $state({});
+  let firebaseConfigs = $state([]);
+  let loadingFirebaseConfigs = $state(false);
+  let showConfigDialog = $state(false);
+  
+  onMount(() => {
+    loadFromLocalStorage();
+  });
+  
+  // Auto-set domain to 'main' for non-UHS health systems
+  $effect(() => {
+    if (importData.healthSystem && importData.healthSystem !== 'UHS') {
+      importData.domain = 'main';
+    }
+  });
+  
+  // Auto-set domain for save dialog
+  $effect(() => {
+    if (saveData.healthSystem && saveData.healthSystem !== 'UHS') {
+      saveData.domain = 'main';
+    }
+  });
+  
+  // Auto-expand folders when searching
+  let previousSearchQuery = '';
+  
+  $effect(() => {
+    if (searchQuery !== previousSearchQuery) {
+      previousSearchQuery = searchQuery;
+      
+      if (searchQuery) {
+        // Expand all folders that contain matches
+        const newExpandedFolders = { ...expandedFolders };
+        foldersWithMatches.forEach(folderId => {
+          newExpandedFolders[folderId] = true;
+        });
+        expandedFolders = newExpandedFolders;
+      }
+    }
+  });
+  
+  function loadFromLocalStorage() {
+    try {
+      const saved = localStorage.getItem('referenceTexts');
+      if (saved) {
+        const data = JSON.parse(saved);
+        referenceTexts = data.referenceTexts || {};
+        folders = data.folders || initializeFolders();
+        // Load custom lists if they exist
+        if (data.healthSystems) healthSystems = data.healthSystems;
+        if (data.domains) domains = data.domains;
+        if (data.subdomains) subdomains = data.subdomains;
+        if (data.versions) versions = data.versions;
+        // Load sidebar width
+        if (data.sidebarWidth) sidebarWidth = data.sidebarWidth;
+        // Load TPN configs
+        if (data.tpnConfigs) tpnConfigs = data.tpnConfigs;
+        // activeConfigId is now managed by parent component
+        
+        // Discover any missing health systems from existing references
+        Object.values(referenceTexts).forEach(ref => {
+          if (ref.healthSystem && !healthSystems.includes(ref.healthSystem)) {
+            addHealthSystem(ref.healthSystem);
+          }
+        });
+      } else {
+        folders = initializeFolders();
+      }
+    } catch (e) {
+      console.error('Failed to load from localStorage:', e);
+      folders = initializeFolders();
+    }
+  }
+  
+  function saveToLocalStorage() {
+    try {
+      localStorage.setItem('referenceTexts', JSON.stringify({
+        referenceTexts,
+        folders,
+        healthSystems,
+        domains,
+        subdomains,
+        versions,
+        sidebarWidth,
+        tpnConfigs
+      }));
+    } catch (e) {
+      console.error('Failed to save to localStorage:', e);
+    }
+  }
+  
+  function initializeFolders() {
+    const rootFolders = {};
+    
+    // Create UHS folder structure
+    const uhsId = 'uhs-root';
+    rootFolders[uhsId] = {
+      id: uhsId,
+      name: 'UHS',
+      parentId: null,
+      type: 'healthSystem',
+      value: 'UHS'
+    };
+    
+    // Create domain folders under UHS
+    domains.forEach(domain => {
+      const domainId = `uhs-${domain}`;
+      rootFolders[domainId] = {
+        id: domainId,
+        name: domain.charAt(0).toUpperCase() + domain.slice(1),
+        parentId: uhsId,
+        type: 'domain',
+        value: domain
+      };
+      
+      // Create subdomain folders under each domain
+      subdomains.forEach(subdomain => {
+        const subdomainId = `uhs-${domain}-${subdomain}`;
+        rootFolders[subdomainId] = {
+          id: subdomainId,
+          name: subdomain.charAt(0).toUpperCase() + subdomain.slice(1),
+          parentId: domainId,
+          type: 'subdomain',
+          value: subdomain
+        };
+        
+        // Create version folders under each subdomain
+        versions.forEach(version => {
+          const versionId = `uhs-${domain}-${subdomain}-${version}`;
+          rootFolders[versionId] = {
+            id: versionId,
+            name: version.charAt(0).toUpperCase() + version.slice(1),
+            parentId: subdomainId,
+            type: 'version',
+            value: version
+          };
+        });
+      });
+    });
+    
+    // Create Other folder
+    rootFolders['other-root'] = {
+      id: 'other-root',
+      name: 'Other Health Systems',
+      parentId: null,
+      type: 'healthSystem',
+      value: 'Other'
+    };
+    
+    // Create main domain for Other
+    rootFolders['other-main'] = {
+      id: 'other-main',
+      name: 'Main',
+      parentId: 'other-root',
+      type: 'domain',
+      value: 'main'
+    };
+    
+    // Create subdomain folders under Other/main
+    subdomains.forEach(subdomain => {
+      const subdomainId = `other-main-${subdomain}`;
+      rootFolders[subdomainId] = {
+        id: subdomainId,
+        name: subdomain.charAt(0).toUpperCase() + subdomain.slice(1),
+        parentId: 'other-main',
+        type: 'subdomain',
+        value: subdomain
+      };
+      
+      // Create version folders
+      versions.forEach(version => {
+        const versionId = `other-main-${subdomain}-${version}`;
+        rootFolders[versionId] = {
+          id: versionId,
+          name: version.charAt(0).toUpperCase() + version.slice(1),
+          parentId: subdomainId,
+          type: 'version',
+          value: version
+        };
+      });
+    });
+    
+    return rootFolders;
+  }
+  
+  function toggleFolder(folderId) {
+    expandedFolders[folderId] = !expandedFolders[folderId];
+    
+    // Update navigation path if expanding
+    if (expandedFolders[folderId]) {
+      const folder = folders[folderId];
+      if (folder) {
+        navigationPath = buildPathToFolder(folder);
+      }
+    }
+  }
+  
+  // Toggle type group expansion
+  function toggleTypeGroup(folderId, type) {
+    const key = `${folderId}-${type}`;
+    expandedTypeGroups[key] = !expandedTypeGroups[key];
+    expandedTypeGroups = { ...expandedTypeGroups };
+  }
+  
+  function getFilteredReferences() {
+    return Object.values(referenceTexts).filter(ref => {
+      if (searchQuery && !ref.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+          !ref.ingredient.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      
+      if (filters.healthSystem && ref.healthSystem !== filters.healthSystem) return false;
+      if (filters.domain && ref.domain !== filters.domain) return false;
+      if (filters.subdomain && ref.subdomain !== filters.subdomain) return false;
+      if (filters.version && ref.version !== filters.version) return false;
+      if (filters.ingredient && ref.ingredient !== filters.ingredient) return false;
+      
+      return true;
+    });
+  }
+  
+  function getReferencesForFolder(folder) {
+    return getFilteredReferences().filter(ref => {
+      if (folder.type === 'healthSystem') {
+        return ref.healthSystem === folder.value;
+      } else if (folder.type === 'domain') {
+        const parent = folders[folder.parentId];
+        return ref.healthSystem === parent.value && ref.domain === folder.value;
+      } else if (folder.type === 'subdomain') {
+        const parent = folders[folder.parentId];
+        const grandparent = folders[parent.parentId];
+        return ref.healthSystem === grandparent.value && 
+               ref.domain === parent.value && 
+               ref.subdomain === folder.value;
+      } else if (folder.type === 'version') {
+        const parent = folders[folder.parentId];
+        const grandparent = folders[parent.parentId];
+        const greatGrandparent = folders[grandparent.parentId];
+        return ref.healthSystem === greatGrandparent.value && 
+               ref.domain === grandparent.value && 
+               ref.subdomain === parent.value &&
+               ref.version === folder.value;
+      }
+      return false;
+    });
+  }
+  
+  function groupReferencesByType(references) {
+    const groups = {};
+    const typeOrder = ['Diluent', 'Macronutrient', 'Micronutrient', 'Salt', 'Additive', 'Other'];
+    
+    // Initialize groups in order
+    typeOrder.forEach(type => {
+      groups[type] = [];
+    });
+    
+    // Group references
+    references.forEach(ref => {
+      const type = ref.ingredientType || 'Other';
+      if (groups[type]) {
+        groups[type].push(ref);
+      } else {
+        groups['Other'].push(ref);
+      }
+    });
+    
+    // Remove empty groups
+    return Object.entries(groups)
+      .filter(([type, refs]) => refs.length > 0)
+      .map(([type, refs]) => ({ type, refs }));
+  }
+  
+  function handleSaveReference() {
+    const id = Date.now().toString();
+    const newReference = {
+      id,
+      name: saveData.name,
+      ingredient: saveData.ingredient,
+      healthSystem: saveData.healthSystem,
+      domain: saveData.domain,
+      subdomain: saveData.subdomain,
+      version: saveData.version,
+      sections: currentSections.map(section => ({
+        ...section,
+        // Include testCases for dynamic sections
+        ...(section.type === 'dynamic' && section.testCases ? { testCases: section.testCases } : {})
+      })),
+      tags: saveData.tags.split(',').map(t => t.trim()).filter(t => t),
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    
+    referenceTexts[id] = newReference;
+    referenceTexts = { ...referenceTexts };
+    saveToLocalStorage();
+    showSaveDialog = false;
+    
+    // Notify parent that save is complete by loading the saved reference
+    loadReference(newReference);
+    
+    // Reset save form
+    saveData = {
+      name: '',
+      ingredient: '',
+      healthSystem: 'UHS',
+      domain: 'west',
+      subdomain: 'prod',
+      version: 'adult',
+      tags: ''
+    };
+  }
+  
+  function loadReference(ref, ingredient = null) {
+    selectedReference = ref;
+    onLoadReference(ref, ingredient);
+  }
+  
+  // Handle clicking on an ingredient in the config view
+  function handleIngredientClick(ingredient) {
+    // Check for notes in both possible fields (notes for local imports, NOTE for Firebase)
+    const notes = ingredient.notes || ingredient.NOTE;
+    
+    if (!notes || notes.length === 0) {
+      alert(`No content available for ${ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}`);
+      return;
+    }
+    
+    // Convert notes to sections
+    const sections = convertNotesToSections(notes);
+    
+    // Check if valid content exists
+    if (!hasValidContent(sections)) {
+      alert(`No valid content found for ${ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}`);
+      return;
+    }
+    
+    // Create a reference object
+    const reference = {
+      id: `config-${activeConfigId}-${ingredient.KEYNAME || ingredient.keyname}`,
+      name: ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname,
+      ingredient: ingredient.KEYNAME || ingredient.keyname,
+      ingredientType: ingredient.TYPE || ingredient.type,
+      sections: sections.map((s, idx) => ({
+        ...s,
+        id: idx + 1,
+        content: s.content
+      })),
+      fromConfig: true,
+      configId: activeConfigId
+    };
+    
+    // Load the reference into the editor with ingredient data
+    loadReference(reference, ingredient);
+  }
+  
+  function deleteReference(id) {
+    if (confirm('Delete this reference text?')) {
+      delete referenceTexts[id];
+      referenceTexts = { ...referenceTexts };
+      saveToLocalStorage();
+    }
+  }
+  
+  function duplicateReference(ref) {
+    const id = Date.now().toString();
+    const duplicate = {
+      ...ref,
+      id,
+      name: ref.name + ' (Copy)',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    
+    referenceTexts[id] = duplicate;
+    referenceTexts = { ...referenceTexts };
+    saveToLocalStorage();
+  }
+  
+  function renderFolder(folder, level = 0) {
+    const children = Object.values(folders).filter(f => f.parentId === folder.id);
+    const references = getReferencesForFolder(folder);
+    const hasContent = children.length > 0 || references.length > 0;
+    
+    return {
+      folder,
+      children,
+      references,
+      hasContent,
+      level
+    };
+  }
+  
+  function getRootFolders() {
+    return Object.values(folders).filter(f => f.parentId === null);
+  }
+  
+  // Build navigation path to a folder
+  function buildPathToFolder(folder) {
+    const path = [];
+    let current = folder;
+    
+    while (current) {
+      path.unshift(current);
+      current = current.parentId ? folders[current.parentId] : null;
+    }
+    
+    return path;
+  }
+  
+  // Navigate to a specific folder
+  function navigateToFolder(folder) {
+    navigationPath = buildPathToFolder(folder);
+    
+    // Expand all folders in the path
+    navigationPath.forEach(f => {
+      expandedFolders[f.id] = true;
+    });
+    
+    // Collapse all folders not in the path
+    Object.keys(expandedFolders).forEach(id => {
+      if (!navigationPath.find(f => f.id === id)) {
+        expandedFolders[id] = false;
+      }
+    });
+    
+    expandedFolders = { ...expandedFolders };
+  }
+  
+  // Get unique ingredients for filter dropdown
+  let uniqueIngredients = $derived(
+    [...new Set(Object.values(referenceTexts).map(r => r.ingredient))].sort()
+  );
+  
+  // Track folders that contain search matches
+  let foldersWithMatches = $derived((() => {
+    if (!searchQuery) return new Set();
+    
+    const matchingFolders = new Set();
+    const filteredRefs = getFilteredReferences();
+    
+    filteredRefs.forEach(ref => {
+      // Find all parent folders for this reference
+      Object.values(folders).forEach(folder => {
+        const refs = getReferencesForFolder(folder);
+        if (refs.some(r => r.id === ref.id)) {
+          // Add this folder and all its parents
+          let currentFolder = folder;
+          while (currentFolder) {
+            matchingFolders.add(currentFolder.id);
+            currentFolder = currentFolder.parentId ? folders[currentFolder.parentId] : null;
+          }
+        }
+      });
+    });
+    
+    return matchingFolders;
+  })());
+  
+  // List management functions
+  function addHealthSystem(systemName = null) {
+    const nameToAdd = systemName || newItemName;
+    if (nameToAdd && !healthSystems.includes(nameToAdd)) {
+      healthSystems = [...healthSystems, nameToAdd];
+      // Create folder structure for new health system
+      const rootId = `${nameToAdd.toLowerCase().replace(/\s+/g, '-')}-root`;
+      folders[rootId] = {
+        id: rootId,
+        name: nameToAdd,
+        parentId: null,
+        type: 'healthSystem',
+        value: nameToAdd
+      };
+      folders = { ...folders };
+      saveToLocalStorage();
+      newItemName = '';
+      showHealthSystemDialog = false;
+    }
+  }
+  
+  function removeHealthSystem(system) {
+    if (confirm(`Delete health system "${system}" and all its references?`)) {
+      healthSystems = healthSystems.filter(s => s !== system);
+      // Remove associated folders
+      const systemFolders = Object.values(folders).filter(f => 
+        f.type === 'healthSystem' && f.value === system
+      );
+      systemFolders.forEach(folder => {
+        removeFolder(folder.id);
+      });
+      // Remove associated references
+      Object.keys(referenceTexts).forEach(id => {
+        if (referenceTexts[id].healthSystem === system) {
+          delete referenceTexts[id];
+        }
+      });
+      referenceTexts = { ...referenceTexts };
+      saveToLocalStorage();
+    }
+  }
+  
+  function addDomain() {
+    if (newItemName && !domains.includes(newItemName)) {
+      domains = [...domains, newItemName];
+      // Update folders for all health systems with new domain
+      regenerateFolders();
+      saveToLocalStorage();
+      newItemName = '';
+      showDomainDialog = false;
+    }
+  }
+  
+  function removeDomain(domain) {
+    if (confirm(`Delete domain "${domain}" and all its references?`)) {
+      domains = domains.filter(d => d !== domain);
+      // Remove associated references
+      Object.keys(referenceTexts).forEach(id => {
+        if (referenceTexts[id].domain === domain) {
+          delete referenceTexts[id];
+        }
+      });
+      referenceTexts = { ...referenceTexts };
+      regenerateFolders();
+      saveToLocalStorage();
+    }
+  }
+  
+  function addSubdomain() {
+    if (newItemName && !subdomains.includes(newItemName)) {
+      subdomains = [...subdomains, newItemName];
+      regenerateFolders();
+      saveToLocalStorage();
+      newItemName = '';
+      showSubdomainDialog = false;
+    }
+  }
+  
+  function removeSubdomain(subdomain) {
+    if (confirm(`Delete subdomain "${subdomain}" and all its references?`)) {
+      subdomains = subdomains.filter(s => s !== subdomain);
+      // Remove associated references
+      Object.keys(referenceTexts).forEach(id => {
+        if (referenceTexts[id].subdomain === subdomain) {
+          delete referenceTexts[id];
+        }
+      });
+      referenceTexts = { ...referenceTexts };
+      regenerateFolders();
+      saveToLocalStorage();
+    }
+  }
+  
+  function removeFolder(folderId) {
+    // Remove folder and all children
+    const childFolders = Object.values(folders).filter(f => f.parentId === folderId);
+    childFolders.forEach(child => removeFolder(child.id));
+    delete folders[folderId];
+    folders = { ...folders };
+  }
+  
+  function regenerateFolders() {
+    // Preserve existing custom health systems
+    const existingHealthSystems = Object.values(folders)
+      .filter(f => f.type === 'healthSystem')
+      .map(f => ({ name: f.name, value: f.value, id: f.id }));
+    
+    folders = {};
+    
+    // Recreate all folders with current lists
+    existingHealthSystems.forEach(({ name, value, id }) => {
+      folders[id] = {
+        id,
+        name,
+        parentId: null,
+        type: 'healthSystem',
+        value
+      };
+      
+      // Create domain folders
+      if (value === 'UHS') {
+        domains.forEach(domain => {
+          const domainId = `uhs-${domain}`;
+          folders[domainId] = {
+            id: domainId,
+            name: domain.charAt(0).toUpperCase() + domain.slice(1),
+            parentId: id,
+            type: 'domain',
+            value: domain
+          };
+          
+          // Create subdomain folders
+          subdomains.forEach(subdomain => {
+            const subdomainId = `uhs-${domain}-${subdomain}`;
+            folders[subdomainId] = {
+              id: subdomainId,
+              name: subdomain.charAt(0).toUpperCase() + subdomain.slice(1),
+              parentId: domainId,
+              type: 'subdomain',
+              value: subdomain
+            };
+            
+            // Create version folders
+            versions.forEach(version => {
+              const versionId = `uhs-${domain}-${subdomain}-${version}`;
+              folders[versionId] = {
+                id: versionId,
+                name: version.charAt(0).toUpperCase() + version.slice(1),
+                parentId: subdomainId,
+                type: 'version',
+                value: version
+              };
+            });
+          });
+        });
+      } else {
+        // For non-UHS health systems, create a single 'main' domain
+        const domainId = `${value.toLowerCase().replace(/\s+/g, '-')}-main`;
+        folders[domainId] = {
+          id: domainId,
+          name: 'Main',
+          parentId: id,
+          type: 'domain',
+          value: 'main'
+        };
+        
+        // Create subdomain folders under main
+        subdomains.forEach(subdomain => {
+          const subdomainId = `${value.toLowerCase().replace(/\s+/g, '-')}-main-${subdomain}`;
+          folders[subdomainId] = {
+            id: subdomainId,
+            name: subdomain.charAt(0).toUpperCase() + subdomain.slice(1),
+            parentId: domainId,
+            type: 'subdomain',
+            value: subdomain
+          };
+          
+          // Create version folders
+          versions.forEach(version => {
+            const versionId = `${value.toLowerCase().replace(/\s+/g, '-')}-main-${subdomain}-${version}`;
+            folders[versionId] = {
+              id: versionId,
+              name: version.charAt(0).toUpperCase() + version.slice(1),
+              parentId: subdomainId,
+              type: 'version',
+              value: version
+            };
+          });
+        });
+      }
+    });
+    
+    folders = { ...folders };
+  }
+  
+  // Import functions
+  function parseIngredientJSON(jsonText) {
+    try {
+      const data = JSON.parse(jsonText);
+      
+      // Validate structure
+      if (!data.INGREDIENT || !Array.isArray(data.INGREDIENT)) {
+        throw new Error('Invalid JSON structure: INGREDIENT array not found');
+      }
+      
+      const ingredients = [];
+      
+      data.INGREDIENT.forEach((ingredient, index) => {
+        if (!ingredient.KEYNAME || !ingredient.NOTE) {
+          console.warn(`Skipping ingredient ${index}: missing KEYNAME or NOTE`);
+          return;
+        }
+        
+        ingredients.push({
+          keyname: ingredient.KEYNAME,
+          display: ingredient.DISPLAY || ingredient.KEYNAME,
+          type: ingredient.TYPE || 'Other',
+          notes: ingredient.NOTE || [],
+          raw: ingredient
+        });
+      });
+      
+      // Return both ingredients and the full config data
+      return { success: true, ingredients, config: data, error: null };
+    } catch (error) {
+      return { success: false, ingredients: [], config: null, error: error.message };
+    }
+  }
+  
+  function hasValidContent(sections) {
+    return sections.length > 0 && 
+           sections.some(s => s.content.trim().length > 0);
+  }
+  
+  // Use the consolidated convertNotesToSections from ConfigService
+  // This has been moved to a central location for better maintainability
+  
+  async function handleImportJSON() {
+    importData.parseError = '';
+    importData.parsedIngredients = [];
+    
+    const result = parseIngredientJSON(importData.jsonText);
+    
+    if (!result.success) {
+      importData.parseError = result.error;
+      return;
+    }
+    
+    importData.parsedIngredients = result.ingredients;
+    
+    // Auto-add new health system if it doesn't exist
+    if (importData.healthSystem && !healthSystems.includes(importData.healthSystem)) {
+      addHealthSystem(importData.healthSystem);
+    }
+    
+    // Store the parsed config for later use when importing
+    if (result.config) {
+      importData.parsedConfig = result.config;
+    }
+  }
+  
+  function importIngredient(ingredient) {
+    const sections = convertNotesToSections(ingredient.notes);
+    
+    // Skip if no valid content
+    if (!hasValidContent(sections)) {
+      alert(`Skipped "${ingredient.display}" - no valid content found`);
+      return;
+    }
+    
+    // Generate unique ID
+    const id = Date.now().toString();
+    
+    const newReference = {
+      id,
+      name: ingredient.display,
+      ingredient: ingredient.keyname,
+      ingredientType: ingredient.type,
+      healthSystem: importData.healthSystem,
+      domain: importData.domain,
+      subdomain: importData.subdomain,
+      version: importData.version,
+      sections: sections.map((s, idx) => ({
+        id: idx + 1,
+        type: s.type,
+        content: s.content,
+        ...(s.type === 'dynamic' ? { testCases: [{ name: 'Default', variables: {} }] } : {})
+      })),
+      tags: ['imported', ingredient.keyname, ingredient.type],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      importSource: 'json'
+    };
+    
+    referenceTexts[id] = newReference;
+    referenceTexts = { ...referenceTexts };
+    saveToLocalStorage();
+    
+    // Load it into editor
+    loadReference(newReference);
+    showImportDialog = false;
+    
+    // Reset import data
+    importData = {
+      jsonText: '',
+      healthSystem: 'UHS',
+      domain: 'west',
+      subdomain: 'prod',
+      version: 'adult',
+      parseError: '',
+      parsedIngredients: [],
+      parsedConfig: null,
+      isImporting: false,
+      importProgress: 0,
+      importStatus: '',
+      importResults: {
+        successful: [],
+        failed: [],
+        skipped: []
+      }
+    };
+  }
+  
+  async function importAllIngredients() {
+    const total = importData.parsedIngredients.length;
+    if (!confirm(`Import all ${total} ingredients to ${importData.healthSystem} > ${importData.domain} > ${importData.subdomain} > ${importData.version}?`)) {
+      return;
+    }
+    
+    importData.isImporting = true;
+    importData.importProgress = 0;
+    importData.importStatus = 'Preparing import...';
+    importData.importResults = {
+      successful: [],
+      failed: [],
+      skipped: []
+    };
+    let firstReference = null;
+    
+    // Save the config to Firebase first if configured
+    if (importData.parsedConfig) {
+      const configId = normalizeConfigId(
+        importData.healthSystem,
+        importData.domain,
+        importData.subdomain,
+        importData.version
+      );
+      
+      // Save to Firebase if configured
+      if (isFirebaseConfigured()) {
+        try {
+          const metadata = {
+            name: configId,
+            healthSystem: importData.healthSystem,
+            domain: importData.domain,
+            subdomain: importData.subdomain,
+            version: importData.version
+          };
+          
+          const result = await configService.saveImportedConfig(importData.parsedConfig, metadata);
+          console.log('Config saved to Firebase:', result);
+          
+          // Show duplicate report if there were duplicates
+          if (result.duplicateReport) {
+            console.log('Duplicate Report:', result.duplicateReport);
+            // Store for potential UI display
+            lastImportReport = result.duplicateReport;
+            lastImportReport.importStats = result.importStats;
+            showDuplicateReport = true;
+          }
+          
+          const firebaseConfigId = result.configId;
+          
+          // Store Firebase ID reference in local config
+          tpnConfigs[configId] = {
+            ...importData.parsedConfig,
+            metadata: {
+              ...metadata,
+              importedAt: Date.now(),
+              firebaseId: firebaseConfigId,
+              importReport: result.duplicateReport
+            }
+          };
+        } catch (error) {
+          console.error('Failed to save config to Firebase:', error);
+          // Still save to localStorage even if Firebase fails
+          tpnConfigs[configId] = {
+            ...importData.parsedConfig,
+            metadata: {
+              healthSystem: importData.healthSystem,
+              domain: importData.domain,
+              subdomain: importData.subdomain,
+              version: importData.version,
+              importedAt: Date.now()
+            }
+          };
+        }
+      } else {
+        // Save to localStorage only if Firebase is not configured
+        tpnConfigs[configId] = {
+          ...importData.parsedConfig,
+          metadata: {
+            healthSystem: importData.healthSystem,
+            domain: importData.domain,
+            subdomain: importData.subdomain,
+            version: importData.version,
+            importedAt: Date.now()
+          }
+        };
+      }
+      
+      tpnConfigs = { ...tpnConfigs };
+      // Set as active config if no config is active
+      if (!activeConfigId) {
+        // Config activation is handled by parent component
+      }
+      saveToLocalStorage();
+    }
+    
+    // Process all ingredients with a small delay between each
+    importData.parsedIngredients.forEach((ingredient, index) => {
+      setTimeout(() => {
+        importData.importStatus = `Processing: ${ingredient.display || ingredient.keyname}`;
+        const sections = convertNotesToSections(ingredient.notes);
+        
+        // Skip if no valid content
+        if (!hasValidContent(sections)) {
+          importData.importResults.skipped.push({
+            name: ingredient.display,
+            reason: 'No valid content'
+          });
+          importData.importProgress = index + 1;
+          
+          // If this is the last ingredient, show summary
+          if (index === total - 1) {
+            importData.importStatus = 'Import complete!';
+            
+            referenceTexts = { ...referenceTexts };
+            saveToLocalStorage();
+            
+            // Load first reference if any were imported
+            if (firstReference) {
+              loadReference(firstReference);
+            }
+            
+            // Show results for 3 seconds before closing
+            setTimeout(() => {
+              importData.isImporting = false;
+              if (importData.importResults.successful.length > 0 || 
+                  importData.importResults.skipped.length > 0) {
+                showImportDialog = false;
+              }
+              
+              // Reset import data after delay
+              setTimeout(() => {
+                importData = {
+                  jsonText: '',
+                  healthSystem: 'UHS',
+                  domain: 'west',
+                  subdomain: 'prod',
+                  version: 'adult',
+                  parseError: '',
+                  parsedIngredients: [],
+                  parsedConfig: null,
+                  isImporting: false,
+                  importProgress: 0,
+                  importStatus: '',
+                  importResults: {
+                    successful: [],
+                    failed: [],
+                    skipped: []
+                  }
+                };
+              }, 500);
+            }, 3000);
+          }
+          return;
+        }
+        
+        // Generate unique ID with index offset to avoid collisions
+        const id = (Date.now() + index).toString();
+        
+        const newReference = {
+          id,
+          name: ingredient.display,
+          ingredient: ingredient.keyname,
+          ingredientType: ingredient.type,
+          healthSystem: importData.healthSystem,
+          domain: importData.domain,
+          subdomain: importData.subdomain,
+          version: importData.version,
+          sections: sections.map((s, idx) => ({
+            id: idx + 1,
+            type: s.type,
+            content: s.content,
+            ...(s.type === 'dynamic' ? { testCases: [{ name: 'Default', variables: {} }] } : {})
+          })),
+          tags: ['imported', ingredient.keyname, ingredient.type, 'bulk-import'],
+          createdAt: Date.now() + index,
+          updatedAt: Date.now() + index,
+          importSource: 'json-bulk'
+        };
+        
+        referenceTexts[id] = newReference;
+        importData.importResults.successful.push({
+          name: ingredient.display,
+          id: id
+        });
+        
+        // Save first reference to load after import
+        if (index === 0) {
+          firstReference = newReference;
+        }
+        
+        importData.importProgress = index + 1;
+        
+        // When done, save and load first reference
+        if (index === total - 1) {
+          importData.importStatus = 'Import complete!';
+          referenceTexts = { ...referenceTexts };
+          saveToLocalStorage();
+          
+          if (firstReference) {
+            loadReference(firstReference);
+          }
+          
+          // Show results for 3 seconds before closing
+          setTimeout(() => {
+            importData.isImporting = false;
+            if (importData.importResults.successful.length > 0 || 
+                importData.importResults.skipped.length > 0) {
+              showImportDialog = false;
+            }
+            
+            // Reset import data
+            importData = {
+              jsonText: '',
+              healthSystem: 'UHS',
+              domain: 'west',
+              subdomain: 'prod',
+              version: 'adult',
+              parseError: '',
+              parsedIngredients: [],
+              isImporting: false,
+              importProgress: 0,
+              importStatus: '',
+              importResults: {
+                successful: [],
+                failed: [],
+                skipped: []
+              }
+            };
+          }, 500);
+        }
+      }, index * 50); // 50ms delay between each import
+    });
+  }
+  
+  async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      importData.jsonText = text;
+      handleImportJSON();
+    } catch (error) {
+      importData.parseError = `Failed to read file: ${error.message}`;
+    }
+  }
+  
+  // Resize handlers
+  function handleResizeStart(e) {
+    isResizing = true;
+    e.preventDefault();
+    
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      
+      const newWidth = e.clientX;
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        sidebarWidth = newWidth;
+      }
+    };
+    
+    const handleMouseUp = () => {
+      isResizing = false;
+      saveToLocalStorage();
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }
+  
+  // Folder editing
+  function startEditingFolder(folder) {
+    editingFolderId = folder.id;
+    editingFolderName = folder.name;
+  }
+  
+  function saveEditedFolder() {
+    if (editingFolderId && editingFolderName.trim()) {
+      folders[editingFolderId].name = editingFolderName.trim();
+      folders = { ...folders };
+      saveToLocalStorage();
+    }
+    cancelEditingFolder();
+  }
+  
+  function cancelEditingFolder() {
+    editingFolderId = null;
+    editingFolderName = '';
+  }
+  
+  function handleFolderKeydown(e) {
+    if (e.key === 'Enter') {
+      saveEditedFolder();
+    } else if (e.key === 'Escape') {
+      cancelEditingFolder();
+    }
+  }
+  
+  function startEditingIngredient(ref, event) {
+    event.stopPropagation();
+    editingReferenceId = ref.id;
+    editingIngredientName = ref.ingredient;
+  }
+  
+  function saveEditedIngredient() {
+    if (editingReferenceId && editingIngredientName.trim()) {
+      referenceTexts[editingReferenceId].ingredient = editingIngredientName.trim();
+      referenceTexts = { ...referenceTexts };
+      saveToLocalStorage();
+      
+      // Update current ingredient if this is the loaded reference
+      if (loadedReferenceId === editingReferenceId) {
+        onSaveReference({ 
+          sections: currentSections,
+          ingredient: editingIngredientName.trim()
+        });
+      }
+    }
+    editingReferenceId = null;
+    editingIngredientName = '';
+  }
+  
+  function handleIngredientKeydown(event) {
+    if (event.key === 'Enter') {
+      saveEditedIngredient();
+    } else if (event.key === 'Escape') {
+      editingReferenceId = null;
+      editingIngredientName = '';
+    }
+  }
+  
+  // Context menu handlers
+  function showContextMenu(e, type, data) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    contextMenu = {
+      x: e.clientX,
+      y: e.clientY,
+      type,
+      data
+    };
+  }
+  
+  function hideContextMenu() {
+    contextMenu = null;
+  }
+  
+  // Global click handler to hide context menu and dropdown
+  function handleGlobalClick() {
+    if (contextMenu) hideContextMenu();
+    if (showManageDropdown) showManageDropdown = false;
+  }
+  
+  // Drag and drop handlers
+  function handleReferenceDragStart(e, ref, folder) {
+    draggedReference = { ref, folder };
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  
+  function handleReferenceDragEnd() {
+    draggedReference = null;
+    dragOverFolderId = null;
+  }
+  
+  function handleFolderDragOver(e, folder) {
+    e.preventDefault();
+    if (!draggedReference) return;
+    
+    // Check if this is a valid drop target
+    if (canDropInFolder(draggedReference.ref, folder)) {
+      e.dataTransfer.dropEffect = 'move';
+      dragOverFolderId = folder.id;
+    } else {
+      e.dataTransfer.dropEffect = 'none';
+    }
+  }
+  
+  function handleFolderDragLeave() {
+    dragOverFolderId = null;
+  }
+  
+  function handleFolderDrop(e, folder) {
+    e.preventDefault();
+    if (!draggedReference || !canDropInFolder(draggedReference.ref, folder)) return;
+    
+    const ref = draggedReference.ref;
+    
+    // Update reference location based on folder type
+    if (folder.type === 'subdomain') {
+      const parent = folders[folder.parentId];
+      const grandparent = folders[parent.parentId];
+      ref.healthSystem = grandparent.value;
+      ref.domain = parent.value;
+      ref.subdomain = folder.value;
+      // Keep existing version
+    } else if (folder.type === 'version') {
+      const parent = folders[folder.parentId];
+      const grandparent = folders[parent.parentId];
+      const greatGrandparent = folders[grandparent.parentId];
+      ref.healthSystem = greatGrandparent.value;
+      ref.domain = grandparent.value;
+      ref.subdomain = parent.value;
+      ref.version = folder.value;
+    }
+    
+    referenceTexts[ref.id] = { ...ref, updatedAt: Date.now() };
+    referenceTexts = { ...referenceTexts };
+    saveToLocalStorage();
+    
+    draggedReference = null;
+    dragOverFolderId = null;
+  }
+  
+  function canDropInFolder(ref, folder) {
+    // Can only drop into version folders or subdomain folders
+    return folder.type === 'version' || folder.type === 'subdomain';
+  }
+  
+  // Load configs from Firebase when dialog opens
+  async function loadFirebaseConfigs() {
+    if (!isFirebaseConfigured()) {
+      console.log('Firebase not configured, skipping config load');
+      return;
+    }
+    
+    loadingFirebaseConfigs = true;
+    try {
+      const configs = await configService.getAllConfigs();
+      firebaseConfigs = configs;
+      console.log(`Loaded ${configs.length} configs from Firebase:`, configs);
+      
+      // Add any new health systems from Firebase configs
+      configs.forEach(config => {
+        if (config.healthSystem && !healthSystems.includes(config.healthSystem)) {
+          healthSystems = [...healthSystems, config.healthSystem];
+        }
+      });
+    } catch (error) {
+      console.error('Failed to load configs from Firebase:', error);
+      firebaseConfigs = [];
+    } finally {
+      loadingFirebaseConfigs = false;
+    }
+  }
+  
+  // Load Firebase configs when dialog opens
+  $effect(() => {
+    if (showConfigDialog && firebaseConfigs.length === 0 && !loadingFirebaseConfigs) {
+      loadFirebaseConfigs();
+    }
+  });
+</script>
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div class="sidebar" style="width: {sidebarWidth}px" onclick={handleGlobalClick}>
+  <div class="sidebar-header">
+    <div class="header-top">
+      <h2>Reference Texts</h2>
+      {#if activeConfigId}
+        <div class="active-config-badge" title="Active TPN Config">
+          ⚙️ {activeConfigId}
+        </div>
+      {/if}
+      <button 
+        class="close-sidebar-btn"
+        onclick={onCloseSidebar}
+        title="Close sidebar (Esc)"
+        aria-label="Close sidebar"
+      >
+        ✕
+      </button>
+    </div>
+    <div class="header-buttons">
+      <button class="save-btn" onclick={() => showSaveDialog = true}>
+        💾 Save Current
+      </button>
+      <button class="import-btn" onclick={() => showImportDialog = true}>
+        📥 Import
+      </button>
+      <button class="config-btn" onclick={() => showConfigDialog = true} title="Manage TPN Configs">
+        🔧 Configs
+      </button>
+      <div class="manage-dropdown">
+        <button 
+          class="manage-btn {showManageDropdown ? 'active' : ''}"
+          onclick={(e) => {
+            e.stopPropagation();
+            showManageDropdown = !showManageDropdown;
+          }}
+        >
+          ⚙️
+        </button>
+        {#if showManageDropdown}
+          <div class="dropdown-content">
+            <button onclick={() => {
+              showHealthSystemDialog = true;
+              showManageDropdown = false;
+            }}>Manage Health Systems</button>
+            <button onclick={() => {
+              showDomainDialog = true;
+              showManageDropdown = false;
+            }}>Manage Domains</button>
+            <button onclick={() => {
+              showSubdomainDialog = true;
+              showManageDropdown = false;
+            }}>Manage Subdomains</button>
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+  
+  {#if activeConfigId && activeConfigIngredients.length > 0}
+    <!-- Config ingredients view -->
+    <div class="config-header">
+      <h3>Configuration Ingredients</h3>
+      <button 
+        class="deactivate-btn"
+        onclick={() => {
+          onConfigActivate(null, []);
+          configSearchQuery = '';
+        }}
+        title="Deactivate configuration"
+      >
+        ✕ Deactivate
+      </button>
+    </div>
+    
+    <div class="config-search">
+      <input
+        type="text"
+        placeholder="🔍 Search config ingredients..."
+        bind:value={configSearchQuery}
+        class="search-input"
+      />
+      {#if configSearchQuery}
+        <button 
+          class="clear-search-btn"
+          onclick={() => configSearchQuery = ''}
+          title="Clear search"
+        >
+          ✕
+        </button>
+      {/if}
+      <span class="search-results-count">
+        {groupedConfigIngredients.reduce((acc, group) => acc + group.ingredients.length, 0)} 
+        {#if configSearchQuery}
+          of {activeConfigIngredients.length}
+        {/if}
+        ingredients
+      </span>
+    </div>
+    
+    <div class="config-ingredients">
+      {#if groupedConfigIngredients.length === 0}
+        <div class="no-results">
+          No ingredients match "{configSearchQuery}"
+        </div>
+      {:else}
+        {#each groupedConfigIngredients as group}
+          {@const typeInfo = getIngredientTypeInfo(group.type)}
+          <div class="ingredient-type-group">
+            <button 
+              class="type-group-header"
+              style="border-left-color: {typeInfo.color}"
+              onclick={() => {
+                expandedConfigGroups[group.type] = !expandedConfigGroups[group.type];
+              }}
+            >
+            <span class="type-icon" style="color: {typeInfo.color}">{typeInfo.icon}</span>
+            <span class="type-name">{typeInfo.name}</span>
+            <span class="type-count">({group.ingredients.length})</span>
+            <span class="expand-icon">{expandedConfigGroups[group.type] ? '▼' : '▶'}</span>
+          </button>
+          
+          {#if expandedConfigGroups[group.type] !== false}
+            <div class="type-group-ingredients">
+              {#each group.ingredients as ingredient}
+                <button 
+                  class="config-ingredient-item"
+                  onclick={() => handleIngredientClick(ingredient)}
+                  title="Click to load {ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}"
+                >
+                  <span class="ingredient-icon" style="color: {typeInfo.color}">{typeInfo.icon}</span>
+                  <div class="ingredient-details">
+                    <span class="ingredient-display">
+                      {ingredient.DISPLAY || ingredient.display || ingredient.KEYNAME || ingredient.keyname}
+                    </span>
+                    <span class="ingredient-keyname">
+                      ({ingredient.KEYNAME || ingredient.keyname || ingredient.name})
+                    </span>
+                    {#if ingredient.Unit || ingredient.unit}
+                      <span class="ingredient-unit">{ingredient.Unit || ingredient.unit}</span>
+                    {/if}
+                  </div>
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/each}
+      {/if}
+    </div>
+  {:else}
+    <!-- Normal reference view -->
+    <div class="search-box">
+      <input 
+        type="text" 
+        placeholder="Search references..."
+        bind:value={searchQuery}
+        class="search-input"
+      />
+    </div>
+    
+    <div class="filters">
+    <select bind:value={filters.healthSystem} class="filter-select">
+      <option value="">All Systems</option>
+      {#each healthSystems as system}
+        <option value={system}>{system}</option>
+      {/each}
+    </select>
+    
+    <select bind:value={filters.domain} class="filter-select">
+      <option value="">All Domains</option>
+      {#each domains as domain}
+        <option value={domain}>{domain.charAt(0).toUpperCase() + domain.slice(1)}</option>
+      {/each}
+    </select>
+    
+    <select bind:value={filters.subdomain} class="filter-select">
+      <option value="">All Subdomains</option>
+      {#each subdomains as subdomain}
+        <option value={subdomain}>{subdomain.charAt(0).toUpperCase() + subdomain.slice(1)}</option>
+      {/each}
+    </select>
+    
+    <select bind:value={filters.version} class="filter-select">
+      <option value="">All Versions</option>
+      {#each versions as version}
+        <option value={version}>{version.charAt(0).toUpperCase() + version.slice(1)}</option>
+      {/each}
+    </select>
+    
+    <select bind:value={filters.ingredient} class="filter-select">
+      <option value="">All Ingredients</option>
+      {#each uniqueIngredients as ingredient}
+        <option value={ingredient}>{ingredient}</option>
+      {/each}
+    </select>
+  </div>
+  
+  {#if navigationPath.length > 0}
+    <div class="breadcrumb-nav">
+      {#each navigationPath as folder, i}
+        <button 
+          class="breadcrumb-item"
+          onclick={() => navigateToFolder(folder)}
+        >
+          {folder.name}
+        </button>
+        {#if i < navigationPath.length - 1}
+          <span class="breadcrumb-separator">›</span>
+        {/if}
+      {/each}
+    </div>
+  {/if}
+  
+  <div class="tree-view">
+    {#each getRootFolders() as rootFolder}
+      {@const root = renderFolder(rootFolder)}
+      {#if root.hasContent}
+        <div 
+          class="folder-item folder-level-{root.level} {dragOverFolderId === root.folder.id ? 'drag-over' : ''}"
+          ondragover={(e) => handleFolderDragOver(e, root.folder)}
+          ondragleave={handleFolderDragLeave}
+          ondrop={(e) => handleFolderDrop(e, root.folder)}
+        >
+          <button 
+            class="folder-header"
+            onclick={() => toggleFolder(root.folder.id)}
+            oncontextmenu={(e) => showContextMenu(e, 'folder', root.folder)}
+            ondblclick={() => startEditingFolder(root.folder)}
+          >
+            <span class="folder-icon">
+              {expandedFolders[root.folder.id] ? '📂' : '📁'}
+            </span>
+            {#if editingFolderId === root.folder.id}
+              <input 
+                type="text"
+                bind:value={editingFolderName}
+                onblur={saveEditedFolder}
+                onkeydown={handleFolderKeydown}
+                onclick={(e) => e.stopPropagation()}
+                class="folder-name-input"
+                autofocus
+              />
+            {:else}
+              {root.folder.name}
+            {/if}
+          </button>
+          
+          {#if expandedFolders[root.folder.id]}
+            <div class="folder-content">
+              {#each root.children as childFolder}
+                {@const child = renderFolder(childFolder, 1)}
+                {#if child.hasContent}
+                  <div 
+                    class="folder-item folder-level-{child.level} {dragOverFolderId === child.folder.id ? 'drag-over' : ''}"
+                    ondragover={(e) => handleFolderDragOver(e, child.folder)}
+                    ondragleave={handleFolderDragLeave}
+                    ondrop={(e) => handleFolderDrop(e, child.folder)}
+                  >
+                    <button 
+                      class="folder-header"
+                      onclick={() => toggleFolder(child.folder.id)}
+                      oncontextmenu={(e) => showContextMenu(e, 'folder', child.folder)}
+                      ondblclick={() => startEditingFolder(child.folder)}
+                    >
+                      <span class="folder-icon">
+                        {expandedFolders[child.folder.id] ? '📂' : '📁'}
+                      </span>
+                      {#if editingFolderId === child.folder.id}
+                        <input 
+                          type="text"
+                          bind:value={editingFolderName}
+                          onblur={saveEditedFolder}
+                          onkeydown={handleFolderKeydown}
+                          onclick={(e) => e.stopPropagation()}
+                          class="folder-name-input"
+                          autofocus
+                        />
+                      {:else}
+                        {child.folder.name}
+                      {/if}
+                    </button>
+                    
+                    {#if expandedFolders[child.folder.id]}
+                      <div class="folder-content">
+                        {#each child.children as grandchildFolder}
+                          {@const grandchild = renderFolder(grandchildFolder, 2)}
+                          {#if grandchild.hasContent}
+                            <div 
+                              class="folder-item folder-level-{grandchild.level} {dragOverFolderId === grandchild.folder.id ? 'drag-over' : ''}"
+                              ondragover={(e) => handleFolderDragOver(e, grandchild.folder)}
+                              ondragleave={handleFolderDragLeave}
+                              ondrop={(e) => handleFolderDrop(e, grandchild.folder)}
+                            >
+                              <button 
+                                class="folder-header"
+                                onclick={() => toggleFolder(grandchild.folder.id)}
+                                oncontextmenu={(e) => showContextMenu(e, 'folder', grandchild.folder)}
+                                ondblclick={() => startEditingFolder(grandchild.folder)}
+                              >
+                                <span class="folder-icon">
+                                  {expandedFolders[grandchild.folder.id] ? '📂' : '📁'}
+                                </span>
+                                {#if editingFolderId === grandchild.folder.id}
+                                  <input 
+                                    type="text"
+                                    bind:value={editingFolderName}
+                                    onblur={saveEditedFolder}
+                                    onkeydown={handleFolderKeydown}
+                                    onclick={(e) => e.stopPropagation()}
+                                    class="folder-name-input"
+                                    autofocus
+                                  />
+                                {:else}
+                                  {grandchild.folder.name}
+                                {/if}
+                              </button>
+                              
+                              {#if expandedFolders[grandchild.folder.id]}
+                                <div class="folder-content">
+                                  {#each grandchild.children as greatGrandchildFolder}
+                                    {@const greatGrandchild = renderFolder(greatGrandchildFolder, 3)}
+                                    {#if greatGrandchild.hasContent}
+                                      <div 
+                                        class="folder-item folder-level-{greatGrandchild.level} {dragOverFolderId === greatGrandchild.folder.id ? 'drag-over' : ''}"
+                                        ondragover={(e) => handleFolderDragOver(e, greatGrandchild.folder)}
+                                        ondragleave={handleFolderDragLeave}
+                                        ondrop={(e) => handleFolderDrop(e, greatGrandchild.folder)}
+                                      >
+                                        <button 
+                                          class="folder-header"
+                                          onclick={() => toggleFolder(greatGrandchild.folder.id)}
+                                          oncontextmenu={(e) => showContextMenu(e, 'folder', greatGrandchild.folder)}
+                                          ondblclick={() => startEditingFolder(greatGrandchild.folder)}
+                                        >
+                                          <span class="folder-icon">
+                                            {expandedFolders[greatGrandchild.folder.id] ? '📂' : '📁'}
+                                          </span>
+                                          {#if editingFolderId === greatGrandchild.folder.id}
+                                            <input 
+                                              type="text"
+                                              bind:value={editingFolderName}
+                                              onblur={saveEditedFolder}
+                                              onkeydown={handleFolderKeydown}
+                                              onclick={(e) => e.stopPropagation()}
+                                              class="folder-name-input"
+                                              autofocus
+                                            />
+                                          {:else}
+                                            {greatGrandchild.folder.name}
+                                          {/if}
+                                        </button>
+                                        
+                                        {#if expandedFolders[greatGrandchild.folder.id]}
+                                          {@const groupedRefs = groupReferencesByType(greatGrandchild.references)}
+                                          <div class="folder-content">
+                                            {#each groupedRefs as group}
+                                              {@const groupTypeInfo = getIngredientTypeInfo(group.type)}
+                                              <div class="type-group">
+                                                <button 
+                                                  class="type-group-header"
+                                                  style="border-left-color: {groupTypeInfo.color}"
+                                                  onclick={() => toggleTypeGroup(greatGrandchild.folder.id, group.type)}
+                                                >
+                                                  <span class="toggle-icon">{expandedTypeGroups[`${greatGrandchild.folder.id}-${group.type}`] ? '▼' : '▶'}</span>
+                                                  <span class="type-icon" style="color: {groupTypeInfo.color}">{groupTypeInfo.icon}</span>
+                                                  {groupTypeInfo.name}
+                                                  <span class="type-count">({group.refs.length})</span>
+                                                </button>
+                                                {#if expandedTypeGroups[`${greatGrandchild.folder.id}-${group.type}`]}
+                                                  <div class="type-group-content">
+                                                  {#each group.refs as ref}
+                                                    <div 
+                                                      class="reference-item {selectedReference?.id === ref.id ? 'selected' : ''} {searchQuery && (ref.name.toLowerCase().includes(searchQuery.toLowerCase()) || ref.ingredient.toLowerCase().includes(searchQuery.toLowerCase())) ? 'search-match' : ''}"
+                                                      draggable="true"
+                                                      ondragstart={(e) => handleReferenceDragStart(e, ref, greatGrandchild.folder)}
+                                                      ondragend={handleReferenceDragEnd}
+                                                    >
+                                                      <button 
+                                                        class="reference-name"
+                                                        onclick={() => loadReference(ref)}
+                                                        oncontextmenu={(e) => showContextMenu(e, 'reference', ref)}
+                                                      >
+                                                        {ref.name}
+                                                        {#if editingReferenceId === ref.id}
+                                                          <input 
+                                                            type="text"
+                                                            bind:value={editingIngredientName}
+                                                            onblur={saveEditedIngredient}
+                                                            onkeydown={handleIngredientKeydown}
+                                                            onclick={(e) => e.stopPropagation()}
+                                                            class="ingredient-edit-input"
+                                                            autofocus
+                                                          />
+                                                        {:else}
+                                                          <span 
+                                                            class="ingredient-badge"
+                                                            ondblclick={(e) => startEditingIngredient(ref, e)}
+                                                            title="Double-click to edit"
+                                                          >
+                                                            {ref.ingredient}
+                                                          </span>
+                                                        {/if}
+                                                      </button>
+                                                      <div class="reference-actions">
+                                                        <button 
+                                                          onclick={() => duplicateReference(ref)}
+                                                          title="Duplicate"
+                                                        >
+                                                          📋
+                                                        </button>
+                                                        <button 
+                                                          onclick={() => deleteReference(ref.id)}
+                                                          title="Delete"
+                                                        >
+                                                          🗑️
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  {/each}
+                                                </div>
+                                                {/if}
+                                              </div>
+                                            {/each}
+                                          </div>
+                                        {/if}
+                                      </div>
+                                    {/if}
+                                  {/each}
+                                </div>
+                              {/if}
+                            </div>
+                          {/if}
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
+    {/each}
+  </div>
+  {/if}
+  
+  {#if showSaveDialog}
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showSaveDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showSaveDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close save dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Save Reference Text"
+        tabindex="-1"
+      >
+        <h3>Save Reference Text</h3>
+        
+        <label>
+          Name:
+          <input 
+            type="text" 
+            bind:value={saveData.name}
+            placeholder="e.g., Multivitamin Dosing"
+          />
+        </label>
+        
+        <label>
+          Ingredient:
+          <input 
+            type="text" 
+            bind:value={saveData.ingredient}
+            placeholder="e.g., MultiVitamin"
+          />
+        </label>
+        
+        <label>
+          Health System:
+          <select bind:value={saveData.healthSystem}>
+            {#each healthSystems as system}
+              <option value={system}>{system}</option>
+            {/each}
+          </select>
+        </label>
+        
+        <label>
+          Domain:
+          {#if saveData.healthSystem === 'UHS'}
+            <select bind:value={saveData.domain}>
+              {#each domains as domain}
+                <option value={domain}>{domain.charAt(0).toUpperCase() + domain.slice(1)}</option>
+              {/each}
+            </select>
+          {:else}
+            <select disabled value="main">
+              <option value="main">Main (default)</option>
+            </select>
+          {/if}
+        </label>
+        
+        <label>
+          Subdomain:
+          <select bind:value={saveData.subdomain}>
+            {#each subdomains as subdomain}
+              <option value={subdomain}>{subdomain.charAt(0).toUpperCase() + subdomain.slice(1)}</option>
+            {/each}
+          </select>
+        </label>
+        
+        <label>
+          Version:
+          <select bind:value={saveData.version}>
+            {#each versions as version}
+              <option value={version}>{version.charAt(0).toUpperCase() + version.slice(1)}</option>
+            {/each}
+          </select>
+        </label>
+        
+        <label>
+          Tags (comma-separated):
+          <input 
+            type="text" 
+            bind:value={saveData.tags}
+            placeholder="e.g., vitamin, dosing"
+          />
+        </label>
+        
+        <div class="dialog-actions">
+          <button 
+            onclick={handleSaveReference}
+            disabled={!saveData.name || !saveData.ingredient}
+            class="save-confirm-btn"
+          >
+            Save
+          </button>
+          <button onclick={() => showSaveDialog = false}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+  
+  {#if showHealthSystemDialog}
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showHealthSystemDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showHealthSystemDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close health system dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select Health System"
+        tabindex="-1"
+      >
+        <h3>Manage Health Systems</h3>
+        
+        <div class="list-management">
+          <div class="add-item">
+            <input 
+              type="text" 
+              bind:value={newItemName}
+              placeholder="New health system name"
+              onkeydown={(e) => e.key === 'Enter' && addHealthSystem()}
+            />
+            <button onclick={() => addHealthSystem()}>Add</button>
+          </div>
+          
+          <div class="existing-items">
+            {#each healthSystems as system}
+              <div class="list-item">
+                <span>{system}</span>
+                {#if system !== 'UHS'}
+                  <button 
+                    class="remove-btn"
+                    onclick={() => removeHealthSystem(system)}
+                  >
+                    ×
+                  </button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
+        
+        <div class="dialog-actions">
+          <button onclick={() => showHealthSystemDialog = false}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+  
+  {#if showDomainDialog}
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showDomainDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showDomainDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close domain dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select Domain"
+        tabindex="-1"
+      >
+        <h3>Manage Domains</h3>
+        
+        <div class="list-management">
+          <div class="add-item">
+            <input 
+              type="text" 
+              bind:value={newItemName}
+              placeholder="New domain name"
+              onkeydown={(e) => e.key === 'Enter' && addDomain()}
+            />
+            <button onclick={() => addDomain()}>Add</button>
+          </div>
+          
+          <div class="existing-items">
+            {#each domains as domain}
+              <div class="list-item">
+                <span>{domain.charAt(0).toUpperCase() + domain.slice(1)}</span>
+                <button 
+                  class="remove-btn"
+                  onclick={() => removeDomain(domain)}
+                >
+                  ×
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+        
+        <div class="dialog-actions">
+          <button onclick={() => showDomainDialog = false}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+  
+  {#if showSubdomainDialog}
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showSubdomainDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showSubdomainDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close subdomain dialog overlay"
+    >
+      <div 
+        class="save-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select Subdomain"
+        tabindex="-1"
+      >
+        <h3>Manage Subdomains</h3>
+        
+        <div class="list-management">
+          <div class="add-item">
+            <input 
+              type="text" 
+              bind:value={newItemName}
+              placeholder="New subdomain name"
+              onkeydown={(e) => e.key === 'Enter' && addSubdomain()}
+            />
+            <button onclick={() => addSubdomain()}>Add</button>
+          </div>
+          
+          <div class="existing-items">
+            {#each subdomains as subdomain}
+              <div class="list-item">
+                <span>{subdomain.charAt(0).toUpperCase() + subdomain.slice(1)}</span>
+                <button 
+                  class="remove-btn"
+                  onclick={() => removeSubdomain(subdomain)}
+                >
+                  ×
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+        
+        <div class="dialog-actions">
+          <button onclick={() => showSubdomainDialog = false}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+  
+  {#if showImportDialog}
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showImportDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showImportDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close import dialog overlay"
+    >
+      <div 
+        class="save-dialog import-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Import Data"
+        tabindex="-1"
+      >
+        <h3>Import Ingredient JSON</h3>
+        
+        <div class="import-options">
+          <label>
+            Paste JSON or upload file:
+            <textarea 
+              bind:value={importData.jsonText}
+              placeholder={'{"INGREDIENT": [...]}'}
+              class="json-input"
+              rows="10"
+            ></textarea>
+          </label>
+          
+          <div class="file-upload">
+            <input 
+              type="file" 
+              accept=".json,application/json"
+              onchange={handleFileUpload}
+              id="json-file-input"
+              style="display: none"
+            />
+            <label for="json-file-input" class="file-upload-btn">
+              📁 Choose JSON File
+            </label>
+          </div>
+        </div>
+        
+        {#if importData.parseError}
+          <div class="error-message">
+            ❌ {importData.parseError}
+          </div>
+        {/if}
+        
+        <div class="import-settings">
+          <label>
+            Health System:
+            <select bind:value={importData.healthSystem}>
+              {#each healthSystems as system}
+                <option value={system}>{system}</option>
+              {/each}
+            </select>
+          </label>
+          
+          <label>
+            Domain:
+            {#if importData.healthSystem === 'UHS'}
+              <select bind:value={importData.domain}>
+                {#each domains as domain}
+                  <option value={domain}>{domain.charAt(0).toUpperCase() + domain.slice(1)}</option>
+                {/each}
+              </select>
+            {:else}
+              <select disabled value="main">
+                <option value="main">Main (default)</option>
+              </select>
+            {/if}
+          </label>
+          
+          <label>
+            Subdomain:
+            <select bind:value={importData.subdomain}>
+              {#each subdomains as subdomain}
+                <option value={subdomain}>{subdomain.charAt(0).toUpperCase() + subdomain.slice(1)}</option>
+              {/each}
+            </select>
+          </label>
+          
+          <label>
+            Version:
+            <select bind:value={importData.version}>
+              {#each versions as version}
+                <option value={version}>{version.charAt(0).toUpperCase() + version.slice(1)}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
+        
+        <div class="dialog-actions">
+          <button 
+            onclick={handleImportJSON}
+            disabled={!importData.jsonText}
+            class="parse-btn"
+          >
+            Parse JSON
+          </button>
+        </div>
+        
+        {#if importData.parsedIngredients.length > 0}
+          <div class="parsed-results">
+            <div class="parsed-header">
+              <h4>Found {importData.parsedIngredients.length} ingredient(s):</h4>
+              <button 
+                class="import-all-btn"
+                onclick={importAllIngredients}
+                disabled={importData.isImporting}
+              >
+                {#if importData.isImporting}
+                  ⏳ Importing...
+                {:else}
+                  📥 Import All
+                {/if}
+              </button>
+            </div>
+            
+            {#if importData.isImporting}
+              <div class="import-progress-container">
+                <div class="import-progress-bar">
+                  <div 
+                    class="import-progress-fill" 
+                    style="width: {(importData.importProgress / importData.parsedIngredients.length) * 100}%"
+                  ></div>
+                </div>
+                <div class="import-progress-text">
+                  {importData.importProgress} / {importData.parsedIngredients.length} 
+                  ({Math.round((importData.importProgress / importData.parsedIngredients.length) * 100)}%)
+                </div>
+                {#if importData.importStatus}
+                  <div class="import-status-text">
+                    {importData.importStatus}
+                  </div>
+                {/if}
+                
+                {#if importData.importProgress === importData.parsedIngredients.length}
+                  <div class="import-results-summary">
+                    {#if importData.importResults.successful.length > 0}
+                      <div class="result-item success">
+                        ✅ {importData.importResults.successful.length} imported successfully
+                      </div>
+                    {/if}
+                    {#if importData.importResults.skipped.length > 0}
+                      <div class="result-item skipped">
+                        ⚠️ {importData.importResults.skipped.length} skipped (no valid content)
+                      </div>
+                    {/if}
+                    {#if importData.importResults.failed.length > 0}
+                      <div class="result-item failed">
+                        ❌ {importData.importResults.failed.length} failed
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+            <div class="ingredient-list">
+              {#each importData.parsedIngredients as ingredient}
+                {@const typeInfo = getIngredientTypeInfo(ingredient.type)}
+                <div class="ingredient-item">
+                  <div class="ingredient-info">
+                    <span class="type-icon" style="color: {typeInfo.color}">{typeInfo.icon}</span>
+                    <strong>{ingredient.display}</strong>
+                    <span class="keyname">({ingredient.keyname})</span>
+                    <span 
+                      class="type-badge inline"
+                      style="background-color: {typeInfo.color}"
+                    >
+                      {typeInfo.name}
+                    </span>
+                    <span class="note-count">{ingredient.notes.length} notes</span>
+                  </div>
+                  <button 
+                    class="import-ingredient-btn"
+                    onclick={() => importIngredient(ingredient)}
+                    disabled={importData.isImporting}
+                  >
+                    Import
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        
+        <div class="dialog-actions">
+          <button onclick={() => showImportDialog = false}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+  
+  <!-- Resize handle -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div 
+    class="resize-handle"
+    onmousedown={handleResizeStart}
+    onkeydown={(e) => {
+      if (e.key === 'ArrowLeft') {
+        sidebarWidth = Math.max(300, sidebarWidth - 10);
+      } else if (e.key === 'ArrowRight') {
+        sidebarWidth = Math.min(800, sidebarWidth + 10);
+      }
+    }}
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Resize sidebar"
+    tabindex="0"
+  ></div>
+  
+  <!-- Context menu -->
+  {#if contextMenu}
+    <div 
+      class="context-menu"
+      style="left: {contextMenu.x}px; top: {contextMenu.y}px"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.key === 'Escape' && hideContextMenu()}
+      role="menu"
+      tabindex="-1"
+    >
+      {#if contextMenu.type === 'folder'}
+        <button onclick={() => { startEditingFolder(contextMenu.data); hideContextMenu(); }}>
+          ✏️ Rename
+        </button>
+        {#if contextMenu.data.type === 'domain' || contextMenu.data.type === 'version'}
+          <button onclick={() => { /* TODO: Add subfolder */ hideContextMenu(); }}>
+            ➕ Add Subfolder
+          </button>
+        {/if}
+        <button onclick={() => { /* TODO: Delete folder */ hideContextMenu(); }}>
+          🗑️ Delete
+        </button>
+        <hr />
+        <button onclick={() => { /* TODO: Expand all */ hideContextMenu(); }}>
+          📂 Expand All
+        </button>
+      {:else if contextMenu.type === 'reference'}
+        <button onclick={() => { loadReference(contextMenu.data); hideContextMenu(); }}>
+          📝 Edit
+        </button>
+        <button onclick={() => { duplicateReference(contextMenu.data); hideContextMenu(); }}>
+          📋 Duplicate
+        </button>
+        <button onclick={() => { deleteReference(contextMenu.data.id); hideContextMenu(); }}>
+          🗑️ Delete
+        </button>
+        <hr />
+        <button onclick={() => { /* TODO: Export */ hideContextMenu(); }}>
+          📤 Export as JSON
+        </button>
+      {/if}
+    </div>
+  {/if}
+  
+  <!-- Config Manager Dialog -->
+  {#if showConfigDialog}
+    <div 
+      class="save-dialog-overlay" 
+      onclick={() => showConfigDialog = false}
+      onkeydown={(e) => e.key === 'Escape' && (showConfigDialog = false)}
+      role="button"
+      tabindex="-1"
+      aria-label="Close config dialog overlay"
+    >
+      <div 
+        class="save-dialog config-dialog" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="TPN Config Manager"
+        tabindex="-1"
+      >
+        <h3>TPN Config Manager</h3>
+        
+        {#if activeConfigId}
+          <div class="active-config-info">
+            <strong>Active Config:</strong> {activeConfigId}
+          </div>
+        {/if}
+        
+        <div class="config-list">
+          {#if loadingFirebaseConfigs}
+            <div class="loading-configs">
+              <div class="spinner"></div>
+              <p>Loading configs from Firebase...</p>
+            </div>
+          {/if}
+          
+          {#if firebaseConfigs.length > 0}
+            <h4>Firebase Configs:</h4>
+            <div class="config-items">
+              {#each firebaseConfigs as config}
+                <div class="config-item firebase-config {activeConfigId === config.id ? 'active' : ''}">
+                  <div class="config-info">
+                    <strong>{config.name || config.id}</strong>
+                    <span class="firebase-badge">☁️ Firebase</span>
+                    <div class="config-metadata">
+                      {config.healthSystem} / {config.domain} / {config.subdomain} / {config.version}
+                    </div>
+                    {#if config.importedAt}
+                      <div class="config-date">
+                        Imported: {new Date(config.importedAt.seconds * 1000).toLocaleDateString()}
+                      </div>
+                    {/if}
+                  </div>
+                  <div class="config-actions">
+                    {#if activeConfigId !== config.id}
+                      <button 
+                        class="activate-btn"
+                        onclick={async () => {
+                          // Config activation already handled by onConfigActivate call below
+                          // Load ingredients for this config if needed
+                          let configIngredients = [];
+                          try {
+                            configIngredients = await configService.getConfigIngredients(config.id);
+                            console.log(`Loaded ${configIngredients.length} ingredients for config ${config.id}`);
+                          } catch (err) {
+                            console.error('Failed to load ingredients:', err);
+                          }
+                          // Notify parent component about config activation
+                          onConfigActivate(config.id, configIngredients);
+                          saveToLocalStorage();
+                        }}
+                      >
+                        Activate
+                      </button>
+                    {/if}
+                    <button 
+                      class="delete-btn"
+                      onclick={async () => {
+                        if (confirm(`Delete config "${config.name || config.id}" from Firebase?`)) {
+                          try {
+                            await configService.deleteConfig(config.id);
+                            firebaseConfigs = firebaseConfigs.filter(c => c.id !== config.id);
+                            if (activeConfigId === config.id) {
+                              saveToLocalStorage();
+                              // Notify parent that config is deactivated
+                              onConfigActivate(null, []);
+                            }
+                          } catch (err) {
+                            alert(`Failed to delete config: ${err.message}`);
+                          }
+                        }
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+          
+          {#if Object.keys(tpnConfigs).length > 0}
+            <h4>Local Configs:</h4>
+            <div class="config-items">
+              {#each Object.entries(tpnConfigs) as [configId, config]}
+                <div class="config-item {activeConfigId === configId ? 'active' : ''}">
+                  <div class="config-info">
+                    <strong>{configId}</strong>
+                    <span class="local-badge">💾 Local</span>
+                    {#if config.metadata}
+                      <div class="config-metadata">
+                        {config.metadata.healthSystem} / {config.metadata.domain} / {config.metadata.subdomain} / {config.metadata.version}
+                      </div>
+                      <div class="config-date">
+                        Imported: {new Date(config.metadata.importedAt).toLocaleDateString()}
+                      </div>
+                    {/if}
+                  </div>
+                  <div class="config-actions">
+                    {#if activeConfigId !== configId}
+                      <button 
+                        class="activate-btn"
+                        onclick={() => { 
+                          saveToLocalStorage(); 
+                          // For local configs, we pass an empty array since ingredients are managed differently
+                          onConfigActivate(configId, []);
+                        }}
+                      >
+                        Activate
+                      </button>
+                    {/if}
+                    <button 
+                      class="delete-btn"
+                      onclick={() => {
+                        if (confirm(`Delete config "${configId}"?`)) {
+                          delete tpnConfigs[configId];
+                          if (activeConfigId === configId) {
+                            // Notify parent that config is deactivated
+                            onConfigActivate(null, []);
+                          }
+                          tpnConfigs = { ...tpnConfigs };
+                          saveToLocalStorage();
+                        }
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+          
+          {#if Object.keys(tpnConfigs).length === 0 && firebaseConfigs.length === 0 && !loadingFirebaseConfigs}
+            <p class="no-configs">No configs found. Import a TPN JSON file to get started.</p>
+          {/if}
+        </div>
+        
+        <div class="dialog-actions">
+          <button onclick={() => showConfigDialog = false}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+</div>
+
+<!-- Duplicate Report Modal -->
+<DuplicateReportModal 
+  report={showDuplicateReport ? lastImportReport : null}
+  onClose={() => showDuplicateReport = false}
+  onProceed={() => showDuplicateReport = false}
+/>
+
+<style>
+  /* Sidebar Dark Theme Styles */
+  .sidebar {
+    position: relative;
+    height: 100%;
+    background-color: var(--bg-secondary);
+    border-right: 2px solid var(--border-primary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .sidebar-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-primary);
+    background-color: var(--bg-tertiary);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    position: relative;
+  }
+  
+  .close-sidebar-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0.25rem 0.5rem;
+    transition: all var(--transition-normal);
+  }
+  
+  .close-sidebar-btn:hover {
+    color: var(--text-primary);
+    transform: scale(1.1);
+  }
+  
+  .sidebar-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  
+  .active-config-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(23, 162, 184, 0.2);
+    border: 1px solid var(--color-info);
+    border-radius: var(--radius-sm);
+    color: var(--color-info);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .header-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  
+  .save-btn {
+    padding: 0.5rem 1rem;
+    background-color: var(--color-success);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .save-btn:hover {
+    background-color: var(--color-success-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .save-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+  }
+  
+  .import-btn {
+    padding: 0.5rem 1rem;
+    background-color: var(--color-secondary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: var(--transition-fast);
+    min-height: var(--min-touch-target);
+  }
+  
+  .import-btn:hover {
+    background-color: var(--color-secondary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-medical-hover);
+  }
+  
+  .import-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .config-btn {
+    padding: var(--space-3) var(--space-4);
+    background-color: var(--color-info);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: var(--transition-fast);
+    min-height: var(--min-touch-target);
+  }
+  
+  .config-btn:hover {
+    background-color: var(--color-info-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-medical-hover);
+  }
+  
+  .config-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .manage-dropdown {
+    position: relative;
+  }
+  
+  .manage-btn {
+    padding: var(--space-3);
+    background-color: var(--color-secondary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: var(--transition-fast);
+    min-height: var(--min-touch-target);
+    min-width: var(--min-touch-target);
+  }
+  
+  .manage-btn:hover {
+    background-color: var(--color-secondary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-medical-hover);
+  }
+  
+  .manage-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .manage-btn.active {
+    background-color: var(--color-secondary-hover);
+    box-shadow: var(--shadow-medical-focus);
+  }
+  
+  .dropdown-content {
+    display: block;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: var(--space-2);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    min-width: 160px;
+    z-index: var(--z-dropdown);
+    box-shadow: var(--shadow-medical-modal);
+    animation: fadeIn var(--duration-normal) var(--ease-out);
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .dropdown-content button {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: none;
+    border: none;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    text-align: left;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: var(--transition-fast);
+    min-height: var(--min-touch-target);
+  }
+  
+  .dropdown-content button:hover {
+    background-color: var(--color-state-hover);
+  }
+  
+  .dropdown-content button:focus {
+    outline: none;
+    background-color: var(--color-state-selected);
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+  }
+  
+  .search-box {
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  .search-input {
+    width: 100%;
+    padding: var(--space-3);
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    transition: var(--transition-fast);
+  }
+  
+  .search-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .filters {
+    padding: var(--space-3) var(--space-4);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  
+  @media (min-width: 400px) {
+    .filters {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  
+  .filter-select {
+    padding: var(--space-2) var(--space-3);
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    transition: var(--transition-fast);
+    min-height: var(--min-touch-target-small);
+  }
+  
+  .filter-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .tree-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-3);
+  }
+  
+  .folder-item {
+    margin-bottom: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+  
+  /* Level-based visual differentiation */
+  .folder-level-0 {
+    background-color: var(--color-primary-50);
+    border-left: 4px solid var(--color-primary-600);
+  }
+  
+  .folder-level-0 .folder-header {
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-lg);
+  }
+  
+  .folder-level-1 {
+    background-color: var(--color-success-50);
+    border-left: 4px solid var(--color-success-600);
+    margin-top: var(--space-1);
+  }
+  
+  .folder-level-1 .folder-header {
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-base);
+  }
+  
+  .folder-level-2 {
+    background-color: var(--color-warning-50);
+    border-left: 4px solid var(--color-warning-600);
+  }
+  
+  .folder-level-2 .folder-header {
+    font-size: var(--font-size-sm);
+  }
+  
+  .folder-level-3 {
+    background-color: var(--color-info-50);
+    border-left: 4px solid var(--color-info-600);
+  }
+  
+  .folder-level-3 .folder-header {
+    font-size: var(--font-size-sm);
+  }
+  
+  .folder-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: none;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    text-align: left;
+    border-radius: var(--radius-md);
+    transition: var(--transition-fast);
+    min-height: var(--min-touch-target-small);
+  }
+  
+  .folder-header:hover {
+    background-color: var(--color-state-hover);
+    transform: translateY(-1px);
+  }
+  
+  .folder-header:focus {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .folder-icon {
+    font-size: var(--font-size-lg);
+  }
+  
+  .folder-content {
+    margin-top: var(--space-2);
+  }
+  
+  .reference-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    transition: var(--transition-fast);
+    background-color: var(--color-surface-elevated);
+    border-left: 3px solid var(--color-border-strong);
+    margin-bottom: var(--space-1);
+    min-height: var(--min-touch-target-small);
+  }
+  
+  .reference-item:hover {
+    background-color: var(--color-state-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-medical-hover);
+  }
+  
+  .reference-item.selected {
+    background-color: var(--color-state-selected);
+    border-left-color: var(--color-primary);
+  }
+  
+  .reference-item.search-match {
+    background-color: var(--color-primary-50);
+    border-left-color: var(--color-primary);
+  }
+  
+  .reference-item.search-match:hover {
+    background-color: var(--color-primary-100);
+  }
+  
+  .reference-name {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    background: none;
+    border: none;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    text-align: left;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: var(--transition-fast);
+  }
+  
+  .reference-name:focus {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .ingredient-badge {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--color-info);
+    color: white;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+  
+  .ingredient-badge:hover {
+    background-color: var(--color-info-hover);
+    transform: scale(1.05);
+  }
+  
+  .ingredient-badge:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+  
+  .ingredient-edit-input {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--color-info);
+    color: white;
+    border: none;
+    border-radius: var(--radius-full);
+    outline: none;
+    width: 100px;
+  }
+  
+  .ingredient-edit-input:focus {
+    background-color: var(--color-info-hover);
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+  
+  .type-icon {
+    font-size: var(--font-size-base);
+    margin-right: var(--space-2);
+  }
+  
+  .type-badge {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    padding: var(--space-1) var(--space-2);
+    color: white;
+    border-radius: var(--radius-md);
+    margin-left: var(--space-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .reference-actions {
+    display: flex;
+    gap: var(--space-1);
+    opacity: 0;
+    transition: var(--transition-fast);
+  }
+  
+  .reference-item:hover .reference-actions {
+    opacity: 1;
+  }
+  
+  .reference-actions button {
+    padding: var(--space-2);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    transition: var(--transition-fast);
+    min-width: var(--min-touch-target-small);
+    min-height: var(--min-touch-target-small);
+    border-radius: var(--radius-md);
+  }
+  
+  .reference-actions button:hover {
+    transform: scale(1.1);
+    background-color: var(--color-state-hover);
+  }
+  
+  .reference-actions button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+  
+  /* Save Dialog */
+  .save-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--color-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    backdrop-filter: blur(4px);
+  }
+  
+  .save-dialog {
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-8);
+    max-width: 400px;
+    width: 90%;
+    box-shadow: var(--shadow-medical-modal);
+  }
+  
+  .save-dialog h3 {
+    margin: 0 0 var(--space-6) 0;
+    color: var(--color-primary);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+  }
+  
+  .save-dialog label {
+    display: block;
+    margin-bottom: var(--space-4);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+  }
+  
+  .save-dialog input,
+  .save-dialog select {
+    width: 100%;
+    padding: 0.5rem;
+    margin-top: 0.25rem;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #d4d4d4;
+  }
+  
+  .dialog-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+  }
+  
+  .save-confirm-btn {
+    padding: 0.5rem 1rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .save-confirm-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+  }
+  
+  .save-confirm-btn:not(:disabled):hover {
+    background-color: #218838;
+  }
+  
+  /* List Management Styles */
+  .list-management {
+    margin: 1rem 0;
+  }
+  
+  .add-item {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .add-item input {
+    flex: 1;
+  }
+  
+  .add-item button {
+    padding: 0.5rem 1rem;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .add-item button:hover {
+    background-color: #138496;
+  }
+  
+  .existing-items {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.5rem;
+  }
+  
+  .list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.25rem;
+  }
+  
+  .list-item:hover {
+    background-color: #3a3a3a;
+  }
+  
+  .remove-btn {
+    padding: 0.25rem 0.5rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  
+  .remove-btn:hover {
+    background-color: #c82333;
+  }
+  
+  /* Import Dialog Styles */
+  .import-dialog {
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .import-options {
+    margin-bottom: 1rem;
+  }
+  
+  .json-input {
+    width: 100%;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #d4d4d4;
+    font-family: monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+  }
+  
+  .file-upload {
+    margin-top: 1rem;
+  }
+  
+  .file-upload-btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background-color: #17a2b8;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .file-upload-btn:hover {
+    background-color: #138496;
+  }
+  
+  .error-message {
+    padding: 0.5rem;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 4px;
+    margin: 1rem 0;
+  }
+  
+  .import-settings {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .parse-btn {
+    padding: 0.5rem 1rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .parse-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+  }
+  
+  .parse-btn:not(:disabled):hover {
+    background-color: #218838;
+  }
+  
+  .parsed-results {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #444;
+  }
+  
+  .parsed-results h4 {
+    margin: 0;
+    color: #646cff;
+  }
+  
+  .parsed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  
+  .import-all-btn {
+    padding: 0.5rem 1rem;
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .import-all-btn:hover:not(:disabled) {
+    background-color: #138496;
+  }
+  
+  .import-all-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+  }
+  
+  .import-progress-container {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    border: 1px solid #444;
+  }
+
+  .import-progress-bar {
+    width: 100%;
+    height: 24px;
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .import-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #646cff, #747bff);
+    border-radius: 12px;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .import-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .import-progress-text {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #a0a0a0;
+  }
+
+  .import-status-text {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #646cff;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .import-results-summary {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #444;
+  }
+
+  .result-item {
+    padding: 0.5rem;
+    margin: 0.25rem 0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .result-item.success {
+    background-color: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+
+  .result-item.skipped {
+    background-color: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+  }
+
+  .result-item.failed {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  .ingredient-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.5rem;
+  }
+  
+  .ingredient-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    background-color: #2a2a2a;
+  }
+  
+  .ingredient-item:hover {
+    background-color: #3a3a3a;
+  }
+  
+  .ingredient-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .type-badge.inline {
+    display: inline-flex;
+    margin-left: 0;
+  }
+  
+  .keyname {
+    font-size: 0.85rem;
+    color: #999;
+  }
+  
+  .note-count {
+    font-size: 0.8rem;
+    color: #17a2b8;
+  }
+  
+  .import-ingredient-btn {
+    padding: 0.25rem 0.5rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  
+  .import-ingredient-btn:hover:not(:disabled) {
+    background-color: #218838;
+  }
+  
+  .import-ingredient-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+  }
+  
+  /* Resize handle */
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    background-color: transparent;
+    cursor: col-resize;
+    z-index: 10;
+  }
+  
+  .resize-handle:hover {
+    background-color: #646cff;
+  }
+  
+  /* Drag and drop */
+  .folder-item.drag-over {
+    outline: 2px dashed #646cff;
+    outline-offset: -2px;
+  }
+  
+  .folder-level-0.drag-over {
+    background-color: rgba(66, 153, 225, 0.3);
+  }
+  
+  .folder-level-1.drag-over {
+    background-color: rgba(72, 187, 120, 0.3);
+  }
+  
+  .folder-level-2.drag-over {
+    background-color: rgba(237, 137, 54, 0.3);
+  }
+  
+  .folder-level-3.drag-over {
+    background-color: rgba(159, 122, 234, 0.3);
+  }
+  
+  .reference-item[draggable="true"] {
+    cursor: move;
+  }
+  
+  /* Inline editing */
+  .folder-name-input {
+    flex: 1;
+    padding: 0.2rem;
+    background-color: #1e1e1e;
+    border: 1px solid #646cff;
+    border-radius: 2px;
+    color: #d4d4d4;
+    font-size: inherit;
+    font-family: inherit;
+    outline: none;
+  }
+  
+  /* Context menu */
+  .context-menu {
+    position: fixed;
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.25rem 0;
+    min-width: 150px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .context-menu button {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background: none;
+    border: none;
+    color: #d4d4d4;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .context-menu button:hover {
+    background-color: #3a3a3a;
+  }
+  
+  .context-menu hr {
+    margin: 0.25rem 0;
+    border: none;
+    border-top: 1px solid #444;
+  }
+  
+  /* Config dialog styles */
+  .config-dialog {
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .active-config-info {
+    padding: 0.75rem;
+    background-color: #17a2b8;
+    color: white;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+  
+  .config-list {
+    margin: 1rem 0;
+  }
+  
+  .config-list h4 {
+    margin: 0 0 0.5rem 0;
+    color: #646cff;
+  }
+  
+  .no-configs {
+    text-align: center;
+    color: #999;
+    padding: 2rem;
+  }
+  
+  .config-items {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.5rem;
+  }
+  
+  .config-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    background-color: #2a2a2a;
+  }
+  
+  .config-item:hover {
+    background-color: #3a3a3a;
+  }
+  
+  .config-item.active {
+    background-color: rgba(23, 162, 184, 0.2);
+    border: 1px solid #17a2b8;
+  }
+  
+  .loading-configs {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+  }
+  
+  .loading-configs .spinner {
+    margin: 0 auto 1rem;
+  }
+  
+  .firebase-badge,
+  .local-badge {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+  }
+  
+  .firebase-badge {
+    background-color: rgba(52, 211, 153, 0.2);
+    color: #34d399;
+    border: 1px solid #34d399;
+  }
+  
+  .local-badge {
+    background-color: rgba(100, 108, 255, 0.2);
+    color: #646cff;
+    border: 1px solid #646cff;
+  }
+  
+  .config-info strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #d4d4d4;
+  }
+  
+  .config-metadata {
+    font-size: 0.85rem;
+    color: #999;
+  }
+  
+  .config-date {
+    font-size: 0.8rem;
+    color: #777;
+    margin-top: 0.25rem;
+  }
+  
+  .config-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  
+  .activate-btn {
+    padding: 0.25rem 0.75rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  
+  .activate-btn:hover {
+    background-color: #218838;
+  }
+  
+  .delete-btn {
+    padding: 0.25rem 0.5rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .delete-btn:hover {
+    background-color: #c82333;
+  }
+  
+  @media (prefers-color-scheme: light) {
+    .sidebar {
+      background-color: #f5f5f5;
+      border-color: #ddd;
+    }
+    
+    .sidebar-header h2 {
+      color: #535bf2;
+    }
+    
+    .search-input,
+    .filter-select {
+      background-color: #fff;
+      border-color: #ddd;
+      color: #333;
+    }
+    
+    .folder-header,
+    .reference-name {
+      color: #333;
+    }
+    
+    .folder-header:hover,
+    .reference-item:hover {
+      background-color: #e9ecef;
+    }
+    
+    .reference-item.selected {
+      background-color: #dee2e6;
+    }
+    
+    .save-dialog {
+      background-color: #fff;
+      border-color: #ddd;
+    }
+    
+    .save-dialog input,
+    .save-dialog select {
+      background-color: #f5f5f5;
+      border-color: #ddd;
+      color: #333;
+    }
+    
+    .dropdown-content {
+      background-color: #fff;
+      border-color: #ddd;
+    }
+    
+    .dropdown-content button {
+      color: #333;
+    }
+    
+    .dropdown-content button:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .existing-items {
+      border-color: #ddd;
+    }
+    
+    .list-item:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .json-input {
+      background-color: #f5f5f5;
+      border-color: #ddd;
+      color: #333;
+    }
+    
+    .parsed-results h4 {
+      color: #535bf2;
+    }
+    
+    .import-progress-container {
+      background-color: #f5f5f5;
+      border-color: #ddd;
+    }
+
+    .import-progress-bar {
+      background-color: #e0e0e0;
+    }
+
+    .import-status-text {
+      color: #535bf2;
+    }
+
+    .import-results-summary {
+      border-top-color: #ddd;
+    }
+
+    .ingredient-list {
+      border-color: #ddd;
+    }
+    
+    .ingredient-item {
+      background-color: #fff;
+    }
+    
+    .ingredient-item:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .resize-handle:hover {
+      background-color: #535bf2;
+    }
+    
+    .folder-item.drag-over {
+      background-color: #e9ecef;
+      outline-color: #535bf2;
+    }
+    
+    .folder-name-input {
+      background-color: #fff;
+      border-color: #535bf2;
+      color: #333;
+    }
+    
+    .context-menu {
+      background-color: #fff;
+      border-color: #ddd;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .context-menu button {
+      color: #333;
+    }
+    
+    .context-menu button:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .context-menu hr {
+      border-color: #ddd;
+    }
+  }
+  
+  /* Type group styles */
+  .type-group {
+    margin-bottom: 12px;
+  }
+  
+  .type-group-header {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    border: none;
+    border-left: 3px solid;
+    background-color: rgba(255, 255, 255, 0.03);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .type-group-header:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .type-group-header .toggle-icon {
+    font-size: 0.75rem;
+    margin-right: 0.5rem;
+    transition: transform 0.2s;
+    color: #666;
+  }
+  
+  .type-icon {
+    margin-right: 6px;
+    font-size: 1rem;
+  }
+  
+  .type-count {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: normal;
+  }
+  
+  /* Individual type badge styles */
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 4px;
+  }
+  
+  .type-badge .type-icon {
+    margin-right: 4px;
+    font-size: 0.875rem;
+  }
+  
+  /* Breadcrumb navigation */
+  .breadcrumb-nav {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    background-color: #2a2a2a;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .breadcrumb-item {
+    padding: 0.25rem 0.5rem;
+    background: none;
+    border: none;
+    color: #d4d4d4;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    border-radius: 3px;
+  }
+  
+  .breadcrumb-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+  
+  .breadcrumb-separator {
+    margin: 0 0.25rem;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  
+  @media (prefers-color-scheme: light) {
+    .type-group-header {
+      background-color: rgba(0, 0, 0, 0.03);
+      color: rgba(0, 0, 0, 0.8);
+    }
+    
+    .type-group-header:hover {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+    
+    .type-count {
+      color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .breadcrumb-nav {
+      background-color: #f0f0f0;
+    }
+    
+    .breadcrumb-item {
+      color: #333;
+    }
+    
+    .breadcrumb-item:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+      color: #000;
+    }
+    
+    .breadcrumb-separator {
+      color: #999;
+    }
+  }
+  
+  /* Config ingredients view styles */
+  .config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .config-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .deactivate-btn {
+    padding: 6px 12px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #666;
+    transition: all 0.2s;
+  }
+  
+  .deactivate-btn:hover {
+    background: #e0e0e0;
+    color: #333;
+  }
+  
+  .config-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    position: relative;
+  }
+  
+  .config-search .search-input {
+    flex: 1;
+    max-width: none;
+  }
+  
+  .clear-search-btn {
+    position: absolute;
+    right: 140px;
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+  
+  .clear-search-btn:hover {
+    color: #333;
+  }
+  
+  .search-results-count {
+    font-size: 0.85rem;
+    color: #666;
+    white-space: nowrap;
+  }
+  
+  .no-results {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+    font-style: italic;
+  }
+  
+  .config-ingredients {
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  
+  .ingredient-type-group {
+    margin-bottom: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  .ingredient-type-group .type-group-header {
+    width: 100%;
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border: none;
+    border-left: 4px solid;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 14px;
+  }
+  
+  .ingredient-type-group .type-group-header:hover {
+    background: #e9ecef;
+  }
+  
+  .type-icon {
+    font-size: 16px;
+  }
+  
+  .type-name {
+    font-weight: 600;
+    flex: 1;
+    text-align: left;
+  }
+  
+  .type-count {
+    color: #666;
+    font-size: 13px;
+  }
+  
+  .expand-icon {
+    color: #999;
+    font-size: 11px;
+  }
+  
+  .type-group-ingredients {
+    background: white;
+    border-top: 1px solid #e0e0e0;
+  }
+  
+  .config-ingredient-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border: none;
+    border-bottom: 1px solid var(--color-border-light);
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    min-height: var(--min-touch-target);
+    border-radius: var(--radius-md);
+  }
+  
+  .config-ingredient-item:last-child {
+    border-bottom: none;
+  }
+  
+  .config-ingredient-item:hover {
+    background: var(--color-state-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-medical-hover);
+  }
+  
+  .config-ingredient-item:active {
+    background: var(--color-state-active);
+  }
+  
+  .config-ingredient-item:focus {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+  }
+  
+  .ingredient-icon {
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
+  }
+  
+  .ingredient-details {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  
+  .ingredient-display {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+  }
+  
+  .ingredient-keyname {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+  }
+  
+  .ingredient-unit {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-sm);
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .config-header {
+      border-bottom-color: #444;
+    }
+    
+    .config-header h3 {
+      color: #f0f0f0;
+    }
+    
+    .deactivate-btn {
+      background: #2a2a2a;
+      border-color: #444;
+      color: #ccc;
+    }
+    
+    .deactivate-btn:hover {
+      background: #3a3a3a;
+      color: #fff;
+    }
+    
+    .config-search {
+      background-color: #2a2a2a;
+      border-bottom-color: #444;
+    }
+    
+    .clear-search-btn {
+      color: #aaa;
+    }
+    
+    .clear-search-btn:hover {
+      color: #ddd;
+    }
+    
+    .search-results-count {
+      color: #aaa;
+    }
+    
+    .no-results {
+      color: #666;
+    }
+    
+    .ingredient-type-group {
+      border-color: #444;
+    }
+    
+    .ingredient-type-group .type-group-header {
+      background: #2a2a2a;
+    }
+    
+    .ingredient-type-group .type-group-header:hover {
+      background: #333;
+    }
+    
+    .type-group-ingredients {
+      background: #1a1a1a;
+      border-top-color: #444;
+    }
+    
+    .config-ingredient-item {
+      border-bottom-color: #333;
+    }
+    
+    .config-ingredient-item:hover {
+      background: #252525;
+    }
+    
+    .config-ingredient-item:active {
+      background: #2a2a2a;
+    }
+    
+    .ingredient-display {
+      color: #f0f0f0;
+    }
+    
+    .ingredient-keyname {
+      color: #999;
+    }
+    
+    .ingredient-unit {
+      background: #2a2a2a;
+      color: #aaa;
+    }
+  }
+</style>

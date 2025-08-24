@@ -26,7 +26,6 @@ interface PerformanceThresholds {
 class PerformanceMonitor {
   private metrics: PerformanceMetric[] = [];
   private observers: Map<string, PerformanceObserver> = new Map();
-  private startTime: number = performance.now();
   
   private thresholds: PerformanceThresholds = {
     LCP: 2500, // 2.5s
@@ -55,7 +54,9 @@ class PerformanceMonitor {
         const lcpObserver = new PerformanceObserver((entryList) => {
           const entries = entryList.getEntries();
           const lastEntry = entries[entries.length - 1];
-          this.recordMetric('LCP', lastEntry.startTime, 'ms');
+          if (lastEntry) {
+            this.recordMetric('LCP', lastEntry.startTime, 'ms');
+          }
         });
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
         this.observers.set('lcp', lcpObserver);
@@ -176,7 +177,7 @@ class PerformanceMonitor {
       value,
       unit,
       timestamp: Date.now(),
-      metadata
+      ...(metadata && { metadata })
     };
     
     this.metrics.push(metric);
@@ -257,7 +258,7 @@ class PerformanceMonitor {
         this.recordMetric(name, measure.duration, 'ms');
       }
     } catch (error) {
-      logError(`Failed to measure between ${startMark} and ${endMark}:`, error, 'Validation');
+      logError(`Failed to measure between ${startMark} and ${endMark}:`, error instanceof Error ? error : new Error(String(error)), 'Validation');
     }
   }
 
@@ -327,8 +328,8 @@ class PerformanceMonitor {
     // In production, this would send to your analytics service
     if (import.meta.env.PROD) {
       // Example: Google Analytics
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'performance', {
+      if (typeof (window as any).gtag !== 'undefined') {
+        (window as any).gtag('event', 'performance', {
           metric_name: name,
           value: value,
           threshold_exceeded: exceeded

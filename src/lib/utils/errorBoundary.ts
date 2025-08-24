@@ -1,4 +1,3 @@
-import { logError, logWarn } from '$lib/logger';
 /**
  * Error Boundary Utilities for Svelte
  * Provides error handling and recovery mechanisms
@@ -7,10 +6,10 @@ import { logError, logWarn } from '$lib/logger';
 interface ErrorInfo {
   error: Error
   timestamp: number
-  context?: string
+  context: string | undefined
   userId?: string
-  url?: string
-  userAgent?: string
+  url: string
+  userAgent: string
 }
 
 class ErrorBoundaryManager {
@@ -204,14 +203,15 @@ class ErrorBoundaryManager {
   }
 
   // Report error to external service (placeholder)
-  private async reportError(errorInfo: ErrorInfo) {
+  // @ts-ignore - Placeholder for future implementation
+  private async _reportError(_errorInfo: ErrorInfo) {
     try {
       // In production, send to error reporting service
       if (import.meta.env.PROD) {
         await fetch('/api/errors', {
           method: 'POST',
           // headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(errorInfo)
+          body: JSON.stringify(_errorInfo)
         })
       }
     } catch (error) {

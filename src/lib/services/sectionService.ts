@@ -26,7 +26,7 @@ export class SectionService {
       });
       return result || code;
     } catch (error) {
-      logWarn('Babel transpilation failed, using original code:', error);
+      logWarn('Babel transpilation failed, using original code:', error as string);
       return code;
     }
   }
@@ -93,7 +93,7 @@ export class SectionService {
       
       return styles;
     } catch (error) {
-      logWarn('Error extracting styles:', error);
+      logWarn('Error extracting styles:', error as string);
       return {};
     }
   }
@@ -172,7 +172,7 @@ export class SectionService {
   // Convert static section to dynamic
   convertStaticToDynamic(content: string): string {
     // Extract text content and create a simple return statement
-    const textContent = this.stripHTML(content);
+    // const _textContent = this.stripHTML(content);  // Could be used for extracting text
     return `// Converted from static HTML\nreturn \`${content}\`;`;
   }
 

@@ -100,6 +100,17 @@ class WorkspaceStore {
   setFirebaseEnabled(enabled: boolean) { this._firebaseEnabled = enabled; }
   setActiveConfigId(id: string | null) { this._activeConfigId = id; }
   setActiveConfigIngredients(ingredients: any[]) { this._activeConfigIngredients = ingredients; }
+  
+  setActiveConfig(id: string, ingredients: any[]) {
+    this._activeConfigId = id;
+    this._activeConfigIngredients = ingredients;
+  }
+  
+  clearActiveConfig() {
+    this._activeConfigId = null;
+    this._activeConfigIngredients = [];
+  }
+  
   setSelectedIngredientForDiff(ingredient: any) { this._selectedIngredientForDiff = ingredient; }
   setPendingSaveData(data: any) { this._pendingSaveData = data; }
   setPendingReferenceData(data: any) { this._pendingReferenceData = data; }

@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script>
+  import { logError } from '$lib/logger';
   import { onMount } from 'svelte';
   import { referenceService, POPULATION_TYPES } from './firebaseDataService.js';
   import { createSharedIngredient } from './sharedIngredientService.js';

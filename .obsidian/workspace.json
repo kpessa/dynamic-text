@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "_DYNAMIC-TEXT.md",
+                "file": "_knowledge/00-Overview/PROJECT_SUMMARY.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "_DYNAMIC-TEXT"
+              "title": "PROJECT_SUMMARY"
             }
           }
         ]
@@ -170,23 +170,26 @@
   },
   "active": "4721fb8984b562ba",
   "lastOpenFiles": [
-    "dist/index.html",
-    "dist/css/App-C6FnHi0x.css",
-    "dist/assets/index-D_DMLK6U.js",
-    "dist/assets",
-    "dist/js/vendor-DNQ4AJc7.js",
-    "dist/js/sanitizer-fTd6nRg8.js",
-    "dist/js/main-C9J12VsZ.js",
-    "dist/js/kptNamespace-h0oV6zq6.js",
-    "dist/js/firebase-D77rbjOp.js",
-    "dist/js/diff-DAi9y-sd.js",
-    "dist/js/codemirror-CH1ayKoI.js",
+    "src/App.svelte.tmp.729249.1755577284800",
+    "src/App.svelte.tmp.729249.1755577269550",
+    "src/App.svelte.tmp.729249.1755577242531",
+    "src/App.svelte.tmp.729249.1755577212806",
+    "src/App.svelte.tmp.729249.1755577101939",
+    "src/App.svelte.tmp.729249.1755577023409",
+    "src/App.svelte.tmp.729249.1755576982669",
+    "src/App.svelte.tmp.729249.1755576922840",
+    "src/App.svelte.tmp.729249.1755576885120",
+    "src/App.svelte.tmp.729249.1755576872657",
+    "src/App.svelte.tmp.729249.1755576840142",
+    "SKELETON_INTEGRATION_INSTRUCTIONS.md",
+    "SKELETON_MIGRATION_GUIDE.md",
+    "SKELETON_INTEGRATION.md",
+    "_DYNAMIC-TEXT.md",
     "_knowledge/07-Backups/CLAUDE.MD-2025-08-17-16-05.md",
     "_knowledge/02-Architecture/architecture-deep-dive-2025-08-17.md",
     "_knowledge/03-Data-Flow/AUDIT-2025-08-17.md",
     "_knowledge/01-Research/Testing/comprehensive-testing-audit-2025-08-17-1745.md",
     "CLAUDE.md",
-    "_DYNAMIC-TEXT.md",
     "_knowledge/02-Architecture/service-architecture-consolidation-analysis-2025-08-17.md",
     "_knowledge/07-Backups/CLAUDE.MD-2025-08-17-13-25.md",
     "_knowledge/00-Overview/PROJECT_SUMMARY.md",
@@ -202,9 +205,6 @@
     "_knowledge/01-Research/Security/AUDIT-2025-08-17.md",
     "_knowledge/00-Overview/KNOWLEDGE_INDEX.md",
     "_knowledge/06-Reviews/AUDIT-2025-08-17.md",
-    "_knowledge/02-Architecture/codebase-analysis-rapid-prototyping-2025-08-17.md",
-    "_knowledge/06-Reviews/EXAMPLE_REVIEW.md",
-    "_knowledge/00-Overview/CURRENT_STATE_2025-08-17_FINAL.md",
-    "_knowledge/00-Overview/CURRENT_STATE_2025-08-17.md"
+    "_knowledge/02-Architecture/codebase-analysis-rapid-prototyping-2025-08-17.md"
   ]
 }

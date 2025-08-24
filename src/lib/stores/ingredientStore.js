@@ -1,10 +1,13 @@
 import { ingredientService } from '../firebaseDataService.js';
-import { logError } from '$lib/logger';
+// import { logError } from '$lib/logger';  // Unused import
 
 // Core ingredient data - using plain variables since this is a store module
+/** @type {any[]} */
 let ingredients = [];
 let loading = false;
+/** @type {string | null} */
 let error = null;
+/** @type {(() => void) | null} */
 let unsubscribe = null;
 
 // Initialize the store and subscribe to Firebase
@@ -21,7 +24,7 @@ async function init() {
     });
   } catch (err) {
     // logError('Failed to initialize ingredient store:', err);
-    error = err.message;
+    error = err instanceof Error ? err.message : String(err);
     loading = false;
   }
 }
@@ -42,11 +45,18 @@ function destroy() {
 }
 
 // Get ingredient by ID
+/**
+ * @param {string} id
+ */
 function getById(id) {
   return ingredients.find(ing => ing.id === id);
 }
 
 // Update a single ingredient locally (will be synced by Firebase)
+/**
+ * @param {string} id
+ * @param {any} updates
+ */
 function updateLocal(id, updates) {
   const index = ingredients.findIndex(ing => ing.id === id);
   if (index !== -1) {
@@ -66,7 +76,7 @@ async function reload() {
     loading = false;
   } catch (err) {
     // logError('Failed to reload ingredients:', err);
-    error = err.message;
+    error = err instanceof Error ? err.message : String(err);
     loading = false;
   }
 }

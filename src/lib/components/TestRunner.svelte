@@ -1,5 +1,5 @@
-import { logError } from '$lib/logger';
 <script>
+  import { logError } from '$lib/logger';
   import { sectionStore } from '../../stores/sectionStore.svelte.ts';
   import { testStore } from '../../stores/testStore.svelte.ts';
   import { workspaceStore } from '../../stores/workspaceStore.svelte.ts';

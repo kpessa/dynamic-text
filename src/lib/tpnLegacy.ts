@@ -8,7 +8,7 @@ import type {
   CalculatedValueDependencies,
   ExtractedKeys
 } from './types.js';
-import { logWarn, logError } from '$lib/logger';
+// import { logWarn, logError } from '$lib/logger'; // Commented out - currently unused
 
 /**
  * TPN Legacy Support Module
