@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Worker Test</title>
+</head>
+<body>
+    <h1>Worker Test</h1>
+    <button onclick="testReturn()">Test Return Statement</button>
+    <div id="result"></div>
+
+    <script>
+        let worker = null;
+
+        function initWorker() {
+            if (!worker) {
+                worker = new Worker('/workers/codeWorker.js');
+                worker.onmessage = function(event) {
+                    const { id, success, result, error } = event.data;
+                    if (success) {
+                        document.getElementById('result').innerHTML = `
+                            <h3>Success!</h3>
+                            <p><strong>Result:</strong> ${JSON.stringify(result, null, 2)}</p>
+                        `;
+                    } else {
+                        document.getElementById('result').innerHTML = `
+                            <h3>Error!</h3>
+                            <p><strong>Error:</strong> ${error}</p>
+                        `;
+                    }
+                };
+            }
+        }
+
+        async function testReturn() {
+            initWorker();
+            
+            const testCode = 'return "Hello, World!";';
+            
+            // Initialize worker
+            await new Promise((resolve, reject) => {
+                worker.postMessage({ id: 'init', type: 'INITIALIZE' });
+                worker.onmessage = function(event) {
+                    if (event.data.id === 'init') {
+                        resolve();
+                    }
+                };
+            });
+
+            // Test execution
+            worker.postMessage({
+                id: 'test1',
+                type: 'EXECUTE_CODE',
+                payload: {
+                    code: testCode,
+                    context: {}
+                }
+            });
+        }
+    </script>
+</body>
+</html>

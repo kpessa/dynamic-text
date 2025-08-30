@@ -90,12 +90,14 @@
     // Build extensions array carefully to avoid conflicts
     const extensions: any[] = [];
     
-    // Add basic setup first (this is an array of extensions)
+    // Add basic setup first
     extensions.push(basicSetup);
     
     // Add language-specific extensions first (before themes to avoid conflicts)
     if (language === 'javascript') {
-      extensions.push(javascript({ jsx: true }));
+      // Skip JavaScript language support for dynamic sections to avoid syntax validation errors
+      // This allows return statements at top level without parser errors
+      // extensions.push(javascript({ jsx: true }));
     } else if (language === 'html') {
       extensions.push(html());
     }

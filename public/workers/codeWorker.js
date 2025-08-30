@@ -4,10 +4,6 @@
  * off the main thread for better performance
  */
 
-// Import Babel for transpilation
-let Babel = null
-let isInitialized = false
-
 // Performance metrics
 let performanceMetrics = {
   executionsPerformed: 0,
@@ -16,29 +12,18 @@ let performanceMetrics = {
   averageExecutionTime: 0
 }
 
-// Cache for transpiled code
+// Worker state
+let isInitialized = false
+
+// Cache for executed code
 const codeCache = new Map()
 const maxCacheSize = 100
 
-// Initialize Babel
-async function initializeBabel() {
-  if (isInitialized) return
-  
-  try {
-    // Load Babel standalone
-    importScripts('https://unpkg.com/@babel/standalone/babel.min.js')
-    Babel = self.Babel
-    
-    if (!Babel) {
-      throw new Error('Failed to load Babel')
-    }
-    
-    isInitialized = true
-    console.log('[CodeWorker] Babel initialized successfully')
-  } catch (error) {
-    console.error('[CodeWorker] Failed to initialize Babel:', error)
-    throw error
-  }
+// Initialize worker
+async function initialize() {
+  // No transpilation needed, just mark as initialized
+  isInitialized = true
+  console.log('[CodeWorker] Initialized successfully (no transpilation)')
 }
 
 // Create sandboxed execution environment
@@ -144,28 +129,22 @@ function executeCode(code, context) {
   const startTime = performance.now()
   
   try {
-    // Check cache for transpiled code
-    let transpiledCode
+    // Check cache for processed code
+    let processedCode
     const cacheKey = code
     
     if (codeCache.has(cacheKey)) {
-      transpiledCode = codeCache.get(cacheKey)
+      processedCode = codeCache.get(cacheKey)
     } else {
-      // Transpile code with Babel
-      const result = Babel.transform(code, {
-        presets: ['env'],
-        plugins: [],
-        compact: true
-      })
+      // No transpilation needed, use code as-is
+      processedCode = code
       
-      transpiledCode = result.code
-      
-      // Cache transpiled code
+      // Cache processed code
       if (codeCache.size >= maxCacheSize) {
         const firstKey = codeCache.keys().next().value
         codeCache.delete(firstKey)
       }
-      codeCache.set(cacheKey, transpiledCode)
+      codeCache.set(cacheKey, processedCode)
     }
     
     // Create sandbox environment
@@ -177,7 +156,8 @@ function executeCode(code, context) {
       `
         'use strict';
         try {
-          ${transpiledCode}
+          // Execute user code directly - it should be a complete expression or statement
+          ${processedCode}
         } catch (error) {
           throw new Error('Execution error: ' + error.message);
         }
@@ -245,11 +225,8 @@ function batchExecute(codeBlocks) {
 // Validate code syntax
 function validateCode(code) {
   try {
-    Babel.transform(code, {
-      presets: ['env'],
-      plugins: [],
-      compact: true
-    })
+    // Validate code syntax by creating a function with the code
+    new Function(code)
     
     return {
       valid: true,
@@ -260,8 +237,8 @@ function validateCode(code) {
       valid: false,
       errors: [{
         message: error.message,
-        line: error.loc?.line,
-        column: error.loc?.column
+        line: 1, // We can't get exact line/column without transpilation
+        column: 1
       }]
     }
   }
@@ -276,12 +253,12 @@ self.addEventListener('message', async (event) => {
     
     // Initialize if needed
     if (!isInitialized && type !== 'INITIALIZE') {
-      await initializeBabel()
+      await initialize()
     }
     
     switch (type) {
       case 'INITIALIZE':
-        await initializeBabel()
+        await initialize()
         result = { initialized: true }
         break
         

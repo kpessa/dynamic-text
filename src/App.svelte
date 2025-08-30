@@ -16,20 +16,17 @@
   const USE_SKELETON_UI = true; // Set to true to use Skeleton components
   
   // Services
-  import { sanitizeHTML, createMockMe, transpileCode, evaluateCode, stripHTML, validateTestOutput, extractStylesFromHTML, runTestCase } from './lib/services/codeExecutionService';
+  import { sanitizeHTML, createMockMe, evaluateCode, stripHTML, validateTestOutput, extractStylesFromHTML, runTestCase } from './lib/services/codeExecutionService';
   import { sectionsToJSON, sectionsToLineObjects, exportAsHTML, exportAsMarkdown, importFromJSON, validateImportData } from './lib/services/exportService';
   import { runSectionTests, createDefaultTestCase, validateTestCase, calculateTestStats, formatTestResults } from './lib/services/testingService';
   import { createSection, updateSectionContent, deleteSection as deleteSectionService, toggleSectionEditing, convertToDynamic, reorderSections, extractUsedKeys, hasUnsavedChanges as checkUnsavedChanges, migrateSections, countSectionsByType, generatePreviewHTML } from './lib/services/sectionService';
   import { copyToClipboard, copyJSONToClipboard, copyCodeSnippet } from './lib/services/clipboardService';
   import { getIngredientBadgeColor, getPopulationColor, getPopulationName, formatTimestamp, formatFileSize, debounce, throttle, generateId, sortPopulationTypes } from './lib/services/uiHelpers';
   
-  import { preloadBabel } from './lib/utils/lazyBabel';
-  import { onMount } from 'svelte';
   
-  // Preload Babel after component mounts
-  onMount(() => {
-    setTimeout(() => preloadBabel(), 1000);
-  });
+  
+  
+
   
   // Components
   import CodeEditor from './lib/CodeEditor.svelte';
@@ -352,7 +349,9 @@
     try {
       // Prepare TPN values and ingredient values for the worker
       const tpnValues = testVariables || {};
-      const ingredientValues = currentIngredientValues || {};
+      
+      // Extract only primitive values from currentIngredientValues to avoid serialization issues
+      const ingredientValues = extractPrimitiveValues(currentIngredientValues || {});
       
       // Execute code securely in Web Worker
       const result = await executeWithTPNContext(code, tpnValues, ingredientValues);
@@ -360,6 +359,45 @@
     } catch (error) {
       return `<span style="color: red;">Error: ${error.message}</span>`;
     }
+  }
+
+  // Helper function to extract only primitive values from objects
+  function extractPrimitiveValues(obj) {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => extractPrimitiveValues(item));
+    }
+    
+    if (typeof obj === 'object') {
+      const result = {};
+      for (const [key, value] of Object.entries(obj)) {
+        // Skip functions and complex objects
+        if (typeof value !== 'function' && value !== null && value !== undefined) {
+          if (typeof value === 'object' && value.constructor !== Object) {
+            // Skip class instances, but try to extract primitive properties
+            try {
+              const serialized = JSON.parse(JSON.stringify(value));
+              result[key] = serialized;
+            } catch {
+              // Skip this property if it can't be serialized
+              continue;
+            }
+          } else {
+            result[key] = extractPrimitiveValues(value);
+          }
+        }
+      }
+      return result;
+    }
+    
+    return undefined;
   }
   
   // OLD - Remove duplicate function
@@ -416,8 +454,8 @@
           sectionType: 'dynamic'
         });
         
-        const transpiledCode = transpileCode(section.content);
-        const lines = transpiledCode.split('\n');
+        const processedCode = section.content;
+        const lines = processedCode.split('\n');
         lines.forEach(line => {
           objects.push({
             id: `line-${lineId++}`,

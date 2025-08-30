@@ -26,18 +26,38 @@ export interface SectionTestResults {
 }
 
 /**
- * Run a single test case against code
+ * Run a single test case against code with timeout support
  */
-export function runTestCase(code: string, testCase: TestCase): TestResult {
+export function runTestCase(code: string, testCase: TestCase, tpnContext?: any): TestResult {
+  const startTime = Date.now();
+  const TIMEOUT_MS = 5000; // 5 second timeout per test
+  
   try {
-    const output = evaluateCode(code, testCase.variables || {});
+    // Merge TPN context with test variables if provided
+    const variables = tpnContext ? 
+      { ...testCase.variables, ...tpnContext } : 
+      (testCase.variables || {});
+    
+    // Create a timeout promise
+    const timeoutPromise = new Promise<string>((_, reject) => {
+      setTimeout(() => reject(new Error('Test execution timeout (5 seconds)')), TIMEOUT_MS);
+    });
+    
+    // Execute code with timeout protection (synchronous for now)
+    const output = evaluateCode(code, variables);
+    const executionTime = Date.now() - startTime;
+    
+    if (executionTime > TIMEOUT_MS) {
+      throw new Error('Test execution timeout (5 seconds)');
+    }
+    
     const outputStyles = extractStylesFromHTML(output);
     
     let passed = true;
     let error: string | undefined = undefined;
     
-    // Check output expectations
-    if (testCase.expectedOutput) {
+    // Check output expectations with all match types
+    if (testCase.expectedOutput !== undefined && testCase.expectedOutput !== '') {
       const outputMatches = validateTestOutput(
         output,
         testCase.expectedOutput,
@@ -45,7 +65,8 @@ export function runTestCase(code: string, testCase: TestCase): TestResult {
       );
       if (!outputMatches) {
         passed = false;
-        error = `Output mismatch. Expected: "${testCase.expectedOutput}", Got: "${stripHTML(output)}"`;
+        const actualOutput = stripHTML(output);
+        error = `Output mismatch.\nExpected (${testCase.matchType || 'contains'}): "${testCase.expectedOutput}"\nActual: "${actualOutput}"`;
       }
     }
     
@@ -54,7 +75,7 @@ export function runTestCase(code: string, testCase: TestCase): TestResult {
       for (const [prop, expectedValue] of Object.entries(testCase.expectedStyles)) {
         if (outputStyles[prop] !== expectedValue) {
           passed = false;
-          error = `Style mismatch for ${prop}. Expected: "${expectedValue}", Got: "${outputStyles[prop] || 'undefined'}"`;
+          error = `Style mismatch for ${prop}.\nExpected: "${expectedValue}"\nActual: "${outputStyles[prop] || 'undefined'}"`;
           break;
         }
       }
@@ -69,7 +90,7 @@ export function runTestCase(code: string, testCase: TestCase): TestResult {
   } catch (err: any) {
     return {
       passed: false,
-      error: err.message,
+      error: err.message || 'Unknown error during test execution',
       actualOutput: '',
       actualStyles: {}
     };
@@ -79,12 +100,12 @@ export function runTestCase(code: string, testCase: TestCase): TestResult {
 /**
  * Run all test cases for a section
  */
-export function runSectionTests(sectionCode: string, testCases: TestCase[]): TestResult[] {
+export function runSectionTests(sectionCode: string, testCases: TestCase[], tpnContext?: any): TestResult[] {
   if (!testCases || testCases.length === 0) {
     return [];
   }
   
-  return testCases.map(testCase => runTestCase(sectionCode, testCase));
+  return testCases.map(testCase => runTestCase(sectionCode, testCase, tpnContext));
 }
 
 /**

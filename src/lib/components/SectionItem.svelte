@@ -98,6 +98,75 @@
     }
   }
   
+  function handleDuplicateTestCase(index) {
+    const testCase = section.testCases[index];
+    const duplicatedTestCase = {
+      ...testCase,
+      name: `${testCase.name} (Copy)`,
+      variables: { ...testCase.variables },
+      testResult: undefined // Clear test result for the duplicate
+    };
+    
+    // Add the duplicated test case
+    sectionStore.addTestCase(section.id);
+    const newIndex = section.testCases.length - 1;
+    sectionStore.updateTestCase(section.id, newIndex, duplicatedTestCase);
+    onChange();
+  }
+  
+  // Drag and drop handlers for test cases
+  let draggedTestIndex = null;
+  let dragOverTestIndex = null;
+  
+  function handleTestCaseDragStart(e, index) {
+    draggedTestIndex = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.innerHTML);
+    e.target.classList.add('dragging');
+  }
+  
+  function handleTestCaseDragEnd(e) {
+    e.target.classList.remove('dragging');
+    draggedTestIndex = null;
+    dragOverTestIndex = null;
+    
+    // Remove all drag-over classes
+    const testCases = e.target.closest('.test-case-list')?.querySelectorAll('.test-case');
+    testCases?.forEach(tc => tc.classList.remove('drag-over'));
+  }
+  
+  function handleTestCaseDragOver(e, index) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (draggedTestIndex !== null && draggedTestIndex !== index) {
+      dragOverTestIndex = index;
+      
+      // Add visual feedback
+      const testCases = e.currentTarget.closest('.test-case-list')?.querySelectorAll('.test-case');
+      testCases?.forEach((tc, i) => {
+        tc.classList.toggle('drag-over', i === index);
+      });
+    }
+  }
+  
+  function handleTestCaseDrop(e, targetIndex) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggedTestIndex !== null && draggedTestIndex !== targetIndex) {
+      sectionStore.reorderTestCases(section.id, draggedTestIndex, targetIndex);
+      onChange();
+    }
+    
+    // Clean up visual feedback
+    const testCases = e.currentTarget.closest('.test-case-list')?.querySelectorAll('.test-case');
+    testCases?.forEach(tc => tc.classList.remove('drag-over'));
+    
+    draggedTestIndex = null;
+    dragOverTestIndex = null;
+  }
+  
   function handleSetActiveTestCase(testCase) {
     sectionStore.setActiveTestCase(section.id, testCase);
   }
@@ -112,8 +181,36 @@
       testCase.expectedStyles
     );
     
-    // console.log('Test result:', result);
-    // You could show a toast or update some UI state here
+    // Update test result in store
+    const testIndex = section.testCases.findIndex(tc => tc === testCase);
+    if (testIndex !== -1) {
+      sectionStore.updateTestCase(section.id, testIndex, {
+        testResult: {
+          passed: result.passed,
+          actual: evaluation.result,
+          error: result.error,
+          executionTime: Date.now()
+        }
+      });
+    }
+    
+    return result;
+  }
+  
+  async function handleRunAllSectionTests() {
+    const results = [];
+    for (let i = 0; i < section.testCases.length; i++) {
+      const testCase = section.testCases[i];
+      if (testCase.expected || testCase.expectedOutput || testCase.expectedStyles) {
+        const result = handleRunSingleTest(testCase);
+        results.push(result);
+      }
+    }
+    
+    // Show summary toast or update UI
+    const passed = results.filter(r => r.passed).length;
+    const total = results.length;
+    console.log(`Test Results: ${passed}/${total} passed`);
   }
   function addTestVariable(testCaseIndex) {
     const varName = prompt('Variable name:');
@@ -137,6 +234,30 @@
     const vars = { ...testCase.variables };
     delete vars[key];
     handleUpdateTestCase(testCaseIndex, { variables: vars });
+  }
+  
+  function handleEditVariablesAsJSON(testCaseIndex) {
+    const testCase = section.testCases[testCaseIndex];
+    const currentVars = testCase.variables || {};
+    const jsonString = JSON.stringify(currentVars, null, 2);
+    
+    const newJsonString = prompt(
+      'Edit variables as JSON (be careful with syntax):', 
+      jsonString
+    );
+    
+    if (newJsonString !== null) {
+      try {
+        const newVars = JSON.parse(newJsonString);
+        if (typeof newVars === 'object' && newVars !== null) {
+          handleUpdateTestCase(testCaseIndex, { variables: newVars });
+        } else {
+          alert('Invalid JSON: Variables must be an object');
+        }
+      } catch (e) {
+        alert('Invalid JSON syntax: ' + e.message);
+      }
+    }
   }
   
   function getIngredientBadgeColor(key) {
@@ -287,9 +408,10 @@
           type="button"
           aria-expanded={expandedTestCases[section.id] ? 'true' : 'false'}
           aria-controls={`test-cases-${section.id}`}
+          aria-label="Toggle test cases panel"
         >
           <span class="collapse-icon">{expandedTestCases[section.id] ? '▼' : '▶'}</span>
-          <h4>Test Cases</h4>
+          <h4>Test Cases ({section.testCases.length})</h4>
           {#if activeTestCase[section.id]}
             <span class="active-test-badge">{activeTestCase[section.id].name}</span>
           {/if}
@@ -298,8 +420,18 @@
           <button 
             class="add-test-btn" 
             onclick={handleAddTestCase}
+            title="Add new test case (Ctrl+T)"
+            aria-label="Add new test case"
           >
             + Add Test
+          </button>
+          <button
+            class="run-all-section-tests-btn"
+            onclick={() => handleRunAllSectionTests()}
+            title="Run all tests for this section"
+            aria-label="Run all tests for this section"
+          >
+            ▶️ Run All
           </button>
           <TestGeneratorButton 
             {section}
@@ -310,6 +442,7 @@
             class="ai-inspector-btn"
             onclick={openAIWorkflowInspector}
             title="Open AI Workflow Inspector"
+            aria-label="Open AI Workflow Inspector"
           >
             🔍 AI Inspector
           </button>
@@ -319,8 +452,16 @@
       {#if expandedTestCases[section.id]}
         <div class="test-case-list" id={`test-cases-${section.id}`}>
         {#each section.testCases as testCase, index}
-          <div class="test-case {activeTestCase[section.id] === testCase ? 'active' : ''}">
+          <div 
+            class="test-case {activeTestCase[section.id] === testCase ? 'active' : ''}"
+            draggable="true"
+            ondragstart={(e) => handleTestCaseDragStart(e, index)}
+            ondragend={(e) => handleTestCaseDragEnd(e)}
+            ondragover={(e) => handleTestCaseDragOver(e, index)}
+            ondrop={(e) => handleTestCaseDrop(e, index)}
+          >
             <div class="test-case-header">
+              <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
               <input 
                 type="text" 
                 value={testCase.name}
@@ -336,6 +477,13 @@
                 title="Run this test case"
               >
                 {activeTestCase[section.id] === testCase ? '■' : '▶'}
+              </button>
+              <button
+                class="test-case-duplicate"
+                onclick={() => handleDuplicateTestCase(index)}
+                title="Duplicate test case"
+              >
+                📋
               </button>
               {#if section.testCases.length > 1}
                 <button 
@@ -354,8 +502,16 @@
                 <button 
                   class="add-var-btn"
                   onclick={() => addTestVariable(index)}
+                  title="Add new variable"
                 >
                   + Add
+                </button>
+                <button
+                  class="json-edit-btn"
+                  onclick={() => handleEditVariablesAsJSON(index)}
+                  title="Edit as JSON"
+                >
+                  {} JSON
                 </button>
               </div>
               
@@ -364,18 +520,26 @@
                   <span class="var-name">{key}:</span>
                   <input 
                     type="text"
-                    value={value}
+                    value={typeof value === 'object' ? JSON.stringify(value) : value}
                     class="var-value"
                     oninput={(e) => updateTestVariable(index, key, e.target.value)}
+                    placeholder="Value..."
                   />
                   <button 
                     class="var-delete"
                     onclick={() => deleteTestVariable(index, key)}
+                    title="Delete variable"
                   >
                     ×
                   </button>
                 </div>
               {/each}
+              
+              {#if Object.keys(testCase.variables || {}).length === 0}
+                <div class="no-variables">
+                  No variables defined. Click "+ Add" to create one.
+                </div>
+              {/if}
             </div>
             
             <!-- Test Expectations -->
@@ -399,6 +563,31 @@
                 oninput={(e) => handleUpdateTestCase(index, { expected: e.target.value, expectedOutput: e.target.value })}
               ></textarea>
             </div>
+            
+            <!-- Test Result Display -->
+            {#if testCase.testResult}
+              <div class="test-result {testCase.testResult.passed ? 'passed' : 'failed'}">
+                <div class="result-header">
+                  {testCase.testResult.passed ? '✅ Test Passed' : '❌ Test Failed'}
+                  {#if testCase.testResult.executionTime}
+                    <span class="execution-time">
+                      ({new Date(testCase.testResult.executionTime).toLocaleTimeString()})
+                    </span>
+                  {/if}
+                </div>
+                {#if testCase.testResult.error}
+                  <div class="result-error">
+                    <strong>Error:</strong> {testCase.testResult.error}
+                  </div>
+                {/if}
+                {#if testCase.testResult.actual !== undefined}
+                  <div class="result-actual">
+                    <strong>Actual Output:</strong>
+                    <pre>{testCase.testResult.actual}</pre>
+                  </div>
+                {/if}
+              </div>
+            {/if}
           </div>
         {/each}
         </div>
@@ -659,7 +848,7 @@
     align-items: center;
   }
   
-  .add-test-btn, .ai-inspector-btn {
+  .add-test-btn, .ai-inspector-btn, .run-all-section-tests-btn {
     padding: 0.4rem 0.8rem;
     border: 1px solid #dee2e6;
     border-radius: 4px;
@@ -676,6 +865,16 @@
   
   .add-test-btn:hover {
     background: #218838;
+  }
+  
+  .run-all-section-tests-btn {
+    background: #17a2b8;
+    color: white;
+    border-color: #17a2b8;
+  }
+  
+  .run-all-section-tests-btn:hover {
+    background: #138496;
   }
   
   .ai-inspector-btn {
@@ -699,11 +898,36 @@
     border-radius: 6px;
     padding: 0.75rem;
     background: #fafbfc;
+    cursor: move;
+    transition: all 0.2s;
   }
   
   .test-case.active {
     border-color: #007bff;
     background: #f8f9ff;
+  }
+  
+  .test-case.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+  }
+  
+  .test-case.drag-over {
+    border-color: #007bff;
+    border-width: 2px;
+    background: #e8f4ff;
+  }
+  
+  .drag-handle {
+    cursor: grab;
+    color: #6c757d;
+    font-size: 1.2rem;
+    padding: 0 0.25rem;
+    user-select: none;
+  }
+  
+  .drag-handle:active {
+    cursor: grabbing;
   }
   
   .test-case-header {
@@ -743,10 +967,9 @@
     background: #dc3545;
   }
   
-  .test-case-delete {
+  .test-case-delete, .test-case-duplicate {
     width: 1.5rem;
     height: 1.5rem;
-    background: #dc3545;
     color: white;
     border: none;
     border-radius: 50%;
@@ -757,7 +980,15 @@
     transition: all 0.2s;
   }
   
-  .test-case-delete:hover {
+  .test-case-delete {
+    background: #dc3545;
+  }
+  
+  .test-case-duplicate {
+    background: #6c757d;
+  }
+  
+  .test-case-delete:hover, .test-case-duplicate:hover {
     transform: scale(1.1);
   }
   
@@ -775,14 +1006,40 @@
     color: #495057;
   }
   
-  .add-var-btn {
+  .add-var-btn, .json-edit-btn {
     padding: 0.25rem 0.5rem;
-    background: #007bff;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  
+  .add-var-btn {
+    background: #007bff;
+  }
+  
+  .add-var-btn:hover {
+    background: #0056b3;
+  }
+  
+  .json-edit-btn {
+    background: #6f42c1;
+  }
+  
+  .json-edit-btn:hover {
+    background: #5a32a3;
+  }
+  
+  .no-variables {
+    padding: 0.5rem;
+    color: #6c757d;
+    font-style: italic;
+    font-size: 0.85rem;
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 4px;
   }
   
   .variable-row {
@@ -851,5 +1108,64 @@
     font-size: 0.85rem;
     font-family: 'Fira Code', 'Monaco', 'Menlo', monospace;
     resize: vertical;
+  }
+  
+  /* Test Result Display Styles */
+  .test-result {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 2px solid;
+    background: white;
+  }
+  
+  .test-result.passed {
+    border-color: #28a745;
+    background: #d4edda;
+  }
+  
+  .test-result.failed {
+    border-color: #dc3545;
+    background: #f8d7da;
+  }
+  
+  .result-header {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .execution-time {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-weight: normal;
+  }
+  
+  .result-error {
+    padding: 0.5rem;
+    background: rgba(220, 53, 69, 0.1);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    color: #721c24;
+    font-size: 0.85rem;
+  }
+  
+  .result-actual {
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+  
+  .result-actual pre {
+    margin: 0.25rem 0 0 0;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: 'Fira Code', 'Monaco', 'Menlo', monospace;
+    font-size: 0.8rem;
   }
 </style>

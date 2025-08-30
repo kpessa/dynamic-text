@@ -147,7 +147,19 @@ class WorkerManager {
       })
       
       // Send message to worker
-      this.worker!.postMessage(message)
+      try {
+        this.worker!.postMessage(message)
+      } catch (error) {
+        // Handle cloning errors specifically
+        if (error instanceof Error && error.message.includes('could not be cloned')) {
+          logError('Worker message cloning error - data contains non-serializable objects:', error)
+          reject(new Error(`Failed to send message to worker: data contains non-serializable objects. Please check the payload for functions, DOM elements, or circular references.`))
+        } else {
+          logError('Worker message error:', error)
+          reject(new Error(`Failed to send message to worker: ${(error as Error).message}`))
+        }
+        return
+      }
     })
   }
   
@@ -204,8 +216,12 @@ class TPNWorkerService {
   
   // Calculate TPN formulation
   async calculateTPN(patientData: any, ingredients: any[]): Promise<any> {
+    // Sanitize data before sending to worker
+    const sanitizedPatientData = this.sanitizeForWorker(patientData)
+    const sanitizedIngredients = this.sanitizeForWorker(ingredients)
+    
     // Create cache key
-    const cacheKey = JSON.stringify({ patientData, ingredients })
+    const cacheKey = JSON.stringify({ patientData: sanitizedPatientData, ingredients: sanitizedIngredients })
     
     // Check local cache first
     if (this.calculationCache.has(cacheKey)) {
@@ -215,8 +231,8 @@ class TPNWorkerService {
     
     try {
       const result = await this.workerManager.sendMessage('CALCULATE_TPN', {
-        patientData,
-        ingredients
+        patientData: sanitizedPatientData,
+        ingredients: sanitizedIngredients
       })
       
       // Cache the result
@@ -232,8 +248,9 @@ class TPNWorkerService {
   // Batch calculate multiple TPN scenarios
   async batchCalculate(scenarios: any[]): Promise<any[]> {
     try {
+      const sanitizedScenarios = this.sanitizeForWorker(scenarios)
       const results = await this.workerManager.sendMessage('BATCH_CALCULATE', {
-        scenarios
+        scenarios: sanitizedScenarios
       })
       
       return results
@@ -246,8 +263,9 @@ class TPNWorkerService {
   // Calculate base requirements
   async calculateRequirements(patientData: any): Promise<any> {
     try {
+      const sanitizedPatientData = this.sanitizeForWorker(patientData)
       const result = await this.workerManager.sendMessage('CALCULATE_REQUIREMENTS', {
-        patientData
+        patientData: sanitizedPatientData
       })
       
       return result
@@ -260,9 +278,11 @@ class TPNWorkerService {
   // Validate TPN formulation
   async validateTPN(tpnResult: any, patientData: any): Promise<any> {
     try {
+      const sanitizedTpnResult = this.sanitizeForWorker(tpnResult)
+      const sanitizedPatientData = this.sanitizeForWorker(patientData)
       const result = await this.workerManager.sendMessage('VALIDATE_TPN', {
-        tpnResult,
-        patientData
+        tpnResult: sanitizedTpnResult,
+        patientData: sanitizedPatientData
       })
       
       return result
@@ -323,6 +343,54 @@ class TPNWorkerService {
     this.workerManager.terminate()
     this.calculationCache.clear()
   }
+
+  /**
+   * Sanitize data for worker communication by removing non-serializable objects
+   */
+  private sanitizeForWorker(data: any): any {
+    if (data === null || data === undefined) {
+      return data;
+    }
+    
+    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+      return data;
+    }
+    
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeForWorker(item));
+    }
+    
+    if (typeof data === 'object') {
+      // Check if it's a plain object (not a class instance)
+      if (data.constructor !== Object) {
+        // If it's a class instance, try to extract only the data properties
+        // or return an empty object if we can't safely serialize it
+        try {
+          // Try to JSON stringify and parse to see if it's serializable
+          JSON.parse(JSON.stringify(data));
+          return data;
+        } catch {
+          // If it's not serializable, return an empty object
+          return {};
+        }
+      }
+      
+      // For plain objects, recursively sanitize all properties
+      const sanitized: Record<string, any> = {};
+      for (const [key, value] of Object.entries(data)) {
+        try {
+          sanitized[key] = this.sanitizeForWorker(value);
+        } catch {
+          // Skip properties that can't be sanitized
+          continue;
+        }
+      }
+      return sanitized;
+    }
+    
+    // For any other type, return undefined
+    return undefined;
+  }
 }
 
 // Code Execution Worker Service
@@ -339,9 +407,10 @@ class CodeExecutionWorkerService {
   
   async executeCode(code: string, context: any): Promise<any> {
     try {
+      const sanitizedContext = this.sanitizeForWorker(context)
       const result = await this.workerManager.sendMessage('EXECUTE_CODE', {
         code,
-        context
+        context: sanitizedContext
       })
       
       return result
@@ -353,8 +422,9 @@ class CodeExecutionWorkerService {
   
   async batchExecute(codeBlocks: Array<{ code: string, context: any }>): Promise<any[]> {
     try {
+      const sanitizedCodeBlocks = this.sanitizeForWorker(codeBlocks)
       const results = await this.workerManager.sendMessage('BATCH_EXECUTE', {
-        codeBlocks
+        codeBlocks: sanitizedCodeBlocks
       })
       
       return results
@@ -366,6 +436,54 @@ class CodeExecutionWorkerService {
   
   terminate() {
     this.workerManager.terminate()
+  }
+
+  /**
+   * Sanitize data for worker communication by removing non-serializable objects
+   */
+  private sanitizeForWorker(data: any): any {
+    if (data === null || data === undefined) {
+      return data;
+    }
+    
+    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+      return data;
+    }
+    
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeForWorker(item));
+    }
+    
+    if (typeof data === 'object') {
+      // Check if it's a plain object (not a class instance)
+      if (data.constructor !== Object) {
+        // If it's a class instance, try to extract only the data properties
+        // or return an empty object if we can't safely serialize it
+        try {
+          // Try to JSON stringify and parse to see if it's serializable
+          JSON.parse(JSON.stringify(data));
+          return data;
+        } catch {
+          // If it's not serializable, return an empty object
+          return {};
+        }
+      }
+      
+      // For plain objects, recursively sanitize all properties
+      const sanitized: Record<string, any> = {};
+      for (const [key, value] of Object.entries(data)) {
+        try {
+          sanitized[key] = this.sanitizeForWorker(value);
+        } catch {
+          // Skip properties that can't be sanitized
+          continue;
+        }
+      }
+      return sanitized;
+    }
+    
+    // For any other type, return undefined
+    return undefined;
   }
 }
 

@@ -79,9 +79,12 @@ class SecureCodeExecutor {
     }
 
     try {
+      // Sanitize the context to ensure only serializable data is passed to the worker
+      const sanitizedContext = this.sanitizeForWorker(context);
+      
       const result = await this.sendMessage('EXECUTE_CODE', {
         code,
-        context
+        context: sanitizedContext
       });
       return result as ExecutionResult;
     } catch (error) {
@@ -153,7 +156,21 @@ class SecureCodeExecutor {
       this.pendingExecutions.set(id, { resolve, reject });
 
       // Send the message
-      this.worker.postMessage(message);
+      try {
+        this.worker.postMessage(message);
+      } catch (error) {
+        // Handle cloning errors specifically
+        if (error instanceof Error && error.message.includes('could not be cloned')) {
+          logError('Worker message cloning error - data contains non-serializable objects:', error);
+          this.pendingExecutions.delete(id);
+          reject(new Error(`Failed to send message to worker: data contains non-serializable objects. Please check the payload for functions, DOM elements, or circular references.`));
+        } else {
+          logError('Worker message error:', error as Error);
+          this.pendingExecutions.delete(id);
+          reject(new Error(`Failed to send message to worker: ${(error as Error).message}`));
+        }
+        return;
+      }
 
       // Set a timeout
       setTimeout(() => {
@@ -254,6 +271,54 @@ class SecureCodeExecutor {
     } catch (error) {
       logError('Failed to clear cache:', error as Error);
     }
+  }
+
+  /**
+   * Sanitize data for worker communication by removing non-serializable objects
+   */
+  private sanitizeForWorker(data: any): any {
+    if (data === null || data === undefined) {
+      return data;
+    }
+    
+    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+      return data;
+    }
+    
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeForWorker(item));
+    }
+    
+    if (typeof data === 'object') {
+      // Check if it's a plain object (not a class instance)
+      if (data.constructor !== Object) {
+        // If it's a class instance, try to extract only the data properties
+        // or return an empty object if we can't safely serialize it
+        try {
+          // Try to JSON stringify and parse to see if it's serializable
+          JSON.parse(JSON.stringify(data));
+          return data;
+        } catch {
+          // If it's not serializable, return an empty object
+          return {};
+        }
+      }
+      
+      // For plain objects, recursively sanitize all properties
+      const sanitized: Record<string, any> = {};
+      for (const [key, value] of Object.entries(data)) {
+        try {
+          sanitized[key] = this.sanitizeForWorker(value);
+        } catch {
+          // Skip properties that can't be sanitized
+          continue;
+        }
+      }
+      return sanitized;
+    }
+    
+    // For any other type, return undefined
+    return undefined;
   }
 }
 

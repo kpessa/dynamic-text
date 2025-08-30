@@ -52,21 +52,7 @@ export function createMockMe(variables: Record<string, any> = {}): any {
   };
 }
 
-/**
- * Transpile modern JavaScript to ES5 for broader compatibility
- */
-export function transpileCode(code: string): string {
-  try {
-    const result = Babel.transform(code, {
-      presets: ['env'],
-      plugins: []
-    });
-    return result.code || '';
-  } catch (error) {
-    console.error('Transpilation error:', error);
-    throw new Error(`Code transpilation failed: ${(error as Error).message}`);
-  }
-}
+
 
 /**
  * Evaluate JavaScript code in a sandboxed environment
@@ -95,13 +81,16 @@ export function evaluateCode(code: string, testVariables: Record<string, any> | 
   };
 
   try {
-    // Transpile the code first
-    const transpiledCode = transpileCode(code);
-    
     // Create function with sandboxed scope
     const func = new Function(...Object.keys(sandbox), `
       'use strict';
-      ${transpiledCode}
+      // Wrap user code in an anonymous function to handle return statements
+      const userFunction = (function() {
+        ${code}
+      });
+      
+      // Execute the user function and return its result
+      return userFunction();
     `);
     
     // Execute with sandbox values

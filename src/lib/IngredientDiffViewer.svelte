@@ -271,42 +271,24 @@
     return mockMe;
   }
   
-  // Transpile ES6+ code to ES5
-  function transpileCode(code) {
-    try {
-      // Wrap the code in a function to handle return statements
-      const wrappedCode = `(function() { ${code} })`;
-      
-      const result = Babel.transform(wrappedCode, {
-        presets: ['env'],
-        plugins: []
-      });
-      
-      // Extract the function body (remove the wrapper)
-      const transpiledCode = result.code;
-      const match = transpiledCode.match(/\(function\s*\(\)\s*{\s*([\s\S]*)\s*}\)/);
-      
-      if (match && match[1]) {
-        return match[1].trim();
-      }
-      
-      return code; // Return original if extraction fails
-    } catch (error) {
-      // logError('Transpilation error:', error);
-      return code; // Return original if transpilation fails
-    }
-  }
+
   
   // Evaluate dynamic code
   function evaluateCode(code, variables = {}) {
     try {
-      const transpiledCode = transpileCode(code);
-      
       // Always create the me object for consistent API
       const me = createMockMe(variables);
       
       // Create function with 'me' in scope
-      const func = new Function('me', transpiledCode);
+      const func = new Function('me', `
+        // Wrap user code in an anonymous function to handle return statements
+        const userFunction = (function() {
+          ${code}
+        });
+        
+        // Execute the user function and return its result
+        return userFunction();
+      `);
       const result = func(me);
       
       return result !== undefined ? String(result) : '';

@@ -171,6 +171,31 @@ class SectionStore {
     }
   }
 
+  reorderTestCases(sectionId: number, draggedIndex: number, targetIndex: number) {
+    const sectionIndex = this._sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex !== -1 && this._sections[sectionIndex]) {
+      const section = this._sections[sectionIndex];
+      if (section.testCases[draggedIndex] && draggedIndex !== targetIndex) {
+        const updatedTestCases = [...section.testCases];
+        const [draggedTestCase] = updatedTestCases.splice(draggedIndex, 1);
+        if (draggedTestCase) {
+          updatedTestCases.splice(targetIndex, 0, draggedTestCase);
+          
+          // Update section with new test case order
+          this._sections[sectionIndex] = {
+            id: section.id,
+            type: section.type,
+            name: section.name,
+            content: section.content,
+            testCases: updatedTestCases
+          };
+          
+          this.checkForChanges();
+        }
+      }
+    }
+  }
+
   setActiveTestCase(sectionId: number, testCase: TestCase) {
     this._activeTestCase[sectionId] = testCase;
   }
