@@ -6,6 +6,7 @@
   import { sanitizeHTML, extractStylesFromHTML, stripHTML } from './lib/utils/htmlUtils';
   import { validateTestOutput, validateStyles } from './lib/utils/validationUtils';
   import { getPopulationColor, getPopulationName } from './lib/utils/populationUtils';
+  import { getIngredientBadgeColor } from './lib/utils/colorUtils';
   import EmptyState from './lib/components/EmptyState.svelte';
   import SimplePreviewDisplay from './lib/components/SimplePreviewDisplay.svelte';
   import SectionRenderer from './lib/components/SectionRenderer.svelte';
@@ -755,23 +756,6 @@
   function handleIngredientChange(key, value) {
     // Create a new object to ensure reactivity in Svelte 5
     workContextStore.currentIngredientValues = { ...currentIngredientValues, [key]: value };
-  }
-  
-  // Get badge color for ingredient category
-  function getIngredientBadgeColor(key) {
-    const category = getKeyCategory(key);
-    const colors = {
-      'BASIC_PARAMETERS': '#007bff',
-      'MACRONUTRIENTS': '#28a745',
-      'ELECTROLYTES': '#ffc107',
-      'ADDITIVES': '#6c757d',
-      'PREFERENCES': '#17a2b8',
-      'CALCULATED_VOLUMES': '#e83e8c',
-      'CLINICAL_CALCULATIONS': '#fd7e14',
-      'WEIGHT_CALCULATIONS': '#6f42c1',
-      'OTHER': '#333'
-    };
-    return colors[category] || colors.OTHER;
   }
   
   // Handle test generation
