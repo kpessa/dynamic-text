@@ -28,6 +28,7 @@
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { previewEngineService } from './lib/services/previewEngineService';
   import { testRunnerService } from './lib/services/testRunnerService';
+  import { modalService } from './lib/services/modalService.svelte.ts';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
   import { workContextStore } from './stores/workContextStore.svelte.ts';
@@ -44,8 +45,7 @@
   let draggedSection = $state(null);
   let activeTestCase = $state({}); // Track active test case per section
   let expandedTestCases = $state({}); // Track which sections have expanded test cases
-  let testSummary = $state(null); // Track overall test results
-  let showTestSummary = $state(false); // Show/hide test summary modal
+  // Test summary now managed by modalService
   
   // Work context now managed by store
   const currentIngredient = $derived(workContextStore.currentIngredient);
@@ -74,28 +74,30 @@
   let currentValidatedAt = $state(null);
   let currentTestResults = $state(null);
   
-  // Test generation state
-  let showTestGeneratorModal = $state(false);
-  let currentGeneratedTests = $state(null);
-  let targetSectionId = $state(null);
+  // Modal state now managed by modalService
+  const showTestGeneratorModal = $derived(modalService.modals.testGenerator);
+  const showAIWorkflowInspector = $derived(modalService.modals.aiWorkflowInspector);
+  const showIngredientManager = $derived(modalService.modals.ingredientManager);
+  const showDiffViewer = $derived(modalService.modals.diffViewer);
+  const showMigrationTool = $derived(modalService.modals.migrationTool);
+  const showPreferences = $derived(modalService.modals.preferences);
+  const showCommitMessageDialog = $derived(modalService.modals.commitMessageDialog);
+  const showExportModal = $derived(modalService.modals.exportModal);
+  const showSelectiveApply = $derived(modalService.modals.selectiveApply);
+  const showTestSummary = $derived(modalService.modals.testSummary);
   
-  // AI Workflow Inspector state
-  let showAIWorkflowInspector = $state(false);
-  let inspectorCurrentSection = $state(null);
+  // Modal data
+  const selectedIngredientForDiff = $derived(modalService.modalData.selectedIngredientForDiff);
+  const currentGeneratedTests = $derived(modalService.modalData.currentGeneratedTests);
+  const inspectorCurrentSection = $derived(modalService.modalData.inspectorCurrentSection);
+  const targetSectionId = $derived(modalService.modalData.targetSectionId);
+  const pendingReferenceData = $derived(modalService.modalData.pendingReferenceData);
+  const testSummary = $derived(modalService.modalData.testSummary);
   
-  // Firebase and new component states
-  let showIngredientManager = $state(false);
-  let showDiffViewer = $state(false);
-  let showMigrationTool = $state(false);
-  let showPreferences = $state(false);
-  let selectedIngredientForDiff = $state(null);
+  // Other state
   let currentPopulationType = $state(POPULATION_TYPES.ADULT);
   let firebaseEnabled = $state(isFirebaseConfigured());
-  let showCommitMessageDialog = $state(false);
   let pendingSaveData = $state(null);
-  let showExportModal = $state(false);
-  let showSelectiveApply = $state(false);
-  let pendingReferenceData = $state(null);
   
   // Active config state
   let activeConfigId = $state(null);
@@ -472,8 +474,8 @@
       }
     };
     
-    testSummary = summary;
-    showTestSummary = true;
+    // Store results for display using modal service
+    modalService.openTestSummary(summary);
     
     // Store results for validation
     currentTestResults = {
@@ -601,17 +603,15 @@
   
   // Handle test generation
   function handleTestsGenerated(sectionId, generatedTests) {
-    currentGeneratedTests = generatedTests;
-    targetSectionId = sectionId;
-    showTestGeneratorModal = true;
+    modalService.setModalData('currentGeneratedTests', generatedTests);
+    modalService.openTestGenerator(sectionId);
   }
   
   // Handle AI workflow inspector
   function openAIWorkflowInspector(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (section && section.type === 'dynamic') {
-      inspectorCurrentSection = section;
-      showAIWorkflowInspector = true;
+      modalService.openAIWorkflowInspector(section);
     }
   }
   
