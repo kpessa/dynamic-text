@@ -8,6 +8,7 @@
   import { getPopulationColor, getPopulationName } from './lib/utils/populationUtils';
   import EmptyState from './lib/components/EmptyState.svelte';
   import SimplePreviewDisplay from './lib/components/SimplePreviewDisplay.svelte';
+  import SectionRenderer from './lib/components/SectionRenderer.svelte';
   import Sidebar from './lib/Sidebar.svelte';
   import TPNTestPanel from './lib/TPNTestPanel.svelte';
   import TPNKeyReference from './lib/TPNKeyReference.svelte';
@@ -1319,314 +1320,35 @@
         </div>
       {/if}
       
-      <div class="sections" role="list">
-        {#if sections.length === 0}
-          <EmptyState 
-            onAddStatic={() => addSection('static')}
-            onAddDynamic={() => addSection('dynamic')}
-          />
-        {:else}
-          {#each sections as section (section.id)}
-            <div 
-              class="section {draggedSection?.id === section.id ? 'dragging' : ''}"
-              role="listitem"
-              draggable="true"
-              ondragstart={(e) => handleSectionDragStart(e, section)}
-              ondragover={handleSectionDragOver}
-              ondrop={(e) => handleSectionDrop(e, section)}
-              ondragend={handleSectionDragEnd}
-            >
-            <div class="section-header">
-              <span class="drag-handle">≡</span>
-              <span class="section-type {section.type}">
-                {section.type === 'static' ? '📝 HTML' : '⚡ JavaScript'}
-              </span>
-              
-              {#if section.type === 'dynamic' && ingredientsBySection[section.id]}
-                <div class="ingredient-badges">
-                  {#each ingredientsBySection[section.id].tpnKeys as key}
-                    <span 
-                      class="ingredient-badge tpn-badge" 
-                      style="background-color: {getIngredientBadgeColor(key)}"
-                      title="TPN: {key}"
-                    >
-                      {key}
-                    </span>
-                  {/each}
-                  {#each ingredientsBySection[section.id].calculatedKeys as key}
-                    <span 
-                      class="ingredient-badge calculated-badge" 
-                      style="background-color: {getIngredientBadgeColor(key)}"
-                      title="Calculated: {key}"
-                    >
-                      {key} 📊
-                    </span>
-                  {/each}
-                  {#each ingredientsBySection[section.id].customKeys as key}
-                    <span 
-                      class="ingredient-badge custom-badge"
-                      title="Custom: {key}"
-                    >
-                      {key}
-                    </span>
-                  {/each}
-                  {#if ingredientsBySection[section.id].allKeys.length > 0}
-                    <span class="ingredient-count">
-                      {ingredientsBySection[section.id].allKeys.length} vars
-                    </span>
-                  {/if}
-                </div>
-              {/if}
-              
-              <button 
-                class="delete-section-btn"
-                onclick={() => deleteSection(section.id)}
-                title="Delete section"
-              >
-                ×
-              </button>
-            </div>
-            
-            {#if editingSection === section.id}
-              <div class="editor-wrapper">
-                <CodeEditor
-                  value={section.content}
-                  language={section.type === 'static' ? 'html' : 'javascript'}
-                  onChange={(content) => updateSectionContent(section.id, content)}
-                  on:convertToDynamic={(e) => handleConvertToDynamic(section.id, e.detail.content)}
-                />
-                <button 
-                  class="done-editing-btn"
-                  onclick={() => workContextStore.editingSection = null}
-                >
-                  Done Editing
-                </button>
-              </div>
-            {:else}
-              <div 
-                class="content-preview"
-                ondblclick={() => workContextStore.editingSection = section.id}
-                onkeydown={(e) => e.key === 'Enter' && (workContextStore.editingSection = section.id)}
-                role="button"
-                tabindex="0"
-                title="Double-click to edit"
-              >
-                <pre>{section.content}</pre>
-              </div>
-            {/if}
-            
-            {#if section.type === 'dynamic' && section.testCases}
-              <div class="test-cases">
-                <div class="test-cases-header">
-                  <button 
-                    class="test-cases-toggle" 
-                    onclick={() => toggleTestCases(section.id)}
-                    type="button"
-                    aria-expanded={expandedTestCases[section.id] ? 'true' : 'false'}
-                    aria-controls={`test-cases-${section.id}`}
-                  >
-                    <span class="collapse-icon">{expandedTestCases[section.id] ? '▼' : '▶'}</span>
-                    <h4>Test Cases</h4>
-                    {#if activeTestCase[section.id]}
-                      <span class="active-test-badge">{activeTestCase[section.id].name}</span>
-                    {/if}
-                  </button>
-                  <div class="test-actions">
-                    <button 
-                      class="add-test-btn" 
-                      onclick={() => {
-                        addTestCase(section.id);
-                        expandedTestCases[section.id] = true;
-                        expandedTestCases = { ...expandedTestCases };
-                      }}
-                    >
-                      + Add Test
-                    </button>
-                    <TestGeneratorButton 
-                      section={section}
-                      tpnMode={tpnMode}
-                      onTestsGenerated={(tests) => handleTestsGenerated(section.id, tests)}
-                    />
-                    <button 
-                      class="ai-inspector-btn"
-                      onclick={() => openAIWorkflowInspector(section.id)}
-                      title="Open AI Workflow Inspector"
-                    >
-                      🔍 AI Inspector
-                    </button>
-                  </div>
-                </div>
-                
-                {#if expandedTestCases[section.id]}
-                  <div class="test-case-list" id={`test-cases-${section.id}`}>
-                  {#each section.testCases as testCase, index}
-                    <div class="test-case {activeTestCase[section.id] === testCase ? 'active' : ''}">
-                      <div class="test-case-header">
-                        <input 
-                          type="text" 
-                          value={testCase.name}
-                          class="test-case-name"
-                          oninput={(e) => updateTestCase(section.id, index, { name: e.target.value })}
-                        />
-                        <button 
-                          class="test-case-run {activeTestCase[section.id] === testCase ? 'running' : ''}"
-                          onclick={() => setActiveTestCase(section.id, testCase)}
-                          title="Run this test case"
-                        >
-                          {activeTestCase[section.id] === testCase ? '■' : '▶'}
-                        </button>
-                        {#if section.testCases.length > 1}
-                          <button 
-                            class="test-case-delete"
-                            onclick={() => deleteTestCase(section.id, index)}
-                            title="Delete test case"
-                          >
-                            ×
-                          </button>
-                        {/if}
-                      </div>
-                      
-                      <div class="test-variables">
-                        <div class="variable-header">
-                          <span>Variables:</span>
-                          <button 
-                            class="add-var-btn"
-                            onclick={() => {
-                              const varName = prompt('Variable name:');
-                              if (varName) {
-                                const vars = { ...testCase.variables, [varName]: 0 };
-                                updateTestCase(section.id, index, { variables: vars });
-                              }
-                            }}
-                          >
-                            + Add
-                          </button>
-                        </div>
-                        
-                        {#each Object.entries(testCase.variables || {}) as [key, value]}
-                          <div class="variable-row">
-                            <span class="var-name">{key}:</span>
-                            <input 
-                              type="text"
-                              value={value}
-                              class="var-value"
-                              oninput={(e) => {
-                                const vars = { ...testCase.variables };
-                                // Try to parse as number, otherwise keep as string
-                                const val = e.target.value;
-                                vars[key] = !isNaN(val) && val !== '' ? Number(val) : val;
-                                updateTestCase(section.id, index, { variables: vars });
-                              }}
-                            />
-                            <button 
-                              class="var-delete"
-                              onclick={() => {
-                                const vars = { ...testCase.variables };
-                                delete vars[key];
-                                updateTestCase(section.id, index, { variables: vars });
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        {/each}
-                      </div>
-                      
-                      <!-- Test Expectations -->
-                      <div class="test-expectations">
-                        <div class="expectation-header">
-                          <span>Expected Output:</span>
-                          <select 
-                            class="match-type-select"
-                            value={testCase.matchType || 'contains'}
-                            onchange={(e) => updateTestCase(section.id, index, { matchType: e.target.value })}
-                          >
-                            <option value="exact">Exact Match</option>
-                            <option value="contains">Contains</option>
-                            <option value="regex">Regex</option>
-                          </select>
-                        </div>
-                        <textarea
-                          class="expected-output"
-                          value={testCase.expectedOutput || ''}
-                          placeholder="Enter expected output text..."
-                          oninput={(e) => updateTestCase(section.id, index, { expectedOutput: e.target.value })}
-                        />
-                        
-                        <div class="expectation-header">
-                          <span>Expected Styles:</span>
-                          <button 
-                            class="add-style-btn"
-                            onclick={() => {
-                              const styleProp = prompt('CSS property (e.g., color, font-weight):');
-                              if (styleProp) {
-                                const styleValue = prompt(`Value for ${styleProp}:`);
-                                if (styleValue) {
-                                  const styles = { ...(testCase.expectedStyles || {}), [styleProp]: styleValue };
-                                  updateTestCase(section.id, index, { expectedStyles: styles });
-                                }
-                              }
-                            }}
-                          >
-                            + Add Style
-                          </button>
-                        </div>
-                        
-                        {#if testCase.expectedStyles}
-                          {#each Object.entries(testCase.expectedStyles) as [prop, value]}
-                            <div class="style-row">
-                              <span class="style-prop">{prop}:</span>
-                              <input 
-                                type="text"
-                                value={value}
-                                class="style-value"
-                                oninput={(e) => {
-                                  const styles = { ...testCase.expectedStyles };
-                                  styles[prop] = e.target.value;
-                                  updateTestCase(section.id, index, { expectedStyles: styles });
-                                }}
-                              />
-                              <button 
-                                class="style-delete"
-                                onclick={() => {
-                                  const styles = { ...testCase.expectedStyles };
-                                  delete styles[prop];
-                                  updateTestCase(section.id, index, { expectedStyles: Object.keys(styles).length > 0 ? styles : undefined });
-                                }}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          {/each}
-                        {/if}
-                      </div>
-                      
-                      <!-- Test Result Display -->
-                      {#if testCase.testResult}
-                        <div class="test-result {testCase.testResult.passed ? 'passed' : 'failed'}">
-                          <div class="result-header">
-                            {testCase.testResult.passed ? '✅ Passed' : '❌ Failed'}
-                          </div>
-                          {#if !testCase.testResult.passed && testCase.testResult.error}
-                            <div class="result-error">{testCase.testResult.error}</div>
-                          {/if}
-                          {#if testCase.testResult.actualOutput}
-                            <div class="result-detail">
-                              <strong>Actual Output:</strong> {testCase.testResult.actualOutput}
-                            </div>
-                          {/if}
-                        </div>
-                      {/if}
-                    </div>
-                  {/each}
-                  </div>
-                {/if}
-              </div>
-            {/if}
-          </div>
-        {/each}
-        {/if}
-      </div>
+      <SectionRenderer
+        sections={sections}
+        editingSection={editingSection}
+        expandedTestCases={expandedTestCases}
+        activeTestCase={activeTestCase}
+        ingredientsBySection={ingredientsBySection}
+        tpnMode={tpnMode}
+        draggedSection={draggedSection}
+        onSectionAdd={addSection}
+        onSectionDelete={deleteSection}
+        onSectionUpdate={updateSectionContent}
+        onSectionDragStart={handleSectionDragStart}
+        onSectionDragOver={handleSectionDragOver}
+        onSectionDrop={handleSectionDrop}
+        onSectionDragEnd={handleSectionDragEnd}
+        onTestCaseToggle={toggleTestCases}
+        onTestCaseAdd={(sectionId) => {
+          addTestCase(sectionId);
+          expandedTestCases[sectionId] = true;
+          expandedTestCases = { ...expandedTestCases };
+        }}
+        onTestCaseUpdate={updateTestCase}
+        onTestCaseDelete={deleteTestCase}
+        onActiveTestCaseSet={setActiveTestCase}
+        onTestsGenerated={handleTestsGenerated}
+        onAIInspectorOpen={openAIWorkflowInspector}
+        onConvertToDynamic={handleConvertToDynamic}
+        onEditingSectionChange={(sectionId) => workContextStore.editingSection = sectionId}
+      />
     </div>
     
     <div class="preview-panel">
