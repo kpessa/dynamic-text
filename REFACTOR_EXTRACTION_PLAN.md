@@ -32,10 +32,12 @@ These have minimal integration points and are safe to extract first:
 Extract components that only display data (no state mutations):
 
 ### 2.1 Display Components
-- [ ] Extract TPNKeyReference (already exists, just needs integration)
-- [ ] Extract read-only display components
-- [ ] Use props for all data (no direct store access yet)
-- [ ] Test rendering after each
+- [x] Extract TPNKeyReference (already exists, just needs integration)
+- [x] Extract read-only display components
+  - [x] EmptyState component extracted
+  - [x] SimplePreviewDisplay component extracted  
+- [x] Use props for all data (no direct store access yet)
+- [x] Test rendering after each
 
 ## Phase 3: State Management Migration
 Move state to stores ONE piece at a time:
