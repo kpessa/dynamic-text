@@ -43,11 +43,11 @@ Extract components that only display data (no state mutations):
 Move state to stores ONE piece at a time:
 
 ### 3.1 UI State (Low Risk)
-- [ ] Move UI flags to uiStateStore
-  - [ ] `showSidebar`
-  - [ ] `previewCollapsed`
-  - [ ] `showKeyReference`
-- [ ] Test each flag independently
+- [x] Move UI flags to uiStateStore
+  - [x] `showSidebar`
+  - [x] `previewCollapsed`
+  - [x] `showKeyReference`
+- [x] Test each flag independently
 
 ### 3.2 Work Context (Medium Risk)
 - [ ] Move work context piece by piece
