@@ -1,10 +1,12 @@
 <script>
   let { 
-    showSidebar = $bindable(false),
+    showSidebar = false,
+    onSidebarToggle = () => {},
     tpnMode = $bindable(false),
     showOutput = $bindable(false),
     outputMode = $bindable('json'),
-    showKeyReference = $bindable(false),
+    showKeyReference = false,
+    onKeyReferenceToggle = () => {},
     showKPTReference = $bindable(false),
     currentReferenceName = '',
     currentIngredient = '',
@@ -39,7 +41,7 @@
     <div class="navbar-left">
       <button 
         class="sidebar-toggle"
-        onclick={() => showSidebar = !showSidebar}
+        onclick={onSidebarToggle}
         title="{showSidebar ? 'Hide' : 'Show'} Sidebar"
         aria-label="{showSidebar ? 'Hide' : 'Show'} sidebar navigation"
         aria-expanded={showSidebar}
@@ -70,7 +72,7 @@
               bind:checked={tpnMode}
               onchange={() => {
                 if (tpnMode && !showKeyReference) {
-                  showKeyReference = true;
+                  onKeyReferenceToggle();
                 }
               }}
             />
@@ -93,7 +95,7 @@
         {#if tpnMode}
           <button 
             class="view-toggle {showKeyReference ? 'active' : ''}"
-            onclick={() => showKeyReference = !showKeyReference}
+            onclick={onKeyReferenceToggle}
             title="Toggle key reference"
           >
             🔑 Keys

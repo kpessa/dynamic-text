@@ -3,7 +3,8 @@
   
   let { 
     onKeySelect = (key) => {},
-    isExpanded = $bindable(false)
+    isExpanded = false,
+    onToggle = () => {}
   } = $props();
   
   let searchQuery = $state('');
@@ -83,7 +84,7 @@
   <div class="panel-header">
     <button 
       class="expand-toggle"
-      onclick={() => isExpanded = !isExpanded}
+      onclick={onToggle}
       aria-expanded={isExpanded}
     >
       <span class="toggle-icon">{isExpanded ? '×' : '📚'}</span>

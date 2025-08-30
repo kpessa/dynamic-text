@@ -27,8 +27,10 @@
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
+  import { uiStateStore } from './stores/uiStateStore.svelte.ts';
   
-  let showSidebar = $state(false);
+  // UI state now managed by store
+  const showSidebar = $derived(uiStateStore.showSidebar);
   let sections = $state([]);
   
   let nextSectionId = $state(1);
@@ -51,9 +53,9 @@
   let originalSections = $state(null); // To compare for changes
   let tpnMode = $state(false); // Toggle TPN mode
   let currentTPNInstance = $state(null); // Current TPN instance from test panel
-  let showKeyReference = $state(false); // Show key reference panel
+  const showKeyReference = $derived(uiStateStore.showKeyReference); // Show key reference panel
   let tpnPanelExpanded = $state(true); // Track TPN panel expansion state
-  let previewCollapsed = $state(false); // Track preview panel collapse state
+  const previewCollapsed = $derived(uiStateStore.previewCollapsed); // Track preview panel collapse state
   let currentIngredientValues = $state({}); // Track ingredient values for quick input
   let editingSection = $state(null); // Track which section is being edited
   
@@ -1013,10 +1015,10 @@
       showMigrationTool = false;
       showAIWorkflowInspector = false;
       showTestGeneratorModal = false;
-      showSidebar = false;
+      uiStateStore.showSidebar = false;
       
       // Ensure preview panel is visible
-      previewCollapsed = false;
+      uiStateStore.previewCollapsed = false;
       previewMode = 'preview';
       
       // Store full ingredient and reference details
@@ -1130,11 +1132,13 @@
   
   <main>
     <Navbar
-      bind:showSidebar
+      showSidebar={showSidebar}
+      onSidebarToggle={() => uiStateStore.toggleSidebar()}
       bind:tpnMode
       bind:showOutput
       bind:outputMode
-      bind:showKeyReference
+      showKeyReference={showKeyReference}
+      onKeyReferenceToggle={() => uiStateStore.toggleKeyReference()}
       currentReferenceName={currentReferenceName}
       currentIngredient={currentIngredient}
       hasUnsavedChanges={hasUnsavedChanges}
@@ -1664,7 +1668,7 @@
         {/if}
         <button 
           class="preview-toggle"
-          onclick={() => previewCollapsed = !previewCollapsed}
+          onclick={() => uiStateStore.togglePreviewCollapsed()}
           title="{previewCollapsed ? 'Show' : 'Hide'} Panel"
         >
           {previewCollapsed ? '◀' : '▶'}
@@ -1737,7 +1741,8 @@
   
   {#if tpnMode}
     <TPNKeyReference 
-      bind:isExpanded={showKeyReference}
+      isExpanded={showKeyReference}
+      onToggle={() => uiStateStore.toggleKeyReference()}
       onKeySelect={handleKeyInsert}
     />
   {/if}

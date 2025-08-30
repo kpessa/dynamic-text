@@ -4,6 +4,8 @@ interface UIState {
   showSidebar: boolean;
   showOutput: boolean;
   previewMode: PreviewMode;
+  previewCollapsed: boolean;
+  showKeyReference: boolean;
   showIngredientManager: boolean;
   showDiffViewer: boolean;
   showMigrationTool: boolean;
@@ -21,6 +23,8 @@ class UIStateStore {
     showSidebar: false,
     showOutput: false,
     previewMode: 'preview',
+    previewCollapsed: false,
+    showKeyReference: false,
     showIngredientManager: false,
     showDiffViewer: false,
     showMigrationTool: false,
@@ -36,6 +40,8 @@ class UIStateStore {
   get showSidebar() { return this._state.showSidebar; }
   get showOutput() { return this._state.showOutput; }
   get previewMode() { return this._state.previewMode; }
+  get previewCollapsed() { return this._state.previewCollapsed; }
+  get showKeyReference() { return this._state.showKeyReference; }
   get showIngredientManager() { return this._state.showIngredientManager; }
   get showDiffViewer() { return this._state.showDiffViewer; }
   get showMigrationTool() { return this._state.showMigrationTool; }
@@ -50,6 +56,8 @@ class UIStateStore {
   set showSidebar(value: boolean) { this._state.showSidebar = value; }
   set showOutput(value: boolean) { this._state.showOutput = value; }
   set previewMode(value: PreviewMode) { this._state.previewMode = value; }
+  set previewCollapsed(value: boolean) { this._state.previewCollapsed = value; }
+  set showKeyReference(value: boolean) { this._state.showKeyReference = value; }
   set showIngredientManager(value: boolean) { this._state.showIngredientManager = value; }
   set showDiffViewer(value: boolean) { this._state.showDiffViewer = value; }
   set showMigrationTool(value: boolean) { this._state.showMigrationTool = value; }
@@ -82,6 +90,14 @@ class UIStateStore {
 
   toggleOutput() {
     this._state.showOutput = !this._state.showOutput;
+  }
+
+  togglePreviewCollapsed() {
+    this._state.previewCollapsed = !this._state.previewCollapsed;
+  }
+
+  toggleKeyReference() {
+    this._state.showKeyReference = !this._state.showKeyReference;
   }
 
   setPreviewMode(mode: PreviewMode) {
