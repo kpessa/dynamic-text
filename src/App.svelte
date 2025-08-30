@@ -6,6 +6,7 @@
   import { sanitizeHTML, extractStylesFromHTML, stripHTML } from './lib/utils/htmlUtils';
   import { validateTestOutput, validateStyles } from './lib/utils/validationUtils';
   import { getPopulationColor, getPopulationName } from './lib/utils/populationUtils';
+  import EmptyState from './lib/components/EmptyState.svelte';
   import Sidebar from './lib/Sidebar.svelte';
   import TPNTestPanel from './lib/TPNTestPanel.svelte';
   import TPNKeyReference from './lib/TPNKeyReference.svelte';
@@ -1313,25 +1314,10 @@
       
       <div class="sections" role="list">
         {#if sections.length === 0}
-          <div class="empty-state">
-            <div class="empty-state-icon">📄</div>
-            <h3 class="empty-state-title">Start Creating Your Reference Text</h3>
-            <p class="empty-state-description">
-              Add sections to build your dynamic text content
-            </p>
-            <div class="empty-state-actions">
-              <button class="empty-state-btn static" onclick={() => addSection('static')}>
-                <span class="btn-icon">📝</span>
-                <span class="btn-label">Add Static HTML</span>
-                <span class="btn-hint">For fixed content and formatting</span>
-              </button>
-              <button class="empty-state-btn dynamic" onclick={() => addSection('dynamic')}>
-                <span class="btn-icon">⚡</span>
-                <span class="btn-label">Add Dynamic JavaScript</span>
-                <span class="btn-hint">For calculations and logic</span>
-              </button>
-            </div>
-          </div>
+          <EmptyState 
+            onAddStatic={() => addSection('static')}
+            onAddDynamic={() => addSection('dynamic')}
+          />
         {:else}
           {#each sections as section (section.id)}
             <div 
@@ -3145,94 +3131,6 @@
   
   
   /* Empty state styles */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem 2rem;
-    text-align: center;
-    min-height: 400px;
-  }
-  
-  .empty-state-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-  }
-  
-  .empty-state-title {
-    font-size: 1.5rem;
-    color: #333;
-    margin: 0 0 0.5rem 0;
-    font-weight: 600;
-  }
-  
-  .empty-state-description {
-    font-size: 1rem;
-    color: #666;
-    margin: 0 0 2rem 0;
-  }
-  
-  .empty-state-actions {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  
-  .empty-state-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1.5rem 2rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    background-color: #fff;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    min-width: 200px;
-  }
-  
-  .empty-state-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-  
-  .empty-state-btn.static {
-    border-color: #17a2b8;
-  }
-  
-  .empty-state-btn.static:hover {
-    background-color: #e6f7ff;
-    border-color: #0d7a8c;
-  }
-  
-  .empty-state-btn.dynamic {
-    border-color: #ffc107;
-  }
-  
-  .empty-state-btn.dynamic:hover {
-    background-color: #fff8e1;
-    border-color: #dda000;
-  }
-  
-  .empty-state-btn .btn-icon {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-  }
-  
-  .empty-state-btn .btn-label {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 0.25rem;
-  }
-  
-  .empty-state-btn .btn-hint {
-    font-size: 0.85rem;
-    color: #666;
-  }
   /* Validation section styles */
   .validation-section {
     margin: 0.75rem 1rem;

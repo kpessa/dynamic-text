@@ -1,10 +1,15 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
-  import { EditorView, basicSetup } from 'codemirror';
+  import { EditorView } from '@codemirror/view';
   import { javascript } from '@codemirror/lang-javascript';
   import { html } from '@codemirror/lang-html';
-  import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+  import { syntaxHighlighting, HighlightStyle, indentOnInput, bracketMatching, foldGutter } from '@codemirror/language';
   import { tags as t } from '@lezer/highlight';
+  import { EditorState } from '@codemirror/state';
+  import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+  import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+  import { autocompletion, completionKeymap, closeBrackets } from '@codemirror/autocomplete';
+  import { keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
   
   let { 
     value = '', 
@@ -65,8 +70,34 @@
   ]);
   
   onMount(() => {
+    // Build basicSetup manually from individual extensions
+    const basicSetupExtensions = [
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      highlightSpecialChars(),
+      history(),
+      foldGutter(),
+      drawSelection(),
+      dropCursor(),
+      EditorState.allowMultipleSelections.of(true),
+      indentOnInput(),
+      bracketMatching(),
+      closeBrackets(),
+      autocompletion(),
+      rectangularSelection(),
+      crosshairCursor(),
+      highlightActiveLine(),
+      highlightSelectionMatches(),
+      keymap.of([
+        ...defaultKeymap,
+        ...searchKeymap,
+        ...historyKeymap,
+        ...completionKeymap
+      ])
+    ];
+
     const extensions = [
-      basicSetup,
+      ...basicSetupExtensions,
       notepadPlusPlusTheme,
       syntaxHighlighting(notepadPlusPlusHighlight),
       EditorView.theme({

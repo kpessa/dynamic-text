@@ -10,11 +10,16 @@
 These have minimal integration points and are safe to extract first:
 
 ### 1.1 Utility Functions
-- [ ] Extract pure utility functions (no state dependencies)
-  - [ ] `generateId()`
-  - [ ] `sanitizeHtml()`
-  - [ ] `formatOutput()`
-  - [ ] Test each function individually
+- [x] Extract pure utility functions (no state dependencies)
+  - [x] `sanitizeHtml()` - Extracted to htmlUtils.ts
+  - [x] `stripHTML()` - Extracted to htmlUtils.ts
+  - [x] `extractStylesFromHTML()` - Extracted to htmlUtils.ts
+  - [x] `transpileCode()` - Extracted to codeTransformUtils.ts
+  - [x] `validateTestOutput()` - Extracted to validationUtils.ts
+  - [x] `validateStyles()` - Extracted to validationUtils.ts
+  - [x] `getPopulationColor()` - Extracted to populationUtils.ts
+  - [x] `getPopulationName()` - Extracted to populationUtils.ts
+  - [x] Test each function individually
 
 ### 1.2 Constants and Types
 - [ ] Move constants to separate files
