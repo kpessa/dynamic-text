@@ -28,6 +28,7 @@
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { previewEngineService } from './lib/services/previewEngineService';
   import { testRunnerService } from './lib/services/testRunnerService';
+  import { sectionManagementService } from './lib/services/sectionManagementService';
   // Modal service removed - using local state due to bind: requirements
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
@@ -209,29 +210,11 @@
   // Helper to set sections and update nextSectionId
   function setSections(newSections) {
     // Ensure dynamic sections have testCases for backward compatibility
-    const migratedSections = newSections.map(section => {
-      // If it's a dynamic section without testCases, add a default one
-      if (section.type === 'dynamic' && !section.testCases) {
-        return {
-          ...section,
-          testCases: [{ name: 'Default', variables: {} }]
-        };
-      }
-      return section;
-    });
-    
+    const migratedSections = sectionManagementService.migrateSections(newSections);
     sections = migratedSections;
     
-    // Update nextSectionId to be higher than any existing ID
-    if (migratedSections && migratedSections.length > 0) {
-      const maxId = Math.max(...migratedSections.map(s => {
-        const id = typeof s.id === 'number' ? s.id : parseInt(s.id) || 0;
-        return id;
-      }));
-      nextSectionId = maxId + 1;
-    } else {
-      nextSectionId = 1;
-    }
+    // Initialize the service's next ID
+    sectionManagementService.initializeNextId(migratedSections);
   }
 
   // Clear editor for new work
@@ -249,128 +232,47 @@
   
   // Section management
   function addSection(type) {
-    // Ensure nextSectionId is higher than any existing section ID
-    const maxId = Math.max(0, ...sections.map(s => typeof s.id === 'number' ? s.id : parseInt(s.id) || 0));
-    nextSectionId = Math.max(nextSectionId, maxId + 1);
-    
-    const newSection = {
-      id: nextSectionId++,
-      type: type,
-      content: type === 'static' 
-        ? '' 
-        : '// Write JavaScript that returns HTML\nreturn ""'
-    };
-    
-    if (type === 'dynamic') {
-      newSection.testCases = [
-        { name: 'Default', variables: {} }
-      ];
-    }
-    
-    sections = [...sections, newSection];
+    sections = sectionManagementService.addSection(sections, type);
     checkForChanges();
   }
   
   function deleteSection(id) {
-    sections = sections.filter(s => s.id !== id);
+    sections = sectionManagementService.deleteSection(sections, id);
     delete activeTestCase[id];
     delete expandedTestCases[id];
     checkForChanges();
   }
   
   function updateSectionContent(id, content) {
-    sections = sections.map(s => 
-      s.id === id ? { ...s, content } : s
-    );
+    sections = sectionManagementService.updateSectionContent(sections, id, content);
     checkForChanges();
   }
   
   function handleConvertToDynamic(sectionId, content) {
-    // Find the position of "[f(" in the content
-    const bracketIndex = content.indexOf('[f(');
-    
-    if (bracketIndex === -1) return; // Safety check
-    
-    // Extract HTML before "[f(" and the beginning of the dynamic expression
-    const htmlBefore = content.substring(0, bracketIndex).trim();
-    const dynamicStart = content.substring(bracketIndex + 3); // Skip "[f("
-    
-    // Convert the section to dynamic type
-    sections = sections.map(section => {
-      if (section.id === sectionId && section.type === 'static') {
-        // Create the dynamic content
-        let dynamicContent = '';
-        
-        if (htmlBefore) {
-          // If there was HTML before [f(, include it as a return statement
-          dynamicContent = `// Converted from static HTML\nlet html = \`${htmlBefore}\`;\n\n// Your dynamic expression here\n${dynamicStart ? dynamicStart : '// Start typing your JavaScript expression...'}`;
-        } else {
-          // No HTML before, just start with the dynamic expression
-          dynamicContent = `// Your dynamic expression here\n${dynamicStart ? dynamicStart : '// Start typing your JavaScript expression...'}`;
-        }
-        
-        return {
-          ...section,
-          type: 'dynamic',
-          content: dynamicContent,
-          testCases: [
-            { name: 'Default', variables: {} }
-          ]
-        };
-      }
-      return section;
-    });
-    
+    sections = sectionManagementService.convertToDynamic(sections, sectionId, content);
     checkForChanges();
   }
   
   // Check if content has changed from original
   function checkForChanges() {
-    if (originalSections) {
-      const currentSectionsStr = JSON.stringify(sections);
-      workContextStore.hasUnsavedChanges = currentSectionsStr !== originalSections;
-    } else {
-      // If no original sections, we have unsaved changes if there's any content
-      workContextStore.hasUnsavedChanges = sections.length > 0;
-    }
+    const hasChanged = sectionManagementService.hasChanges(sections, originalSections);
+    workContextStore.hasUnsavedChanges = hasChanged || (!originalSections && sections.length > 0);
   }
   
   // Test case management
   function addTestCase(sectionId) {
-    sections = sections.map(section => {
-      if (section.id === sectionId && section.testCases) {
-        const newTestCase = {
-          name: `Test Case ${section.testCases.length + 1}`,
-          variables: {}
-        };
-        return {
-          ...section,
-          testCases: [...section.testCases, newTestCase]
-        };
-      }
-      return section;
-    });
+    sections = sectionManagementService.addTestCase(sections, sectionId);
+    checkForChanges();
   }
   
   function updateTestCase(sectionId, index, updates) {
-    sections = sections.map(section => {
-      if (section.id === sectionId && section.testCases) {
-        const newTestCases = [...section.testCases];
-        newTestCases[index] = { ...newTestCases[index], ...updates };
-        return { ...section, testCases: newTestCases };
-      }
-      return section;
-    });
+    sections = sectionManagementService.updateTestCase(sections, sectionId, index, updates);
+    checkForChanges();
   }
   
   function deleteTestCase(sectionId, index) {
-    sections = sections.map(section => {
-      if (section.id === sectionId && section.testCases) {
-        const newTestCases = section.testCases.filter((_, i) => i !== index);
-        return { ...section, testCases: newTestCases };
-      }
-      return section;
-    });
+    sections = sectionManagementService.deleteTestCase(sections, sectionId, index);
+    checkForChanges();
   }
   
   function setActiveTestCase(sectionId, testCase) {
@@ -508,16 +410,8 @@
     e.preventDefault();
     if (!draggedSection || draggedSection.id === targetSection.id) return;
     
-    const draggedIndex = sections.findIndex(s => s.id === draggedSection.id);
-    const targetIndex = sections.findIndex(s => s.id === targetSection.id);
-    
-    if (draggedIndex !== -1 && targetIndex !== -1) {
-      const newSections = [...sections];
-      const [removed] = newSections.splice(draggedIndex, 1);
-      newSections.splice(targetIndex, 0, removed);
-      sections = newSections;
-      checkForChanges();
-    }
+    sections = sectionManagementService.reorderSections(sections, draggedSection.id, targetSection.id);
+    checkForChanges();
     
     draggedSection = null;
   }
