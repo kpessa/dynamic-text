@@ -1,7 +1,5 @@
 <script>
-  import * as Babel from '@babel/standalone';
   import DOMPurify from 'dompurify';
-  import { transpileCode } from './lib/utils/codeTransformUtils';
   import CodeEditor from './lib/CodeEditor.svelte';
   import { sanitizeHTML, extractStylesFromHTML, stripHTML } from './lib/utils/htmlUtils';
   import { validateTestOutput, validateStyles } from './lib/utils/validationUtils';
@@ -28,6 +26,7 @@
   import PreferencesModal from './lib/PreferencesModal.svelte';
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
+  import { previewEngineService } from './lib/services/previewEngineService';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
   import { workContextStore } from './stores/workContextStore.svelte.ts';
@@ -186,181 +185,23 @@
   });
   
   
-  // Sanitize HTML to prevent XSS
-  
-  // Create mock 'me' object for test cases
-  function createMockMe(variables = {}) {
-    if (tpnMode && currentTPNInstance) {
-      // In TPN mode, return the actual TPN instance
-      return currentTPNInstance;
-    }
-    
-    // Merge test case variables with ingredient panel values
-    const allValues = { ...currentIngredientValues, ...variables };
-    
-    // Enhanced mock object with full TPN API
-    const mockMe = {
-      // Core value methods
-      getValue: (key) => allValues[key] !== undefined ? allValues[key] : 0,
-      
-      // Number formatting
-      maxP: (value, precision = 2) => {
-        if (typeof value !== 'number') return String(value);
-        let rv = value.toFixed(precision);
-        if (rv.includes('.')) {
-          rv = rv.replace(/\.?0+$/, '').replace(/\.$/, '');
-        }
-        return rv;
-      },
-      
-      // Element wrapper for jQuery-like API
-      getObject: (selector) => new LegacyElementWrapper(selector, allValues),
-      
-      // Preferences with defaults
-      pref: (key, defaultValue) => {
-        const prefs = {
-          'ADVISOR_TITLE': 'TPN Advisor',
-          'WEIGHT_REQUIRED_TEXT': 'Dose Weight is required',
-          'VOLUME_REQUIRED_TEXT': 'TPN Volume is required',
-          'PRECISION_MINVOL_DISPLAY': '2',
-          'PRECISION_MINVOL_BREAKDOWN': '2'
-        };
-        return prefs[key] || defaultValue;
-      },
-      
-      // Stub methods for compatibility
-      EtoS: () => {}, // Electrolyte to Salt conversion
-      draw: () => {}, // Trigger recalculation
-      renderComplete: true,
-      EditMode: 'Compound',
-      id: 'mock_' + Math.random().toString(36).substr(2, 9)
-    };
-    
-    return mockMe;
-  }
-  
-  
-  // Evaluate dynamic code with optional test variables
-  function evaluateCode(code, testVariables = null) {
-    try {
-      const transpiledCode = transpileCode(code);
-      
-      // Always create the me object for consistent API
-      const me = createMockMe(testVariables);
-      
-      // Create function with 'me' in scope
-      const func = new Function('me', transpiledCode);
-      const result = func(me);
-      
-      return result !== undefined ? String(result) : '';
-    } catch (error) {
-      return `<span style="color: red;">Error: ${error.message}</span>`;
-    }
-  }
-  
-  // Convert sections to JSON format
-  function sectionsToJSON() {
-    const result = [];
-    
-    sections.forEach(section => {
-      if (section.type === 'static') {
-        // Static text: each line becomes a TEXT object
-        const lines = section.content.split('\n');
-        lines.forEach(line => {
-          result.push({ TEXT: line });
-        });
-      } else if (section.type === 'dynamic') {
-        // Dynamic text: wrap with [f( and )]
-        result.push({ TEXT: '[f(' });
-        const transpiledCode = transpileCode(section.content);
-        const lines = transpiledCode.split('\n');
-        lines.forEach(line => {
-          result.push({ TEXT: line });
-        });
-        result.push({ TEXT: ')]' });
-      }
-    });
-    
-    return result;
-  }
-  
-  // Convert sections to line objects for configurator
-  function sectionsToLineObjects() {
-    const objects = [];
-    let lineId = 1;
-    
-    sections.forEach(section => {
-      if (section.type === 'static') {
-        const lines = section.content.split('\n');
-        lines.forEach(line => {
-          objects.push({
-            id: `line-${lineId++}`,
-            text: line,
-            editable: true,
-            deletable: true,
-            sectionId: section.id,
-            sectionType: 'static'
-          });
-        });
-      } else if (section.type === 'dynamic') {
-        objects.push({
-          id: `line-${lineId++}`,
-          text: '[f(',
-          editable: false,
-          deletable: false,
-          sectionId: section.id,
-          sectionType: 'dynamic'
-        });
-        
-        const transpiledCode = transpileCode(section.content);
-        const lines = transpiledCode.split('\n');
-        lines.forEach(line => {
-          objects.push({
-            id: `line-${lineId++}`,
-            text: line,
-            editable: true,
-            deletable: true,
-            sectionId: section.id,
-            sectionType: 'dynamic'
-          });
-        });
-        
-        objects.push({
-          id: `line-${lineId++}`,
-          text: ')]',
-          editable: false,
-          deletable: false,
-          sectionId: section.id,
-          sectionType: 'dynamic'
-        });
-      }
-    });
-    
-    return objects;
-  }
+  // Preview engine functions have been moved to previewEngineService
   
   // Generate preview HTML combining all sections
   let previewHTML = $derived.by(() => {
     // Access currentIngredientValues to create a dependency
     const ingredientVals = { ...currentIngredientValues };
     
-    return sections.map(section => {
-      if (section.type === 'static') {
-        // Replace newlines with <br> for proper line break rendering
-        return sanitizeHTML(section.content.replace(/\n/g, '<br>'));
-      } else if (section.type === 'dynamic') {
-        const testCase = activeTestCase[section.id];
-        const evaluated = evaluateCode(section.content, testCase?.variables);
-        // Also handle line breaks in dynamic content
-        const evalString = evaluated || '';
-        return sanitizeHTML(evalString.replace(/\n/g, '<br>'));
-      }
-      return '';
-    }).join('<br>');
+    return previewEngineService.generatePreviewHTML(sections, {
+      tpnMode,
+      currentTPNInstance,
+      currentIngredientValues: ingredientVals,
+      activeTestCase
+    });
   });
   
-  let jsonOutput = $derived(sectionsToJSON());
-  let lineObjects = $derived(sectionsToLineObjects());
+  let jsonOutput = $derived(previewEngineService.sectionsToJSON(sections));
+  let lineObjects = $derived(previewEngineService.sectionsToLineObjects(sections));
   
   // Helper to set sections and update nextSectionId
   function setSections(newSections) {
@@ -553,7 +394,12 @@
     if (!section || section.type !== 'dynamic') return;
     
     // Evaluate the code with test variables
-    const output = evaluateCode(section.content, testCase.variables);
+    const output = previewEngineService.evaluateCode(section.content, testCase.variables, {
+      tpnMode,
+      currentTPNInstance,
+      currentIngredientValues,
+      activeTestCase
+    });
     const actualText = stripHTML(output);
     const actualStyles = extractStylesFromHTML(output);
     
@@ -579,10 +425,12 @@
     if (testIndex !== -1) {
       updateTestCase(sectionId, testIndex, {
         testResult: {
+          status: passed ? 'pass' : 'fail',
           passed,
           actualOutput: actualText,
           actualStyles,
           error: error || undefined,
+          message: error || (passed ? 'Test passed successfully' : 'Test failed'),
           timestamp: Date.now()
         }
       });
@@ -1384,9 +1232,16 @@
       </div>
       
       {#if referencedIngredients.length > 0 && !tpnMode && previewMode === 'preview'}
+        {@const mergedValues = (() => {
+          // Find the first active test case (since we're showing combined preview)
+          const activeTests = Object.values(activeTestCase);
+          const testVars = activeTests.length > 0 ? activeTests[0]?.variables || {} : {};
+          // Merge: test variables override ingredient panel values
+          return { ...currentIngredientValues, ...testVars };
+        })()}
         <IngredientInputPanel 
           ingredients={referencedIngredients}
-          values={currentIngredientValues}
+          values={mergedValues}
           onChange={handleIngredientChange}
           tpnInstance={calculationTPNInstance}
         />
@@ -1755,7 +1610,14 @@
     border: 2px solid #ddd;
     border-radius: 8px;
     background-color: #f5f5f5;
+  }
+  
+  .preview-panel {
     overflow: hidden;
+  }
+  
+  .editor-panel {
+    overflow: visible; /* Allow Done Editing button to be visible */
   }
 
   .panel-header {
