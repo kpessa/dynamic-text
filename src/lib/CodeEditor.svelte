@@ -14,7 +14,8 @@
   let { 
     value = '', 
     language = 'javascript', 
-    onChange = (newValue: string) => {} 
+    onChange = (newValue: string) => {},
+    onFormatRequest = () => {}
   } = $props();
   
   const dispatch = createEventDispatcher();
@@ -22,7 +23,7 @@
   let element: HTMLDivElement;
   let view: EditorView | undefined;
   
-  // Create a light theme similar to Notepad++
+  // Create a light theme similar to Notepad++ with Fira Code font
   const notepadPlusPlusTheme = EditorView.theme({
     '&': {
       color: '#000000',
@@ -30,7 +31,11 @@
     },
     '.cm-content': {
       caretColor: '#000000',
-      lineHeight: '1.5'
+      lineHeight: '1.5',
+      fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", Consolas, Monaco, monospace',
+      fontSize: '14px',
+      fontVariantLigatures: 'contextual',
+      fontFeatureSettings: '"calt" 1, "liga" 1'
     },
     '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#000000' },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
@@ -92,7 +97,17 @@
         ...defaultKeymap,
         ...searchKeymap,
         ...historyKeymap,
-        ...completionKeymap
+        ...completionKeymap,
+        {
+          key: 'Alt-Shift-f',
+          run: () => {
+            if (language === 'javascript') {
+              dispatch('formatRequest');
+              onFormatRequest();
+            }
+            return true;
+          }
+        }
       ])
     ];
 
@@ -102,14 +117,34 @@
       syntaxHighlighting(notepadPlusPlusHighlight),
       EditorView.theme({
         '&': { height: '100%' },
-        '.cm-scroller': { overflow: 'auto' },
-        '.cm-content': { whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+        '.cm-scroller': { 
+          overflow: 'auto',
+          fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", Consolas, Monaco, monospace'
+        },
+        '.cm-content': { 
+          whiteSpace: 'pre-wrap', 
+          wordBreak: 'break-word',
+          fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", Consolas, Monaco, monospace',
+          fontSize: '14px',
+          fontWeight: '400',
+          fontVariantLigatures: 'contextual',
+          fontFeatureSettings: '"calt" 1, "liga" 1, "ss01" 1, "ss02" 1, "ss03" 1, "ss04" 1, "ss05" 1, "ss06" 1, "ss07" 1',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale'
+        },
         '.cm-content.cm-focused': { outline: 'none' },
         '.cm-editor.cm-focused': { 
           outline: '3px solid #0066cc',
           outlineOffset: '2px'
         },
-        '.cm-line': { wordWrap: 'break-word' }
+        '.cm-line': { 
+          wordWrap: 'break-word',
+          fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", Consolas, Monaco, monospace'
+        },
+        '.cm-lineNumbers': {
+          fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", Consolas, Monaco, monospace',
+          fontSize: '14px'
+        }
       }),
       EditorView.lineWrapping,
       EditorView.updateListener.of((v) => {

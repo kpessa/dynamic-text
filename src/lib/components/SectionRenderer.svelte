@@ -3,6 +3,7 @@
   import TestGeneratorButton from '../TestGeneratorButton.svelte';
   import EmptyState from './EmptyState.svelte';
   import { getIngredientBadgeColor } from '../utils/colorUtils.ts';
+  import { formatJavaScript } from '../services/codeFormatterService.js';
   
   export let sections = [];
   export let editingSection = null;
@@ -40,7 +41,78 @@
       }
     }
   }
+  
+  let formattingSection = null;
+  let undoStack = [];
+  
+  async function formatSection(sectionId) {
+    const section = sections.find(s => s.id === sectionId);
+    if (section && section.type === 'dynamic') {
+      // Show formatting state
+      formattingSection = sectionId;
+      
+      try {
+        const result = await formatJavaScript(section.content);
+        
+        if (result.success) {
+          // Store for undo
+          undoStack.push({
+            action: 'format',
+            sectionId,
+            oldContent: section.content,
+            timestamp: Date.now()
+          });
+          
+          // Keep only last 10 undo actions
+          if (undoStack.length > 10) {
+            undoStack.shift();
+          }
+          
+          // Update content with formatted code
+          onSectionUpdate(sectionId, result.formatted);
+          
+          // Show success notification (brief visual feedback)
+          setTimeout(() => {
+            formattingSection = null;
+          }, 500);
+        } else {
+          // Show error
+          alert(`Format error: ${result.error}`);
+          formattingSection = null;
+        }
+      } catch (error) {
+        // Handle unexpected errors
+        alert(`Format error: ${error.message || 'Failed to format code'}`);
+        formattingSection = null;
+      }
+    }
+  }
+  
+  function undoLastFormat(sectionId) {
+    const lastAction = undoStack.findLast(action => action.sectionId === sectionId);
+    if (lastAction && lastAction.action === 'format') {
+      // Restore previous content
+      onSectionUpdate(sectionId, lastAction.oldContent);
+      
+      // Remove this action from stack
+      const index = undoStack.lastIndexOf(lastAction);
+      undoStack.splice(index, 1);
+    }
+  }
+  
+  // Handle keyboard shortcuts at component level
+  function handleKeyDown(event) {
+    if (event.ctrlKey && event.key === 'z' && editingSection) {
+      const lastAction = undoStack.findLast(action => action.sectionId === editingSection);
+      if (lastAction) {
+        event.preventDefault();
+        undoLastFormat(editingSection);
+      }
+    }
+  }
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <div class="sections" role="list">
   {#if sections.length === 0}
@@ -112,6 +184,24 @@
         
         {#if editingSection === section.id}
           <div class="editor-controls">
+            {#if section.type === 'dynamic'}
+              <button 
+                class="format-btn {formattingSection === section.id ? 'formatting' : ''}"
+                onclick={() => formatSection(section.id)}
+                title="Format code (Alt+Shift+F)"
+              >
+                {formattingSection === section.id ? '⚙️ Formatting...' : '✨ Format'}
+              </button>
+              {#if undoStack.some(action => action.sectionId === section.id)}
+                <button 
+                  class="undo-btn"
+                  onclick={() => undoLastFormat(section.id)}
+                  title="Undo last format (Ctrl+Z)"
+                >
+                  ↩️ Undo
+                </button>
+              {/if}
+            {/if}
             <button 
               class="done-editing-btn"
               onclick={() => onEditingSectionChange(null)}
@@ -125,6 +215,7 @@
               language={section.type === 'static' ? 'html' : 'javascript'}
               onChange={(content) => onSectionUpdate(section.id, content)}
               on:convertToDynamic={(e) => onConvertToDynamic(section.id, e.detail.content)}
+              on:formatRequest={() => formatSection(section.id)}
             />
           </div>
         {:else}
@@ -442,6 +533,51 @@
     border-bottom: 1px solid #dee2e6;
     display: flex;
     justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  
+  .format-btn {
+    padding: 0.5rem 1rem;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  
+  .format-btn:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+  }
+  
+  .format-btn.formatting {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+    animation: pulse 0.5s;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  .undo-btn {
+    padding: 0.5rem 1rem;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  
+  .undo-btn:hover {
+    background: #fde68a;
+    border-color: #f59e0b;
   }
   
   .editor-wrapper {
