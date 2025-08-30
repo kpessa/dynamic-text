@@ -28,7 +28,7 @@
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { previewEngineService } from './lib/services/previewEngineService';
   import { testRunnerService } from './lib/services/testRunnerService';
-  import { modalService } from './lib/services/modalService.svelte.ts';
+  // Modal service removed - using local state due to bind: requirements
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
   import { workContextStore } from './stores/workContextStore.svelte.ts';
@@ -74,25 +74,25 @@
   let currentValidatedAt = $state(null);
   let currentTestResults = $state(null);
   
-  // Modal state now managed by modalService
-  const showTestGeneratorModal = $derived(modalService.modals.testGenerator);
-  const showAIWorkflowInspector = $derived(modalService.modals.aiWorkflowInspector);
-  const showIngredientManager = $derived(modalService.modals.ingredientManager);
-  const showDiffViewer = $derived(modalService.modals.diffViewer);
-  const showMigrationTool = $derived(modalService.modals.migrationTool);
-  const showPreferences = $derived(modalService.modals.preferences);
-  const showCommitMessageDialog = $derived(modalService.modals.commitMessageDialog);
-  const showExportModal = $derived(modalService.modals.exportModal);
-  const showSelectiveApply = $derived(modalService.modals.selectiveApply);
-  const showTestSummary = $derived(modalService.modals.testSummary);
+  // Modal state - keeping as local state due to bind: requirements in templates
+  let showTestGeneratorModal = $state(false);
+  let showAIWorkflowInspector = $state(false);
+  let showIngredientManager = $state(false);
+  let showDiffViewer = $state(false);
+  let showMigrationTool = $state(false);
+  let showPreferences = $state(false);
+  let showCommitMessageDialog = $state(false);
+  let showExportModal = $state(false);
+  let showSelectiveApply = $state(false);
+  let showTestSummary = $state(false);
   
   // Modal data
-  const selectedIngredientForDiff = $derived(modalService.modalData.selectedIngredientForDiff);
-  const currentGeneratedTests = $derived(modalService.modalData.currentGeneratedTests);
-  const inspectorCurrentSection = $derived(modalService.modalData.inspectorCurrentSection);
-  const targetSectionId = $derived(modalService.modalData.targetSectionId);
-  const pendingReferenceData = $derived(modalService.modalData.pendingReferenceData);
-  const testSummary = $derived(modalService.modalData.testSummary);
+  let selectedIngredientForDiff = $state(null);
+  let currentGeneratedTests = $state(null);
+  let inspectorCurrentSection = $state(null);
+  let targetSectionId = $state(null);
+  let pendingReferenceData = $state(null);
+  let testSummary = $state(null);
   
   // Other state
   let currentPopulationType = $state(POPULATION_TYPES.ADULT);
@@ -474,8 +474,9 @@
       }
     };
     
-    // Store results for display using modal service
-    modalService.openTestSummary(summary);
+    // Store results for display
+    testSummary = summary;
+    showTestSummary = true;
     
     // Store results for validation
     currentTestResults = {
@@ -603,15 +604,17 @@
   
   // Handle test generation
   function handleTestsGenerated(sectionId, generatedTests) {
-    modalService.setModalData('currentGeneratedTests', generatedTests);
-    modalService.openTestGenerator(sectionId);
+    currentGeneratedTests = generatedTests;
+    targetSectionId = sectionId;
+    showTestGeneratorModal = true;
   }
   
   // Handle AI workflow inspector
   function openAIWorkflowInspector(sectionId) {
     const section = sections.find(s => s.id === sectionId);
     if (section && section.type === 'dynamic') {
-      modalService.openAIWorkflowInspector(section);
+      inspectorCurrentSection = section;
+      showAIWorkflowInspector = true;
     }
   }
   
