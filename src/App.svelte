@@ -7,6 +7,7 @@
   import { validateTestOutput, validateStyles } from './lib/utils/validationUtils';
   import { getPopulationColor, getPopulationName } from './lib/utils/populationUtils';
   import EmptyState from './lib/components/EmptyState.svelte';
+  import SimplePreviewDisplay from './lib/components/SimplePreviewDisplay.svelte';
   import Sidebar from './lib/Sidebar.svelte';
   import TPNTestPanel from './lib/TPNTestPanel.svelte';
   import TPNKeyReference from './lib/TPNKeyReference.svelte';
@@ -1680,9 +1681,7 @@
       {/if}
       
       {#if previewMode === 'preview'}
-        <div class="preview">
-          {@html previewHTML}
-        </div>
+        <SimplePreviewDisplay {previewHTML} collapsed={false} />
       {:else if previewMode === 'output'}
         <div class="output-view">
           {#if outputMode === 'json'}
@@ -2908,29 +2907,6 @@
     display: none;
   }
 
-  .preview {
-    flex: 1;
-    padding: 1rem;
-    background-color: #fff;
-    border: 1px solid #444;
-    border-radius: 4px;
-    overflow: auto;
-    margin-bottom: 1rem;
-    color: #333;
-  }
-  
-  /* Force light theme for preview content */
-  .preview :global(*) {
-    color: #333;
-  }
-  
-  .preview :global(a) {
-    color: #0066cc;
-  }
-  
-  .preview :global(a:hover) {
-    color: #0052a3;
-  }
 
   .output-controls {
     display: flex;
