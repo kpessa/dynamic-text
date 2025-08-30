@@ -64,6 +64,7 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="commit-dialog-title"
+      tabindex="0"
     >
       <h2 id="commit-dialog-title">{title}</h2>
       

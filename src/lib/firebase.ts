@@ -91,6 +91,9 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
 
 export const signInAnonymouslyUser = async (): Promise<User> => {
   try {
+    if (!auth) {
+      throw new Error('Auth is not initialized');
+    }
     const userCredential = await signInAnonymously(auth);
     return userCredential.user;
   } catch (error) {

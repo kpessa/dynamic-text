@@ -1,0 +1,22 @@
+markdownExploder: true
+qa:
+  qaLocation: docs/qa
+prd:
+  prdFile: docs/optimization-brownfield-prd.md
+  prdVersion: v4
+  prdSharded: true
+  prdShardedLocation: docs/optimization-brownfield-prd-shards
+  epicFilePattern: epic-{n}*.md
+architecture:
+  architectureFile: docs/architecture.md
+  architectureVersion: v4
+  architectureSharded: true
+  architectureShardedLocation: docs/architecture-shards
+customTechnicalDocuments: null
+devLoadAlwaysFiles:
+  - docs/architecture-shards/3-technology-stack.md
+  - docs/architecture-shards/4-architecture-patterns.md
+  - docs/architecture-shards/6-component-specifications.md
+devDebugLog: .ai/debug-log.md
+devStoryLocation: docs/stories
+slashPrefix: BMad

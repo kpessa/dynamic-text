@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { workspaceStore } from '../../src/stores/workspaceStore';
+import { workspaceStore } from '../../src/stores/workspaceStore.svelte.ts';
 import { TestDataFactory } from '../utils/test-helpers';
 import { POPULATION_TYPES } from '../../src/lib/firebaseDataService';
 import type { Section } from '../../src/types/section';

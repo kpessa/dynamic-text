@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { sectionStore } from '../../src/stores/sectionStore';
+import { sectionStore } from '../../src/stores/sectionStore.svelte.ts';
 import { TestDataFactory } from '../utils/test-helpers';
 import type { Section, TestCase } from '../../src/types/section';
 

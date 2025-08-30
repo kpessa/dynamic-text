@@ -14,51 +14,25 @@ import {
   serverTimestamp,
   writeBatch,
   arrayUnion,
-  arrayRemove,
   increment,
-  type DocumentData,
-  type QuerySnapshot,
-  type DocumentSnapshot,
-  type WriteBatch,
-  type Unsubscribe,
-  type Timestamp
 } from 'firebase/firestore';
 import { db, COLLECTIONS, getCurrentUser, signInAnonymouslyUser } from './firebase';
 import { getKeyCategory } from './tpnLegacy.js';
-import { generateIngredientHash, findDuplicates, areIngredientsIdentical } from './contentHashing';
+import { generateIngredientHash, findDuplicates } from './contentHashing';
 import { getPreferences } from './preferencesService.js';
-import { createSharedIngredient, addToSharedIngredient, getSharedIngredientByHash } from './sharedIngredientService.js';
+import { getSharedIngredientByHash } from './sharedIngredientService.js';
 import type {
   PopulationType,
-  POPULATION_TYPES as PopulationTypesType,
   IngredientData,
   ReferenceData,
-  ImportedIngredient,
-  ConfigData,
-  ConfigMetadata,
-  ImportedConfig,
-  DuplicateReport,
-  ImportStats,
-  AutoDedupeAction,
-  SharedIngredient,
-  User,
   FirebaseTimestamp,
   Section,
-  NoteItem,
-  ServiceResponse,
-  ComparisonResult,
-  ImportResult,
-  MigrationResult,
-  AuditLogEntry
+  NoteItem
 } from './types.js';
 
-// Population types
-export const POPULATION_TYPES: typeof PopulationTypesType = {
-  NEONATAL: 'neonatal' as const,
-  PEDIATRIC: 'child' as const,
-  ADOLESCENT: 'adolescent' as const,
-  ADULT: 'adult' as const
-} as const;
+// Import and re-export population types from types.js
+import { POPULATION_TYPES } from './types.js';
+export { POPULATION_TYPES };
 
 // Helper functions for ID normalization
 // Convert camelCase or PascalCase to proper spaced name
@@ -120,7 +94,7 @@ export function formatIngredientName(name: string): string {
   
   // Check if it's a special case (check original name)
   if (name in specialCases) {
-    return specialCases[name];
+    return specialCases[name as keyof typeof specialCases];
   }
   
   // If no pattern matched, try camelCase conversion
@@ -205,9 +179,9 @@ export function generateReferenceId(referenceData: Partial<ReferenceData>): stri
 // Helper function to map version names to population types
 export function versionToPopulationType(version?: string): PopulationType {
   const mapping: Record<string, PopulationType> = {
-    'neonatal': POPULATION_TYPES.NEONATAL,
-    'child': POPULATION_TYPES.PEDIATRIC,
-    'pediatric': POPULATION_TYPES.PEDIATRIC,
+    'neonatal': POPULATION_TYPES.NEO,
+    'child': POPULATION_TYPES.CHILD,
+    'pediatric': POPULATION_TYPES.CHILD,
     'adolescent': POPULATION_TYPES.ADOLESCENT,
     'adult': POPULATION_TYPES.ADULT
   };
@@ -240,7 +214,8 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
         sections.push({ 
           id: sectionId++,
           type: 'static', 
-          content: currentStaticContent.trim() 
+          content: currentStaticContent.trim(),
+          testCases: [] 
         });
         currentStaticContent = '';
       }
@@ -267,7 +242,8 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
               sections.push({ 
                 id: sections.length + 1,
                 type: 'static', 
-                content: beforeText.trim() 
+                content: beforeText.trim(),
+                testCases: [] 
               });
             }
           }
@@ -291,7 +267,8 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
               sections.push({ 
                 id: sections.length + 1,
                 type: 'static', 
-                content: remainingText.trim() 
+                content: remainingText.trim(),
+                testCases: [] 
               });
             }
             break;
@@ -317,7 +294,8 @@ function convertNotesToSections(notes?: NoteItem[]): Section[] {
     sections.push({ 
       id: sections.length + 1,
       type: 'static', 
-      content: currentStaticContent.trim() 
+      content: currentStaticContent.trim(),
+      testCases: [] 
     });
   }
   
@@ -329,6 +307,7 @@ export const ingredientService = {
   // Create or update an ingredient with version tracking
   async saveIngredient(ingredientData: IngredientData, commitMessage: string | null = null): Promise<string> {
     try {
+      if (!db) throw new Error('Firebase not initialized');
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
       // Use normalized ingredient name as ID
@@ -337,7 +316,7 @@ export const ingredientService = {
       
       // Get current document to check version
       const currentDoc = await getDoc(ingredientRef);
-      const currentVersion = currentDoc.exists() ? (currentDoc.data().version || 0) : 0;
+      const currentVersion = currentDoc.exists() ? (currentDoc.data()?.['version'] || 0) : 0;
       
       const data: IngredientData = {
         ...ingredientData,
@@ -377,6 +356,7 @@ export const ingredientService = {
   
   // Save version history
   async saveVersionHistory(ingredientId: string, versionData: IngredientData): Promise<void> {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const versionRef = doc(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions')
@@ -395,6 +375,7 @@ export const ingredientService = {
   
   // Get version history for an ingredient
   async getVersionHistory(ingredientId: string): Promise<IngredientData[]> {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'versions'),
@@ -414,6 +395,7 @@ export const ingredientService = {
   
   // Get all ingredients
   async getAllIngredients() {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS),
@@ -432,7 +414,8 @@ export const ingredientService = {
   },
   
   // Get ingredients by category
-  async getIngredientsByCategory(category) {
+  async getIngredientsByCategory(category: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS),
@@ -452,7 +435,8 @@ export const ingredientService = {
   },
   
   // Subscribe to ingredient changes
-  subscribeToIngredients(callback) {
+  subscribeToIngredients(callback: (ingredients: any[]) => void) {
+    if (!db) throw new Error('Firebase not initialized');
     const q = query(
       collection(db, COLLECTIONS.INGREDIENTS),
       orderBy('name', 'asc')
@@ -469,6 +453,7 @@ export const ingredientService = {
 
   // Clear all ingredients (use with caution!)
   async clearAllIngredients() {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const snapshot = await getDocs(collection(db, COLLECTIONS.INGREDIENTS));
       const batch = writeBatch(db);
@@ -488,6 +473,7 @@ export const ingredientService = {
 
   // Fix ingredient categories
   async fixIngredientCategories() {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const ingredients = await this.getAllIngredients();
@@ -522,6 +508,7 @@ export const ingredientService = {
 
   // Fix ingredients that have lost their parentheses
   async fixIngredientsWithParentheses() {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const batch = writeBatch(db);
@@ -579,7 +566,8 @@ export const ingredientService = {
 // Reference service (nested under ingredients)
 export const referenceService = {
   // Save a reference under an ingredient with version tracking
-  async saveReference(ingredientId, referenceData, commitMessage = null) {
+  async saveReference(ingredientId: string, referenceData: any, commitMessage: string | null = null) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
@@ -589,7 +577,7 @@ export const referenceService = {
       
       // Get current document to check version
       const currentDoc = await getDoc(referenceRef);
-      const currentVersion = currentDoc.exists() ? (currentDoc.data().version || 0) : 0;
+      const currentVersion = currentDoc.exists() ? (currentDoc.data()?.['version'] || 0) : 0;
       
       const data = {
         ...referenceData,
@@ -648,7 +636,8 @@ export const referenceService = {
   },
   
   // Save reference version history
-  async saveReferenceVersionHistory(ingredientId, referenceId, versionData) {
+  async saveReferenceVersionHistory(ingredientId: string, referenceId: string, versionData: any) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const versionRef = doc(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions')
@@ -666,7 +655,8 @@ export const referenceService = {
   },
   
   // Get version history for a reference
-  async getReferenceVersionHistory(ingredientId, referenceId) {
+  async getReferenceVersionHistory(ingredientId: string, referenceId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId, 'versions'),
@@ -685,7 +675,8 @@ export const referenceService = {
   },
   
   // Get all references for an ingredient
-  async getReferencesForIngredient(ingredientId) {
+  async getReferencesForIngredient(ingredientId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references'),
@@ -704,7 +695,8 @@ export const referenceService = {
   },
   
   // Update validation status for a reference
-  async updateReferenceValidation(ingredientId, referenceId, validationData) {
+  async updateReferenceValidation(ingredientId: string, referenceId: string, validationData: any) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       const referenceRef = doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId);
@@ -727,7 +719,8 @@ export const referenceService = {
   },
 
   // Get references by population type
-  async getReferencesByPopulation(ingredientId, populationType) {
+  async getReferencesByPopulation(ingredientId: string, populationType: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       // Handle child/pediatric mapping
       const searchTypes = [populationType];
@@ -754,7 +747,8 @@ export const referenceService = {
   },
   
   // Get references across health systems for comparison
-  async getReferencesForComparison(ingredientId, healthSystem = null) {
+  async getReferencesForComparison(ingredientId: string, healthSystem: string | null = null) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       let q = collection(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references');
       
@@ -801,7 +795,8 @@ export const referenceService = {
   },
   
   // Delete a reference
-  async deleteReference(ingredientId, referenceId) {
+  async deleteReference(ingredientId: string, referenceId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       await deleteDoc(doc(db, COLLECTIONS.INGREDIENTS, ingredientId, 'references', referenceId));
       
@@ -820,7 +815,8 @@ export const referenceService = {
 // Batch operations for migration
 export const migrationService = {
   // Migrate all localStorage data to Firebase
-  async migrateFromLocalStorage(localStorageData) {
+  async migrateFromLocalStorage(localStorageData: any) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const batch = writeBatch(db);
       const ingredientMap = new Map();
@@ -888,6 +884,7 @@ export const migrationService = {
 export const organizationService = {
   // Get all health systems
   async getHealthSystems() {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const snapshot = await getDocs(collection(db, COLLECTIONS.HEALTH_SYSTEMS));
       return snapshot.docs.map(doc => ({
@@ -901,7 +898,8 @@ export const organizationService = {
   },
   
   // Add a new health system
-  async addHealthSystem(name) {
+  async addHealthSystem(name: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const docRef = await addDoc(collection(db, COLLECTIONS.HEALTH_SYSTEMS), {
         name,
@@ -915,7 +913,8 @@ export const organizationService = {
   },
   
   // Get domains for a health system
-  async getDomains(healthSystemId) {
+  async getDomains(healthSystemId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const snapshot = await getDocs(
         collection(db, COLLECTIONS.HEALTH_SYSTEMS, healthSystemId, 'domains')
@@ -934,7 +933,8 @@ export const organizationService = {
 // Config service for imported TPN configurations
 export const configService = {
   // Phase 3.2: Detect duplicates before import
-  async detectDuplicatesBeforeImport(configData) {
+  async detectDuplicatesBeforeImport(configData: any) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const report = {
         duplicatesFound: [],
@@ -1027,7 +1027,8 @@ export const configService = {
   // Save an imported config with all ingredient data
   // Phase 2.1: Now preserves original imports as immutable baseline
   // Phase 3.2: Now includes duplicate detection
-  async saveImportedConfig(configData, metadata) {
+  async saveImportedConfig(configData: any, metadata: any) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       
@@ -1316,6 +1317,7 @@ export const configService = {
   
   // Get all imported configs
   async getAllConfigs() {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, 'importedConfigs'),
@@ -1334,7 +1336,8 @@ export const configService = {
   },
   
   // Get ingredients for a specific config
-  async getConfigIngredients(configId) {
+  async getConfigIngredients(configId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, 'importedConfigs', configId, 'ingredients'),
@@ -1353,7 +1356,8 @@ export const configService = {
   },
   
   // Get configs by health system
-  async getConfigsByHealthSystem(healthSystem) {
+  async getConfigsByHealthSystem(healthSystem: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, 'importedConfigs'),
@@ -1373,7 +1377,8 @@ export const configService = {
   },
   
   // Delete a config and all its ingredients
-  async deleteConfig(configId) {
+  async deleteConfig(configId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       // First delete all ingredients in the subcollection
       const ingredientsSnapshot = await getDocs(
@@ -1399,7 +1404,8 @@ export const configService = {
   },
   
   // Phase 2.1: Get baseline config data (immutable original)
-  async getBaselineConfig(configId) {
+  async getBaselineConfig(configId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const baselineDoc = await getDoc(doc(db, 'baselineConfigs', configId));
       if (!baselineDoc.exists()) {
@@ -1416,7 +1422,8 @@ export const configService = {
   },
   
   // Phase 2.1: Get baseline ingredients for a config
-  async getBaselineIngredients(configId) {
+  async getBaselineIngredients(configId: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const q = query(
         collection(db, 'baselineConfigs', configId, 'ingredients'),
@@ -1435,7 +1442,8 @@ export const configService = {
   },
   
   // Phase 2.3: Compare working config with baseline to detect modifications
-  async compareWithBaseline(configId, ingredientName) {
+  async compareWithBaseline(configId: string, ingredientName: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       // Get baseline ingredient data
       const baselineIngredients = await this.getBaselineIngredients(configId);
@@ -1481,7 +1489,8 @@ export const configService = {
   },
   
   // Phase 2.5: Revert working copy to baseline
-  async revertToBaseline(configId, ingredientName) {
+  async revertToBaseline(configId: string, ingredientName: string) {
+    if (!db) throw new Error('Firebase not initialized');
     try {
       const user = getCurrentUser() || await signInAnonymouslyUser();
       

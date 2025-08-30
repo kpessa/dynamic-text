@@ -21,31 +21,28 @@ export interface User {
 export type PopulationType = 'neonatal' | 'child' | 'adolescent' | 'adult';
 
 export const POPULATION_TYPES = {
-  NEONATAL: 'neonatal' as const,
-  PEDIATRIC: 'child' as const,
+  NEO: 'neonatal' as const,
+  CHILD: 'child' as const,
   ADOLESCENT: 'adolescent' as const,
   ADULT: 'adult' as const
 } as const;
 
 // Section types for dynamic text content
-export interface StaticSection {
+export interface Section {
   id: number;
-  type: 'static';
-  content: string;
-}
-
-export interface DynamicSection {
-  id: number;
-  type: 'dynamic';
+  type: 'static' | 'dynamic';
+  name?: string;
   content: string;
   testCases: TestCase[];
+  populationType?: PopulationType;
 }
 
-export type Section = StaticSection | DynamicSection;
-
 export interface TestCase {
+  id?: string;
   name: string;
   variables: Record<string, unknown>;
+  expected?: string;
+  matchType?: 'exact' | 'contains';
 }
 
 // NOTE format from imported configurations

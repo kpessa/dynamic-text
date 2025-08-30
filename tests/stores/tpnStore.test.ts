@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { tpnStore } from '../../src/stores/tpnStore';
+import { tpnStore } from '../../src/stores/tpnStore.svelte.ts';
 import { TestDataFactory, TPNTestUtils, MedicalAssertions } from '../utils/test-helpers';
 import type { TPNInstance } from '../../src/types/tpn';
 

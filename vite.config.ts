@@ -31,7 +31,6 @@ export default defineConfig({
             '@lezer/highlight'
           ],
           
-          firebase: ['firebase'],
           
           ai: ['@google/generative-ai'],
           
@@ -84,11 +83,13 @@ export default defineConfig({
     include: [
       'svelte',
       '@babel/standalone',
-      'dompurify'
+      'dompurify',
+      'firebase/app',
+      'firebase/auth',
+      'firebase/firestore'
     ],
     exclude: [
       // Exclude heavy libraries from pre-bundling
-      'firebase',
       '@google/generative-ai',
       'codemirror'
     ],
@@ -105,6 +106,7 @@ export default defineConfig({
   
   resolve: {
     alias: {
+      '$lib': resolve(__dirname, 'src/lib'),
       '@': resolve(__dirname, 'src'),
       '@lib': resolve(__dirname, 'src/lib'),
       '@stores': resolve(__dirname, 'src/stores'),

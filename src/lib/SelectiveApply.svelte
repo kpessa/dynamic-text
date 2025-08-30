@@ -172,7 +172,7 @@
     </div>
   {:else}
     <div class="apply-mode">
-      <label>Apply Mode:</label>
+      <span>Apply Mode:</span>
       <div class="mode-options">
         <button 
           class="mode-btn {applyMode === 'all' ? 'active' : ''}"

@@ -1,0 +1,350 @@
+<script>
+  // Core imports
+  import * as Babel from '@babel/standalone';
+  import DOMPurify from 'dompurify';
+  
+  // Components
+  import Sidebar from './lib/Sidebar.svelte';
+  import Navbar from './lib/Navbar.svelte';
+  import TPNTestPanel from './lib/TPNTestPanel.svelte';
+  import TPNKeyReference from './lib/TPNKeyReference.svelte';
+  
+  // Extracted components
+  import SectionManager from './lib/components/SectionManager.svelte';
+  import PreviewEngine from './lib/components/PreviewEngine.svelte';
+  import FirebaseSync from './lib/components/FirebaseSync.svelte';
+  import ImportExportManager from './lib/components/ImportExportManager.svelte';
+  import ModalManager from './lib/components/ModalManager.svelte';
+  import EditorPanel from './lib/components/EditorPanel.svelte';
+  import PreviewPanel from './lib/components/PreviewPanel.svelte';
+  
+  // Services and utilities
+  import { TPNLegacySupport } from './lib/tpnLegacy.js';
+  import { workContext } from './stores/workContextStore.svelte.ts';
+  import { validation } from './stores/validationStore.svelte.ts';
+  import { uiState } from './stores/uiStateStore.svelte.ts';
+  import * as handlers from './lib/services/appHandlers.js';
+  
+  // State
+  let sections = $state([]);
+  let activeConfigId = $state(null);
+  let activeConfigIngredients = $state([]);
+  let copied = $state(false);
+  let showTestSummary = $state(false);
+  let pendingReferenceData = $state(null);
+  let showSelectiveApply = $state(false);
+  
+  // Component refs
+  let sectionManagerRef = $state(null);
+  let previewEngineRef = $state(null);
+  let importExportManagerRef = $state(null);
+  let firebaseSyncRef = $state(null);
+  
+  // Computed values
+  let dynamicSections = $derived(sections.filter(s => s.type === 'dynamic'));
+  let previewHTML = $derived.by(() => {
+    const ingredientVals = { ...workContext.currentIngredientValues };
+    return sections.map(section => {
+      if (section.type === 'static') {
+        return sanitizeHTML(section.content.replace(/\n/g, '<br>'));
+      } else if (section.type === 'dynamic') {
+        const testCase = workContext.activeTestCase[section.id];
+        const evaluated = previewEngineRef?.evaluateCode(section.content, testCase?.variables);
+        return sanitizeHTML((evaluated || '').replace(/\n/g, '<br>'));
+      }
+      return '';
+    }).join('<br>');
+  });
+  
+  // Core functions
+  function sanitizeHTML(html) {
+    return previewEngineRef?.sanitizeHTML?.(html) || html;
+  }
+  
+  function setSections(newSections) {
+    const migratedSections = newSections.map(section => {
+      if (section.type === 'dynamic' && !section.testCases) {
+        return { ...section, testCases: [{ name: 'Default', variables: {} }] };
+      }
+      return section;
+    });
+    sections = migratedSections;
+    sectionManagerRef?.publicSetSections(migratedSections);
+  }
+  
+  function clearEditor() {
+    setSections([]);
+    workContext.update({
+      currentIngredient: '',
+      currentReferenceName: '',
+      hasUnsavedChanges: false,
+      lastSavedTime: null,
+      loadedReferenceId: null,
+      originalSections: null,
+      activeTestCase: {},
+      expandedTestCases: {},
+    });
+  }
+  
+  function checkForChanges() {
+    if (workContext.originalSections) {
+      const currentSectionsStr = JSON.stringify(sections);
+      workContext.hasUnsavedChanges = currentSectionsStr !== workContext.originalSections;
+    } else {
+      workContext.hasUnsavedChanges = sections.length > 0;
+    }
+  }
+  
+  // Section management delegates
+  function addSection(type) {
+    console.log('[App] addSection called with type:', type);
+    console.log('[App] sectionManagerRef:', sectionManagerRef);
+    if (sectionManagerRef) {
+      sectionManagerRef.publicAddSection(type);
+    } else {
+      console.error('[App] sectionManagerRef is null!');
+    }
+  }
+  
+  function deleteSection(id) {
+    sectionManagerRef?.publicDeleteSection(id);
+  }
+  
+  function updateSectionContent(id, content) {
+    sectionManagerRef?.publicUpdateSectionContent(id, content);
+  }
+  
+  function handleConvertToDynamic(sectionId, content) {
+    sectionManagerRef?.publicConvertToDynamic(sectionId, content);
+  }
+  
+  // Event handlers
+  function handleSectionsChange(newSections) {
+    sections = newSections;
+    checkForChanges();
+  }
+  
+  function handleSectionAdded(e) {
+    const section = e.detail.section;
+    if (section.type === 'dynamic') {
+      workContext.activeTestCase[section.id] = section.testCases?.[0] || { name: 'Default', variables: {} };
+    }
+  }
+  
+  function handleSectionDeleted(e) {
+    const id = e.detail.id;
+    delete workContext.activeTestCase[id];
+    delete workContext.expandedTestCases[id];
+  }
+  
+  function handleLoadReference(reference, ingredient = null) {
+    if (reference?.sections) {
+      setSections(reference.sections);
+      workContext.currentIngredient = reference.ingredient || '';
+      workContext.currentReferenceName = reference.name || '';
+      workContext.loadedReferenceId = reference.id || null;
+      workContext.hasUnsavedChanges = false;
+      workContext.lastSavedTime = reference.updatedAt || null;
+      workContext.originalSections = JSON.stringify(reference.sections);
+      
+      if (ingredient) {
+        workContext.loadedIngredient = {
+          id: ingredient.KEYNAME || ingredient.keyname,
+          name: ingredient.KEYNAME || ingredient.keyname,
+          display: ingredient.DISPLAY || ingredient.display,
+          type: ingredient.TYPE || ingredient.type,
+          unit: ingredient.Unit || ingredient.unit
+        };
+      }
+    }
+  }
+  
+  function handleSaveReference() {
+    return sections;
+  }
+  
+  function handleConfigActivate(configId, ingredients) {
+    activeConfigId = configId;
+    activeConfigIngredients = ingredients || [];
+  }
+  
+  function handleTPNValuesChange(tpnInstance) {
+    // Store TPN instance if needed
+  }
+  
+  function handleKeyInsert(key) {
+    const snippet = `me.getValue('${key}')`;
+    navigator.clipboard.writeText(snippet).then(() => {
+      console.log(`Copied: ${snippet}`);
+    });
+  }
+  
+  function handleIngredientChange(key, value) {
+    workContext.currentIngredientValues = { ...workContext.currentIngredientValues, [key]: value };
+  }
+  
+  async function saveCurrentWork(commitMessage = null) {
+    if (firebaseSyncRef) {
+      await firebaseSyncRef.saveReference(commitMessage);
+    }
+  }
+  
+  function handleSaveWithCommit() {
+    if (!workContext.hasUnsavedChanges) return;
+    uiState.showCommitMessageDialog = true;
+  }
+  
+  function handleCommitMessageConfirm(commitMessage) {
+    saveCurrentWork(commitMessage);
+    uiState.showCommitMessageDialog = false;
+  }
+  
+  function handleKeyDown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (workContext.hasUnsavedChanges) {
+        handleSaveWithCommit();
+      }
+    }
+    if (e.key === 'Escape' && showTestSummary) {
+      showTestSummary = false;
+    }
+  }
+</script>
+
+<div class="app-container {uiState.showSidebar ? 'sidebar-open' : ''}" onkeydown={handleKeyDown} role="application" tabindex="-1">
+  {#if uiState.showSidebar}
+    <Sidebar 
+      onLoadReference={handleLoadReference}
+      onSaveReference={handleSaveReference}
+      onConfigActivate={handleConfigActivate}
+      currentSections={sections}
+      activeConfigId={activeConfigId}
+      activeConfigIngredients={activeConfigIngredients}
+    />
+  {/if}
+  
+  <main>
+    <Navbar
+      bind:showSidebar={uiState.showSidebar}
+      bind:tpnMode={workContext.tpnMode}
+      bind:showOutput={uiState.showOutput}
+      bind:outputMode={uiState.previewMode}
+      bind:showKeyReference={workContext.showKeyReference}
+      currentReferenceName={workContext.currentReferenceName}
+      currentIngredient={workContext.currentIngredient}
+      hasUnsavedChanges={workContext.hasUnsavedChanges}
+      lastSavedTime={workContext.lastSavedTime}
+      firebaseEnabled={true}
+      onSave={handleSaveWithCommit}
+      onNewDocument={() => {
+        if (workContext.hasUnsavedChanges && !confirm('You have unsaved changes. Start new anyway?')) {
+          return;
+        }
+        clearEditor();
+      }}
+      onExport={() => importExportManagerRef?.openExportModal()}
+      onOpenIngredientManager={() => uiState.showIngredientManager = true}
+      onOpenMigrationTool={() => uiState.showMigrationTool = true}
+      onOpenPreferences={() => uiState.showPreferences = true}
+      onOpenDiffViewer={handlers.handleOpenDiffViewer()}
+      copied={copied}
+    />
+    
+    <div class="editor-container {workContext.previewCollapsed ? 'preview-collapsed' : ''}">
+      <EditorPanel
+        {sections}
+        {firebaseSyncRef}
+        onAddSection={addSection}
+        onDeleteSection={deleteSection}
+        onUpdateSectionContent={updateSectionContent}
+        onConvertToDynamic={handleConvertToDynamic}
+      />
+      
+      <PreviewPanel
+        {previewHTML}
+        onIngredientChange={handleIngredientChange}
+      />
+    </div>
+    
+    {#if workContext.tpnMode}
+      <TPNTestPanel 
+        {dynamicSections}
+        onValuesChange={handleTPNValuesChange}
+        activeTestCase={workContext.activeTestCase}
+        bind:isExpanded={workContext.tpnPanelExpanded}
+      />
+    {/if}
+  </main>
+  
+  {#if workContext.tpnMode}
+    <TPNKeyReference 
+      bind:isExpanded={workContext.showKeyReference}
+      onKeySelect={handleKeyInsert}
+    />
+  {/if}
+  
+  <!-- Hidden components for functionality -->
+  <SectionManager
+    bind:this={sectionManagerRef}
+    bind:sections
+    on:sections-changed={(e) => handleSectionsChange(e.detail)}
+    on:section-added={handleSectionAdded}
+    on:section-deleted={handleSectionDeleted}
+  />
+  
+  <PreviewEngine
+    bind:this={previewEngineRef}
+    {sections}
+  />
+  
+  <FirebaseSync
+    bind:this={firebaseSyncRef}
+    bind:sections
+    bind:currentIngredient={workContext.currentIngredient}
+    bind:currentReferenceName={workContext.currentReferenceName}
+    bind:loadedReferenceId={workContext.loadedReferenceId}
+    bind:currentPopulationType={workContext.currentPopulationType}
+    bind:currentHealthSystem={workContext.currentHealthSystem}
+    bind:hasUnsavedChanges={workContext.hasUnsavedChanges}
+    on:save-successful={(e) => {
+      workContext.hasUnsavedChanges = false;
+      workContext.lastSavedTime = e.detail.savedAt;
+      workContext.originalSections = JSON.stringify(sections);
+    }}
+    on:population-switched={(e) => {
+      handlers.handleEditReference(workContext.currentIngredient, e.detail.reference, setSections);
+    }}
+    on:request-selective-apply={(e) => {
+      pendingReferenceData = e.detail.referenceData;
+      showSelectiveApply = true;
+    }}
+  />
+  
+  <ImportExportManager
+    bind:this={importExportManagerRef}
+    {sections}
+    currentIngredient={workContext.currentIngredient}
+    currentReferenceName={workContext.currentReferenceName}
+    healthSystem={workContext.currentHealthSystem}
+    populationType={workContext.currentPopulationType}
+    showOutput={uiState.showOutput}
+    previewMode={uiState.previewMode}
+  />
+  
+  <ModalManager
+    {activeConfigId}
+    {activeConfigIngredients}
+    {sections}
+    onIngredientSelection={handlers.handleIngredientSelection}
+    onCreateReference={(ing, pop) => handlers.handleCreateReference(ing, pop, setSections, addSection)}
+    onEditReference={(ing, ref) => handlers.handleEditReference(ing, ref, setSections)}
+    onMigrationComplete={handlers.handleMigrationComplete}
+    onCommitMessageConfirm={handleCommitMessageConfirm}
+    onSelectiveApply={(results) => handlers.handleSelectiveApply(results, sections)}
+  />
+</div>
+
+<style>
+  @import "./App.css";
+</style>

@@ -4,36 +4,109 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env['GEMINI_API_KEY'] || '');
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute (Gemini free tier limit)
+
+// Simple in-memory rate limiting (will reset on function cold start)
+// In production, use Vercel KV or Redis for persistent rate limiting
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(clientId: string): { allowed: boolean; remaining: number; resetTime: number } {
+  const now = Date.now();
+  const clientData = rateLimitMap.get(clientId);
+  
+  if (!clientData || now > clientData.resetTime) {
+    // New window or expired window
+    const resetTime = now + RATE_LIMIT_WINDOW_MS;
+    rateLimitMap.set(clientId, { count: 1, resetTime });
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetTime };
+  }
+  
+  if (clientData.count >= RATE_LIMIT_MAX_REQUESTS) {
+    // Rate limit exceeded
+    return { allowed: false, remaining: 0, resetTime: clientData.resetTime };
+  }
+  
+  // Increment count
+  clientData.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - clientData.count, resetTime: clientData.resetTime };
+}
+
+// Clean up old entries periodically to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitMap.entries()) {
+    if (now > value.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS * 2);
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
-  // Set CORS headers for all responses
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Set CORS headers for all responses - restrict origins in production
+  const allowedOrigins = process.env['NODE_ENV'] === 'production' 
+    ? [process.env['FRONTEND_URL'] || 'https://your-app.vercel.app'] 
+    : ['http://localhost:5173', 'http://localhost:3000'];
+  
+  const origin = req.headers.origin as string;
+  if (origin && (allowedOrigins.includes(origin) || process.env['NODE_ENV'] !== 'production')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).json({});
+    res.status(200).json({});
+    return;
   }
 
   // Only allow POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+  
+  // Rate limiting check
+  const clientId = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
+                   req.socket?.remoteAddress || 
+                   'unknown';
+  
+  const rateLimit = checkRateLimit(clientId);
+  
+  // Set rate limit headers
+  res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS.toString());
+  res.setHeader('X-RateLimit-Remaining', rateLimit.remaining.toString());
+  res.setHeader('X-RateLimit-Reset', new Date(rateLimit.resetTime).toISOString());
+  
+  if (!rateLimit.allowed) {
+    res.status(429).json({ 
+      error: 'Rate limit exceeded', 
+      message: `Maximum ${RATE_LIMIT_MAX_REQUESTS} requests per minute. Please try again later.`,
+      retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+    });
+    return;
   }
   
   console.log('Received test generation request:', {
     variables: req.body.variables?.length || 0,
     sectionName: req.body.sectionName,
-    hasDocumentContext: !!req.body.documentContext
+    hasDocumentContext: !!req.body.documentContext,
+    clientId,
+    remaining: rateLimit.remaining
   });
 
   try {
     // Check if API key is configured
     if (!process.env['GEMINI_API_KEY']) {
       console.error('GEMINI_API_KEY not configured');
-      return res.status(500).json({ 
+      res.status(500).json({ 
         error: 'AI service not configured', 
         details: 'GEMINI_API_KEY environment variable is missing' 
       });
+      return;
     }
     
     const { 
@@ -52,7 +125,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     } = req.body;
 
     if (!dynamicCode) {
-      return res.status(400).json({ error: 'Dynamic code is required' });
+      res.status(400).json({ error: 'Dynamic code is required' });
+      return;
     }
 
     // Create the prompt for Gemini with full document context
@@ -148,7 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       }
       
       // First parsing attempt
-      tests = JSON.parse(jsonText);
+      tests = JSON.parse(jsonText || '{}');
       
       // Validate the structure based on testCategory
       if (testCategory === 'all') {
@@ -173,13 +247,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       
       // In development, return the full error details for debugging
       if (process.env['NODE_ENV'] !== 'production') {
-        return res.status(500).json({ 
+        res.status(500).json({ 
           error: 'Failed to parse AI response - Debug Mode', 
           details: parseError.message,
           rawResponse: text?.substring(0, 2000), // Include more of the response
           parseAttempt: jsonText?.substring(0, 1000),
           fullError: parseError.toString()
         });
+        return;
       }
       
       // Try a fallback minimal response
@@ -199,12 +274,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         console.log('Using fallback test structure due to parsing error');
         
       } catch (fallbackError) {
-        return res.status(500).json({ 
+        res.status(500).json({ 
           error: 'Failed to parse AI response', 
           details: parseError.message,
           rawResponse: text?.substring(0, 1000), // Include more for debugging
           parseAttempt: jsonText?.substring(0, 500)
         });
+        return;
       }
     }
 
@@ -231,11 +307,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     
     // Check if it's an API key error
     if (error.message?.includes('API_KEY') || error.message?.includes('API key')) {
-      return res.status(500).json({ 
+      res.status(500).json({ 
         error: 'AI service configuration error', 
         details: 'Please check that GEMINI_API_KEY is properly configured',
         originalError: error.message
       });
+      return;
     }
     
     res.status(500).json({ 
@@ -244,6 +321,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       type: error.constructor.name
     });
   }
+  return;
 }
 
 function createTestGenerationPrompt(
@@ -273,11 +351,11 @@ Total document variables: ${allDocumentVariables?.length || 0}
 Total test cases across document: ${documentStats.totalTestCases || 0}
 
 DOCUMENT STRUCTURE:
-${documentContext.map(section => `
+${documentContext.map((section: any) => `
 Section ${section.id} (${section.type.toUpperCase()}):
 ${section.content}
 ${section.testCases && section.testCases.length > 0 ? `
-Existing Test Cases: ${section.testCases.map(tc => `${tc.name} (${Object.keys(tc.variables || {}).length} vars)`).join(', ')}
+Existing Test Cases: ${section.testCases.map((tc: any) => `${tc.name} (${Object.keys(tc.variables || {}).length} vars)`).join(', ')}
 ` : ''}
 `).join('\n---\n')}
 
