@@ -50,11 +50,12 @@ Move state to stores ONE piece at a time:
 - [x] Test each flag independently
 
 ### 3.2 Work Context (Medium Risk)
-- [ ] Move work context piece by piece
-  - [ ] Current ingredient/reference
-  - [ ] Unsaved changes tracking
-  - [ ] Validation state
-- [ ] Keep App.svelte as coordinator initially
+- [x] Move work context piece by piece
+  - [x] Current ingredient/reference
+  - [x] Unsaved changes tracking
+  - [x] TPN mode and instance
+  - [x] Editing section tracking
+- [x] Keep App.svelte as coordinator initially
 
 ## Phase 4: Complex Component Extractions
 Extract components with behavior (higher risk):
