@@ -1,7 +1,11 @@
 <script>
   import * as Babel from '@babel/standalone';
   import DOMPurify from 'dompurify';
+  import { transpileCode } from './lib/utils/codeTransformUtils';
   import CodeEditor from './lib/CodeEditor.svelte';
+  import { sanitizeHTML, extractStylesFromHTML, stripHTML } from './lib/utils/htmlUtils';
+  import { validateTestOutput, validateStyles } from './lib/utils/validationUtils';
+  import { getPopulationColor, getPopulationName } from './lib/utils/populationUtils';
   import Sidebar from './lib/Sidebar.svelte';
   import TPNTestPanel from './lib/TPNTestPanel.svelte';
   import TPNKeyReference from './lib/TPNKeyReference.svelte';
@@ -176,15 +180,6 @@
   
   
   // Sanitize HTML to prevent XSS
-  function sanitizeHTML(html) {
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'strong', 'em', 'u', 'i', 'b', 
-                     'ul', 'ol', 'li', 'a', 'img', 'div', 'span', 'code', 'pre', 'blockquote', 'table', 
-                     'thead', 'tbody', 'tr', 'th', 'td', 'style'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'class', 'id', 'target', 'rel'],
-      ALLOW_DATA_ATTR: false
-    });
-  }
   
   // Create mock 'me' object for test cases
   function createMockMe(variables = {}) {
@@ -237,31 +232,6 @@
     return mockMe;
   }
   
-  // Transpile modern JS to ES5 using Babel
-  function transpileCode(code) {
-    try {
-      // Wrap the code in a function to handle return statements
-      const wrappedCode = `(function() { ${code} })`;
-      
-      const result = Babel.transform(wrappedCode, {
-        presets: ['env'],
-        plugins: []
-      });
-      
-      // Extract the function body (remove the wrapper)
-      const transpiledCode = result.code;
-      const match = transpiledCode.match(/\(function\s*\(\)\s*{\s*([\s\S]*)\s*}\)/);
-      
-      if (match && match[1]) {
-        return match[1].trim();
-      }
-      
-      return result.code;
-    } catch (error) {
-      console.error('Transpilation error:', error);
-      return code; // Return original if transpilation fails
-    }
-  }
   
   // Evaluate dynamic code with optional test variables
   function evaluateCode(code, testVariables = null) {
@@ -566,79 +536,9 @@
   }
   
   // Extract styles from HTML string
-  function extractStylesFromHTML(htmlString) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlString;
-    const styles = {};
-    
-    // Find all elements with inline styles
-    const elementsWithStyles = tempDiv.querySelectorAll('[style]');
-    elementsWithStyles.forEach(element => {
-      const styleAttr = element.getAttribute('style');
-      if (styleAttr) {
-        // Parse style attribute
-        styleAttr.split(';').forEach(rule => {
-          const [prop, value] = rule.split(':').map(s => s.trim());
-          if (prop && value) {
-            styles[prop] = value;
-          }
-        });
-      }
-    });
-    
-    return styles;
-  }
   
-  // Remove HTML tags to get plain text
-  function stripHTML(html) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    return tempDiv.textContent || tempDiv.innerText || '';
-  }
   
-  // Validate test output against expectations
-  function validateTestOutput(actual, expected, matchType = 'contains') {
-    const actualText = stripHTML(actual).trim();
-    const expectedText = (expected || '').trim();
-    
-    if (!expectedText) return true; // No expectation means pass
-    
-    switch (matchType) {
-      case 'exact':
-        return actualText === expectedText;
-      case 'contains':
-        return actualText.includes(expectedText);
-      case 'regex':
-        try {
-          const regex = new RegExp(expectedText);
-          return regex.test(actualText);
-        } catch (e) {
-          return false;
-        }
-      default:
-        return actualText.includes(expectedText);
-    }
-  }
   
-  // Validate styles against expectations
-  function validateStyles(actualStyles, expectedStyles) {
-    if (!expectedStyles || Object.keys(expectedStyles).length === 0) {
-      return { passed: true };
-    }
-    
-    const errors = [];
-    for (const [prop, expectedValue] of Object.entries(expectedStyles)) {
-      const actualValue = actualStyles[prop];
-      if (actualValue !== expectedValue) {
-        errors.push(`${prop}: expected "${expectedValue}", got "${actualValue || 'undefined'}"`);
-      }
-    }
-    
-    return {
-      passed: errors.length === 0,
-      errors
-    };
-  }
   
   // Run a single test case
   function runSingleTest(sectionId, testCase) {
@@ -1154,37 +1054,7 @@
   }
   
   // Helper functions for population types
-  function getPopulationColor(populationType) {
-    const colors = {
-      [POPULATION_TYPES.NEONATAL]: '#ff6b6b',
-      [POPULATION_TYPES.PEDIATRIC]: '#4ecdc4',
-      [POPULATION_TYPES.ADOLESCENT]: '#45b7d1',
-      [POPULATION_TYPES.ADULT]: '#5f27cd',
-      // Handle legacy values from Firebase
-      'pediatric': '#4ecdc4',
-      'child': '#4ecdc4',
-      'neonatal': '#ff6b6b',
-      'adolescent': '#45b7d1',
-      'adult': '#5f27cd'
-    };
-    return colors[populationType] || '#666';
-  }
   
-  function getPopulationName(populationType) {
-    const names = {
-      [POPULATION_TYPES.NEONATAL]: 'Neonatal',
-      [POPULATION_TYPES.PEDIATRIC]: 'Child',
-      [POPULATION_TYPES.ADOLESCENT]: 'Adolescent',
-      [POPULATION_TYPES.ADULT]: 'Adult',
-      // Handle legacy values from Firebase
-      'pediatric': 'Child',
-      'child': 'Child',
-      'neonatal': 'Neonatal',
-      'adolescent': 'Adolescent',
-      'adult': 'Adult'
-    };
-    return names[populationType] || populationType;
-  }
   
   // Handle population type pill click
   async function handlePopulationClick() {
