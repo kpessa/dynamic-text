@@ -27,6 +27,7 @@
   import { TPNLegacySupport, LegacyElementWrapper, extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, isCalculatedValue, getCanonicalKey } from './lib/tpnLegacy.js';
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { previewEngineService } from './lib/services/previewEngineService';
+  import { testRunnerService } from './lib/services/testRunnerService';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
   import { workContextStore } from './stores/workContextStore.svelte.ts';
@@ -393,50 +394,23 @@
     const section = sections.find(s => s.id === sectionId);
     if (!section || section.type !== 'dynamic') return;
     
-    // Evaluate the code with test variables
-    const output = previewEngineService.evaluateCode(section.content, testCase.variables, {
+    // Use the test runner service
+    const result = testRunnerService.runSingleTest(section, testCase, {
       tpnMode,
       currentTPNInstance,
       currentIngredientValues,
       activeTestCase
     });
-    const actualText = stripHTML(output);
-    const actualStyles = extractStylesFromHTML(output);
     
-    // Validate output
-    const outputPassed = validateTestOutput(output, testCase.expectedOutput, testCase.matchType);
-    
-    // Validate styles
-    const styleValidation = validateStyles(actualStyles, testCase.expectedStyles);
-    
-    // Combine results
-    const passed = outputPassed && styleValidation.passed;
-    
-    let error = '';
-    if (!outputPassed) {
-      error = `Output mismatch: expected "${testCase.expectedOutput}", got "${actualText}"`;
-    }
-    if (!styleValidation.passed && styleValidation.errors) {
-      error += (error ? '\n' : '') + 'Style mismatches: ' + styleValidation.errors.join(', ');
-    }
-    
-    // Update test result
+    // Update test result in the section
     const testIndex = section.testCases.findIndex(tc => tc === testCase);
     if (testIndex !== -1) {
       updateTestCase(sectionId, testIndex, {
-        testResult: {
-          status: passed ? 'pass' : 'fail',
-          passed,
-          actualOutput: actualText,
-          actualStyles,
-          error: error || undefined,
-          message: error || (passed ? 'Test passed successfully' : 'Test failed'),
-          timestamp: Date.now()
-        }
+        testResult: result.testResult
       });
     }
     
-    return { passed, error };
+    return { passed: result.passed, error: result.error };
   }
   
   // Run all tests for a section
@@ -457,37 +431,56 @@
   
   // Run all tests across all sections
   function runAllTests() {
-    const allResults = [];
-    sections.forEach(section => {
-      if (section.type === 'dynamic' && section.testCases) {
-        const sectionResults = runSectionTests(section.id);
-        if (sectionResults && sectionResults.length > 0) {
-          allResults.push({
-            sectionId: section.id,
-            sectionName: `Section ${section.id}`,
-            results: sectionResults
-          });
-        }
+    // Use the test runner service
+    const result = testRunnerService.runAllTests(sections, {
+      tpnMode,
+      currentTPNInstance,
+      currentIngredientValues,
+      activeTestCase
+    });
+    
+    // Update test results in each section
+    result.sectionResults.forEach(sectionResult => {
+      const section = sections.find(s => s.id === sectionResult.sectionId);
+      if (section && section.testCases) {
+        sectionResult.results.forEach((testResult) => {
+          const testIndex = section.testCases.findIndex(tc => tc === testResult.testCase);
+          if (testIndex !== -1) {
+            // Update the test result
+            updateTestCase(sectionResult.sectionId, testIndex, { 
+              testResult: {
+                status: testResult.passed ? 'pass' : 'fail',
+                passed: testResult.passed,
+                error: testResult.error,
+                message: testResult.error || 'Test passed successfully',
+                timestamp: Date.now()
+              }
+            });
+          }
+        });
       }
     });
     
-    // Calculate summary
-    const totalTests = allResults.reduce((sum, sr) => sum + sr.results.length, 0);
-    const passedTests = allResults.reduce((sum, sr) => 
-      sum + sr.results.filter(r => r.passed).length, 0);
-    
+    // Format for existing UI
     const summary = {
-      sections: allResults,
+      sections: result.sectionResults,
       summary: {
-        total: totalTests,
-        passed: passedTests,
-        failed: totalTests - passedTests,
+        total: result.totalTests,
+        passed: result.passed,
+        failed: result.failed,
         timestamp: Date.now()
       }
     };
     
     testSummary = summary;
     showTestSummary = true;
+    
+    // Store results for validation
+    currentTestResults = {
+      summary: result,
+      timestamp: Date.now(),
+      sectionResults: result.sectionResults
+    };
     
     return summary;
   }
