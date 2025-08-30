@@ -9,9 +9,7 @@ interface WorkContext {
   originalSections: any[] | null;
   tpnMode: boolean;
   currentTPNInstance: any | null;
-  showKeyReference: boolean;
   tpnPanelExpanded: boolean;
-  previewCollapsed: boolean;
   currentIngredientValues: Record<string, any>;
   editingSection: number | null;
   loadedIngredient: any | null;
@@ -32,9 +30,7 @@ class WorkContextStore {
     originalSections: null,
     tpnMode: false,
     currentTPNInstance: null,
-    showKeyReference: false,
     tpnPanelExpanded: true,
-    previewCollapsed: false,
     currentIngredientValues: {},
     editingSection: null,
     loadedIngredient: null,
@@ -53,9 +49,7 @@ class WorkContextStore {
   get originalSections() { return this._state.originalSections; }
   get tpnMode() { return this._state.tpnMode; }
   get currentTPNInstance() { return this._state.currentTPNInstance; }
-  get showKeyReference() { return this._state.showKeyReference; }
   get tpnPanelExpanded() { return this._state.tpnPanelExpanded; }
-  get previewCollapsed() { return this._state.previewCollapsed; }
   get currentIngredientValues() { return this._state.currentIngredientValues; }
   get editingSection() { return this._state.editingSection; }
   get loadedIngredient() { return this._state.loadedIngredient; }
@@ -73,9 +67,7 @@ class WorkContextStore {
   set originalSections(value: any[] | null) { this._state.originalSections = value; }
   set tpnMode(value: boolean) { this._state.tpnMode = value; }
   set currentTPNInstance(value: any | null) { this._state.currentTPNInstance = value; }
-  set showKeyReference(value: boolean) { this._state.showKeyReference = value; }
   set tpnPanelExpanded(value: boolean) { this._state.tpnPanelExpanded = value; }
-  set previewCollapsed(value: boolean) { this._state.previewCollapsed = value; }
   set currentIngredientValues(value: Record<string, any>) { this._state.currentIngredientValues = value; }
   set editingSection(value: number | null) { this._state.editingSection = value; }
   set loadedIngredient(value: any | null) { this._state.loadedIngredient = value; }
@@ -100,9 +92,7 @@ class WorkContextStore {
       originalSections: null,
       tpnMode: false,
       currentTPNInstance: null,
-      showKeyReference: false,
       tpnPanelExpanded: true,
-      previewCollapsed: false,
       currentIngredientValues: {},
       editingSection: null,
       loadedIngredient: null,

@@ -6,17 +6,13 @@
   let { 
     dynamicSections = [],
     onValuesChange = () => {},
-    isExpanded = $bindable(),
+    isExpanded = true,
+    onToggle = () => {},
     activeTestCase = {}
   } = $props();
   
   // Create TPN instance
   let tpn = $state(new TPNLegacySupport());
-  
-  // Set default for isExpanded if not provided
-  if (isExpanded === undefined) {
-    isExpanded = true;
-  }
   
   // Extract all keys from dynamic sections
   let referencedKeys = $derived.by(() => {
@@ -219,7 +215,7 @@
     <button 
       class="expand-toggle"
       onclick={() => {
-        isExpanded = !isExpanded;
+        onToggle();
         screenReader.announce(`TPN test panel ${isExpanded ? 'expanded' : 'collapsed'}`, 'polite');
       }}
       aria-expanded={isExpanded}

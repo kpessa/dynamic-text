@@ -14,7 +14,8 @@
     onSelectIngredient = () => {},
     onCreateReference = () => {},
     onEditReference = () => {},
-    currentIngredient = $bindable(),
+    currentIngredient = '',
+    onIngredientChange = () => {},
     activeConfigId = null,
     activeConfigIngredients = []
   } = $props();
@@ -340,7 +341,7 @@
       hasReferences: !!ingredientReferences[ingredient.id]
     });
     
-    currentIngredient = ingredient;
+    onIngredientChange(ingredient);
     
     // Load references if not already loaded
     if (!ingredientReferences[ingredient.id]) {

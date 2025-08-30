@@ -28,6 +28,7 @@
   import { isFirebaseConfigured, signInAnonymouslyUser, onAuthStateChange } from './lib/firebase.js';
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
+  import { workContextStore } from './stores/workContextStore.svelte.ts';
   
   // UI state now managed by store
   const showSidebar = $derived(uiStateStore.showSidebar);
@@ -44,20 +45,20 @@
   let testSummary = $state(null); // Track overall test results
   let showTestSummary = $state(false); // Show/hide test summary modal
   
-  // Work context tracking
-  let currentIngredient = $state('');
-  let currentReferenceName = $state('');
-  let hasUnsavedChanges = $state(false);
-  let lastSavedTime = $state(null);
-  let loadedReferenceId = $state(null);
-  let originalSections = $state(null); // To compare for changes
-  let tpnMode = $state(false); // Toggle TPN mode
-  let currentTPNInstance = $state(null); // Current TPN instance from test panel
+  // Work context now managed by store
+  const currentIngredient = $derived(workContextStore.currentIngredient);
+  const currentReferenceName = $derived(workContextStore.currentReferenceName);
+  const hasUnsavedChanges = $derived(workContextStore.hasUnsavedChanges);
+  const lastSavedTime = $derived(workContextStore.lastSavedTime);
+  const loadedReferenceId = $derived(workContextStore.loadedReferenceId);
+  const originalSections = $derived(workContextStore.originalSections);
+  const tpnMode = $derived(workContextStore.tpnMode); // Toggle TPN mode
+  const currentTPNInstance = $derived(workContextStore.currentTPNInstance); // Current TPN instance from test panel
   const showKeyReference = $derived(uiStateStore.showKeyReference); // Show key reference panel
-  let tpnPanelExpanded = $state(true); // Track TPN panel expansion state
+  const tpnPanelExpanded = $derived(workContextStore.tpnPanelExpanded); // Track TPN panel expansion state
   const previewCollapsed = $derived(uiStateStore.previewCollapsed); // Track preview panel collapse state
-  let currentIngredientValues = $state({}); // Track ingredient values for quick input
-  let editingSection = $state(null); // Track which section is being edited
+  const currentIngredientValues = $derived(workContextStore.currentIngredientValues); // Track ingredient values for quick input
+  const editingSection = $derived(workContextStore.editingSection); // Track which section is being edited
   
   // Track loaded ingredient and reference details
   let loadedIngredient = $state(null);
@@ -390,12 +391,12 @@
   // Clear editor for new work
   function clearEditor() {
     setSections([]);
-    currentIngredient = '';
-    currentReferenceName = '';
-    hasUnsavedChanges = false;
-    lastSavedTime = null;
-    loadedReferenceId = null;
-    originalSections = null;
+    workContextStore.currentIngredient = '';
+    workContextStore.currentReferenceName = '';
+    workContextStore.hasUnsavedChanges = false;
+    workContextStore.lastSavedTime = null;
+    workContextStore.loadedReferenceId = null;
+    workContextStore.originalSections = null;
     activeTestCase = {};
     expandedTestCases = {};
   }
@@ -481,10 +482,10 @@
   function checkForChanges() {
     if (originalSections) {
       const currentSectionsStr = JSON.stringify(sections);
-      hasUnsavedChanges = currentSectionsStr !== originalSections;
+      workContextStore.hasUnsavedChanges = currentSectionsStr !== originalSections;
     } else {
       // If no original sections, we have unsaved changes if there's any content
-      hasUnsavedChanges = sections.length > 0;
+      workContextStore.hasUnsavedChanges = sections.length > 0;
     }
   }
   
@@ -696,13 +697,13 @@
     if (reference && reference.sections) {
       setSections(reference.sections);
       // Update work context
-      currentIngredient = reference.ingredient || '';
-      currentReferenceName = reference.name || '';
-      loadedReferenceId = reference.id || null;
-      hasUnsavedChanges = false;
-      lastSavedTime = reference.updatedAt || null;
+      workContextStore.currentIngredient = reference.ingredient || '';
+      workContextStore.currentReferenceName = reference.name || '';
+      workContextStore.loadedReferenceId = reference.id || null;
+      workContextStore.hasUnsavedChanges = false;
+      workContextStore.lastSavedTime = reference.updatedAt || null;
       // Store original sections for comparison
-      originalSections = JSON.stringify(reference.sections);
+      workContextStore.originalSections = JSON.stringify(reference.sections);
       
       // Set loadedIngredient if provided
       if (ingredient) {
@@ -732,7 +733,7 @@
   
   // Handle TPN value changes
   function handleTPNValuesChange(tpnInstance) {
-    currentTPNInstance = tpnInstance;
+    workContextStore.currentTPNInstance = tpnInstance;
   }
   
   // Filter only dynamic sections for TPN panel
@@ -752,7 +753,7 @@
   // Handle ingredient value changes from input panel
   function handleIngredientChange(key, value) {
     // Create a new object to ensure reactivity in Svelte 5
-    currentIngredientValues = { ...currentIngredientValues, [key]: value };
+    workContextStore.currentIngredientValues = { ...currentIngredientValues, [key]: value };
   }
   
   // Get badge color for ingredient category
@@ -857,9 +858,9 @@
   
   function handleCreateReference(ingredient, populationType) {
     // Set up for creating a new reference
-    currentIngredient = ingredient.name;
+    workContextStore.currentIngredient = ingredient.name;
     currentPopulationType = populationType;
-    currentReferenceName = `${ingredient.name} - ${populationType}`;
+    workContextStore.currentReferenceName = `${ingredient.name} - ${populationType}`;
     setSections([]);
     addSection('static');
     showIngredientManager = false;
@@ -873,9 +874,9 @@
       version: null
     };
     currentHealthSystem = null;
-    loadedReferenceId = null;
-    hasUnsavedChanges = false;
-    originalSections = '[]';
+    workContextStore.loadedReferenceId = null;
+    workContextStore.hasUnsavedChanges = false;
+    workContextStore.originalSections = '[]';
   }
   
   // Save current work with commit message
@@ -916,9 +917,9 @@
         await referenceService.saveReference(loadedIngredient.id, referenceData, commitMessage);
         
         // Update state
-        hasUnsavedChanges = false;
-        lastSavedTime = new Date();
-        originalSections = JSON.stringify(sections);
+        workContextStore.hasUnsavedChanges = false;
+        workContextStore.lastSavedTime = new Date();
+        workContextStore.originalSections = JSON.stringify(sections);
         
         console.log('Reference saved successfully with commit message:', commitMessage);
       }
@@ -994,13 +995,13 @@
       }
       
       setSections(reference.sections);
-      currentIngredient = ingredient.name;
-      currentReferenceName = reference.name;
+      workContextStore.currentIngredient = ingredient.name;
+      workContextStore.currentReferenceName = reference.name;
       currentPopulationType = reference.populationType;
-      loadedReferenceId = reference.id;
-      hasUnsavedChanges = false;
-      lastSavedTime = reference.updatedAt;
-      originalSections = JSON.stringify(reference.sections);
+      workContextStore.loadedReferenceId = reference.id;
+      workContextStore.hasUnsavedChanges = false;
+      workContextStore.lastSavedTime = reference.updatedAt;
+      workContextStore.originalSections = JSON.stringify(reference.sections);
       
       // Load validation data
       currentValidationStatus = reference.validationStatus || 'untested';
@@ -1134,7 +1135,8 @@
     <Navbar
       showSidebar={showSidebar}
       onSidebarToggle={() => uiStateStore.toggleSidebar()}
-      bind:tpnMode
+      tpnMode={tpnMode}
+      onTpnModeToggle={() => workContextStore.tpnMode = !workContextStore.tpnMode}
       bind:showOutput
       bind:outputMode
       showKeyReference={showKeyReference}
@@ -1311,7 +1313,7 @@
               currentValidationNotes = validationData.notes;
               currentValidatedBy = validationData.validatedBy;
               currentValidatedAt = validationData.validatedAt;
-              hasUnsavedChanges = true;
+              workContextStore.hasUnsavedChanges = true;
             }}
           />
         </div>
@@ -1395,7 +1397,7 @@
                 />
                 <button 
                   class="done-editing-btn"
-                  onclick={() => editingSection = null}
+                  onclick={() => workContextStore.editingSection = null}
                 >
                   Done Editing
                 </button>
@@ -1403,8 +1405,8 @@
             {:else}
               <div 
                 class="content-preview"
-                ondblclick={() => editingSection = section.id}
-                onkeydown={(e) => e.key === 'Enter' && (editingSection = section.id)}
+                ondblclick={() => workContextStore.editingSection = section.id}
+                onkeydown={(e) => e.key === 'Enter' && (workContextStore.editingSection = section.id)}
                 role="button"
                 tabindex="0"
                 title="Double-click to edit"
@@ -1717,7 +1719,8 @@
       {dynamicSections}
       onValuesChange={handleTPNValuesChange}
       {activeTestCase}
-      bind:isExpanded={tpnPanelExpanded}
+      isExpanded={tpnPanelExpanded}
+      onToggle={() => workContextStore.tpnPanelExpanded = !workContextStore.tpnPanelExpanded}
     />
   {/if}
   
@@ -1773,7 +1776,8 @@
           ×
         </button>
         <IngredientManager
-          bind:currentIngredient
+          currentIngredient={currentIngredient}
+          onIngredientChange={(value) => workContextStore.currentIngredient = value}
           onSelectIngredient={handleIngredientSelection}
           onCreateReference={handleCreateReference}
           onEditReference={handleEditReference}
@@ -1835,9 +1839,9 @@
           referenceData={pendingReferenceData}
           onApply={async (results) => {
             showSelectiveApply = false;
-            hasUnsavedChanges = false;
-            lastSavedTime = new Date();
-            originalSections = JSON.stringify(sections);
+            workContextStore.hasUnsavedChanges = false;
+            workContextStore.lastSavedTime = new Date();
+            workContextStore.originalSections = JSON.stringify(sections);
             console.log('Changes applied to configurations:', results);
             alert(`Changes applied to ${results.filter(r => r.status === 'success').length} configurations successfully.`);
           }}

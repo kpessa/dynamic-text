@@ -2,7 +2,8 @@
   let { 
     showSidebar = false,
     onSidebarToggle = () => {},
-    tpnMode = $bindable(false),
+    tpnMode = false,
+    onTpnModeToggle = () => {},
     showOutput = $bindable(false),
     outputMode = $bindable('json'),
     showKeyReference = false,
