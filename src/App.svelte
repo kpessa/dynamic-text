@@ -1254,10 +1254,10 @@
           {:else}
             <div class="configurator">
               {#each lineObjects as item (item.id)}
-                <div class="config-line {!item.editable ? 'non-editable' : ''}">
+                <div class="config-line {item.type === 'dynamic_code' ? '' : 'non-editable'}">
                   <input 
                     type="text" 
-                    value={item.text}
+                    value={item.content}
                     readonly={true}
                     class="line-input"
                   />
