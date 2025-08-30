@@ -3,7 +3,7 @@
   import { sectionStore } from '../../stores/sectionStore.svelte.ts';
   import { testStore } from '../../stores/testStore.svelte.ts';
   import { workspaceStore } from '../../stores/workspaceStore.svelte.ts';
-  import { sectionService } from '../services/domain/sectionService.js';
+  import { sectionService } from '../services/sectionService';
   
   // Props
   let { onRunAllTests = () => {} } = $props();

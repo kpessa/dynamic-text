@@ -4,7 +4,7 @@
   import { testStore } from '../../stores/testStore.svelte';
   import { sectionStore } from '../../stores/sectionStore.svelte';
   import { eventBus } from '../utils/eventBus';
-  import { runTestCase, validateTestOutput } from '../services/execution/codeExecutionService';
+  import { runTestCase, validateTestOutput } from '../services/codeExecutionService';
   import type { Section, TestCase, TestResult } from '../types';
   
   interface Props {

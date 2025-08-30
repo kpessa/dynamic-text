@@ -1,208 +1,195 @@
-import DOMPurify from 'dompurify';
-import type { Section } from '../../types/section.js';
-import { tpnStore } from '../../stores/tpnStore.svelte.ts';
-import { logWarn } from '$lib/logger';
-import { transformCode } from '../utils/lazyBabel';
+/**
+ * Section Service
+ * Handles section management, drag & drop, and section operations
+ */
 
-// Service for section-related operations and transformations
-export class SectionService {
-  
-  // HTML sanitization
-  sanitizeHTML(html: string): string {
-    return DOMPurify.sanitize(html, {
-      ADD_TAGS: ['style'],
-      ADD_ATTR: ['style']
-    });
-  }
+import { sanitizeHTML } from './codeExecutionService';
 
-  // Code transpilation (now async with lazy loading)
-  async transpileCode(code: string): Promise<string> {
-    try {
-      const result = await transformCode(code, {
-        presets: ['env'],
-        plugins: [
-          ['transform-runtime', { regenerator: false }]
-        ]
-      });
-      return result || code;
-    } catch (error) {
-      logWarn('Babel transpilation failed, using original code:', error as string);
-      return code;
-    }
-  }
-
-  // Code evaluation with TPN context and KPT namespace
-  async evaluateCode(
-    code: string, 
-    testVariables: Record<string, any> | null = null
-  ): Promise<{ result: any; actualHTML?: string; actualStyles?: any }> {
-    try {
-      const transpiledCode = await this.transpileCode(code);
-      const context = tpnStore.createEvaluationContext(testVariables || {});
-      
-      // Create evaluation function with both me and kpt in scope
-      const evalFunction = new Function('me', 'kpt', `
-        try {
-          ${transpiledCode}
-        } catch (e) {
-          return 'Error: ' + e.message;
-        }
-      `);
-      
-      const result = evalFunction(context.me, context.kpt);
-      
-      // If result is HTML-like, parse styles
-      if (typeof result === 'string' && result.includes('<')) {
-        const styles = this.extractStylesFromHTML(result);
-        return {
-          result,
-          actualHTML: result,
-          actualStyles: styles
-        };
-      }
-      
-      return { result };
-    } catch (error) {
-      return { 
-        result: `Error: ${error instanceof Error ? error.message : String(error)}` 
-      };
-    }
-  }
-
-  // Extract styles from HTML string
-  extractStylesFromHTML(htmlString: string): Record<string, any> {
-    try {
-      // Create a temporary div to parse the HTML
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = htmlString;
-      
-      const styles: Record<string, any> = {};
-      
-      // Extract computed styles from elements
-      const elements = tempDiv.querySelectorAll('*');
-      elements.forEach((element, index) => {
-        const computedStyle = window.getComputedStyle(element as Element);
-        styles[`element_${index}`] = {
-          color: computedStyle.color,
-          fontSize: computedStyle.fontSize,
-          fontWeight: computedStyle.fontWeight,
-          backgroundColor: computedStyle.backgroundColor,
-          // Add more properties as needed
-        };
-      });
-      
-      return styles;
-    } catch (error) {
-      logWarn('Error extracting styles:', error as string);
-      return {};
-    }
-  }
-
-  // Strip HTML tags from string
-  stripHTML(html: string): string {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    return tempDiv.textContent || tempDiv.innerText || '';
-  }
-
-  // Convert sections to JSON format
-  sectionsToJSON(sections: Section[]): string {
-    const jsonData = {
-      version: '1.0',
-      sections: sections.map(section => ({
-        id: section.id,
-        type: section.type,
-        name: section.name,
-        content: section.content,
-        testCases: section.testCases
-      }))
-    };
-    
-    return JSON.stringify(jsonData, null, 2);
-  }
-
-  // Convert sections to line objects format
-  sectionsToLineObjects(sections: Section[]): any[] {
-    return sections.map(section => {
-      if (section.type === 'static') {
-        return {
-          type: 'text',
-          content: this.stripHTML(section.content)
-        };
-      } else {
-        return {
-          type: 'dynamic',
-          name: section.name,
-          code: section.content,
-          testCases: section.testCases
-        };
-      }
-    });
-  }
-
-  // Generate preview HTML from sections
-  async generatePreviewHTML(
-    sections: Section[], 
-    activeTestCases: Record<number, any>
-  ): Promise<string> {
-    let html = '';
-    
-    for (const section of sections) {
-      if (section.type === 'static') {
-        html += this.sanitizeHTML(section.content);
-      } else {
-        try {
-          const testCase = activeTestCases[section.id];
-          const evaluation = await this.evaluateCode(section.content, testCase?.variables);
-          
-          if (typeof evaluation.result === 'string' && evaluation.result.includes('<')) {
-            html += this.sanitizeHTML(evaluation.result);
-          } else {
-            html += `<div class="dynamic-output">${this.sanitizeHTML(String(evaluation.result))}</div>`;
-          }
-        } catch (error) {
-          html += `<div class="error">Error: ${error instanceof Error ? error.message : String(error)}</div>`;
-        }
-      }
-    }
-    
-    return html;
-  }
-
-  // Convert static section to dynamic
-  convertStaticToDynamic(content: string): string {
-    // Extract text content and create a simple return statement
-    // const _textContent = this.stripHTML(content);  // Could be used for extracting text
-    return `// Converted from static HTML\nreturn \`${content}\`;`;
-  }
-
-  // Validate section content
-  async validateSection(section: Section): Promise<{ isValid: boolean; errors: string[] }> {
-    const errors: string[] = [];
-    
-    if (!section.name?.trim()) {
-      errors.push('Section name is required');
-    }
-    
-    if (!section.content?.trim()) {
-      errors.push('Section content is required');
-    }
-    
-    if (section.type === 'dynamic') {
-      // Try to transpile the code to check for syntax errors
-      try {
-        await this.transpileCode(section.content);
-      } catch (error) {
-        errors.push(`JavaScript syntax error: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-    
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
+export interface Section {
+  id: string;
+  type: 'static' | 'dynamic';
+  content: string;
+  isEditing?: boolean;
+  testCases?: any[];
+  activeTestCase?: any;
+  testResults?: any;
+  showTests?: boolean;
 }
 
-// Create and export service instance
-export const sectionService = new SectionService();
+/**
+ * Create a new section
+ */
+export function createSection(type: 'static' | 'dynamic'): Section {
+  const section: Section = {
+    id: crypto.randomUUID(),
+    type,
+    content: type === 'static' ? '' : '// Dynamic JavaScript\nreturn "Hello, World!";',
+    isEditing: true,
+    showTests: false
+  };
+  if (type === 'dynamic') {
+    section.testCases = [];
+  }
+  return section;
+}
+
+/**
+ * Update section content
+ */
+export function updateSectionContent(sections: Section[], sectionId: string, content: string): Section[] {
+  return sections.map(section => 
+    section.id === sectionId
+      ? { ...section, content }
+      : section
+  );
+}
+
+/**
+ * Delete a section
+ */
+export function deleteSection(sections: Section[], sectionId: string): Section[] {
+  return sections.filter(section => section.id !== sectionId);
+}
+
+/**
+ * Toggle section editing state
+ */
+export function toggleSectionEditing(sections: Section[], sectionId: string, isEditing: boolean): Section[] {
+  return sections.map(section =>
+    section.id === sectionId
+      ? { ...section, isEditing }
+      : section
+  );
+}
+
+/**
+ * Convert static section to dynamic
+ */
+export function convertToDynamic(sections: Section[], sectionId: string, content: string): Section[] {
+  return sections.map(section => {
+    if (section.id === sectionId) {
+      // Extract any JavaScript from script tags
+      const scriptMatch = content.match(/<script[^>]*>([\s\S]*?)<\/script>/);
+      let dynamicContent = '';
+      
+      if (scriptMatch && scriptMatch[1]) {
+        dynamicContent = scriptMatch[1].trim();
+      } else {
+        // Convert HTML to a return statement
+        const sanitized = sanitizeHTML(content);
+        dynamicContent = `// Converted from static HTML\nreturn \`${sanitized}\`;`;
+      }
+      
+      return {
+        ...section,
+        type: 'dynamic',
+        content: dynamicContent,
+        testCases: [],
+        showTests: false
+      };
+    }
+    return section;
+  });
+}
+
+/**
+ * Reorder sections via drag and drop
+ */
+export function reorderSections(sections: Section[], fromIndex: number, toIndex: number): Section[] {
+  const newSections = [...sections];
+  const [movedSection] = newSections.splice(fromIndex, 1);
+  if (movedSection) {
+    newSections.splice(toIndex, 0, movedSection);
+  }
+  return newSections;
+}
+
+/**
+ * Extract used keys from sections
+ */
+export function extractUsedKeys(sections: Section[]): string[] {
+  const keySet = new Set<string>();
+  
+  sections.forEach(section => {
+    if (section.type === 'dynamic') {
+      // Extract me.getValue() calls
+      const getValueRegex = /me\.getValue\(['"]([^'"]+)['"]\)/g;
+      let match;
+      const content = section.content || '';
+      while ((match = getValueRegex.exec(content)) !== null) {
+        if (match[1]) {
+          keySet.add(match[1]);
+        }
+      }
+      
+      // Also check test variables
+      if (section.testCases) {
+        section.testCases.forEach(testCase => {
+          if (testCase.variables) {
+            Object.keys(testCase.variables).forEach(key => keySet.add(key));
+          }
+        });
+      }
+    }
+  });
+  
+  return Array.from(keySet);
+}
+
+/**
+ * Check if sections have unsaved changes
+ */
+export function hasUnsavedChanges(currentSections: Section[], savedSections: Section[]): boolean {
+  if (currentSections.length !== savedSections.length) return true;
+  
+  return currentSections.some((section, index) => {
+    const savedSection = savedSections[index];
+    return !savedSection || 
+           section.content !== savedSection.content ||
+           section.type !== savedSection.type ||
+           JSON.stringify(section.testCases) !== JSON.stringify(savedSection.testCases);
+  });
+}
+
+/**
+ * Migrate sections to ensure proper structure
+ */
+export function migrateSections(sections: any[]): Section[] {
+  return sections.map(section => ({
+    id: section.id || crypto.randomUUID(),
+    type: section.type || 'static',
+    content: section.content || '',
+    isEditing: false,
+    testCases: section.testCases || (section.type === 'dynamic' ? [] : undefined),
+    activeTestCase: section.activeTestCase || null,
+    testResults: section.testResults || null,
+    showTests: section.showTests || false
+  }));
+}
+
+/**
+ * Count sections by type
+ */
+export function countSectionsByType(sections: Section[]): { static: number; dynamic: number } {
+  return sections.reduce((counts, section) => {
+    counts[section.type]++;
+    return counts;
+  }, { static: 0, dynamic: 0 });
+}
+
+/**
+ * Generate preview HTML from sections
+ */
+export function generatePreviewHTML(sections: Section[], evaluator: (code: string, vars?: any) => string): string {
+  return sections.map(section => {
+    if (section.type === 'static') {
+      return sanitizeHTML(section.content);
+    } else {
+      try {
+        return evaluator(section.content, section.activeTestCase?.variables || null);
+      } catch (error) {
+        return `<span style="color: red;">Error: ${(error as Error).message}</span>`;
+      }
+    }
+  }).join('\n');
+}

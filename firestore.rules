@@ -43,6 +43,13 @@ service cloud.firestore {
         data.version is number && data.version >= 0;
     }
     
+    // Validate ingredient data
+    function isValidIngredientData(data) {
+      return data.keys().hasAll(['name', 'content']) &&
+        data.name is string && data.name.size() <= 500 &&
+        data.content is string && data.content.size() <= 50000;
+    }
+    
     // References collection - TPN calculation references
     match /references/{referenceId} {
       // Allow read for authenticated users
@@ -91,35 +98,50 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.createdBy) || hasRole('admin');
     }
     
-    // Ingredients collection - Medical ingredient data
-    match /ingredients/{healthSystem}/populationTypes/{populationType}/ingredients/{ingredientId} {
-      // Validate health system and population type in path
-      allow read: if isAuthenticated() && 
-        isValidHealthSystem(healthSystem) &&
-        isValidPopulationType(populationType) &&
-        rateLimitCheck();
+    // Imported configs collection with nested ingredients
+    match /importedConfigs/{configId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated() && rateLimitCheck();
       
-      // Allow create with medical data validation
+      // Allow create with validation
       allow create: if isAuthenticated() &&
-        isValidHealthSystem(healthSystem) &&
-        isValidPopulationType(populationType) &&
-        request.resource.data.keys().hasAll(['name', 'content', 'version']) &&
-        request.resource.data.name is string &&
-        request.resource.data.content is string &&
-        request.resource.data.version == 1 &&
+        request.resource.data.keys().hasAll(['name', 'healthSystem', 'populationType']) &&
+        isValidHealthSystem(request.resource.data.healthSystem) &&
+        isValidPopulationType(request.resource.data.populationType) &&
         request.resource.data.createdBy == request.auth.uid &&
         request.resource.data.createdAt == request.time &&
         rateLimitCheck();
       
-      // Allow update with version control
-      allow update: if isAuthenticated() &&
-        request.resource.data.version == resource.data.version + 1 &&
-        request.resource.data.modifiedBy == request.auth.uid &&
+      // Allow update only by creator or admin
+      allow update: if (isOwner(resource.data.createdBy) || hasRole('admin')) &&
         request.resource.data.modifiedAt == request.time &&
         rateLimitCheck();
       
-      // Restrict delete to admins only (medical data protection)
-      allow delete: if hasRole('admin');
+      // Allow delete only by creator or admin
+      allow delete: if isOwner(resource.data.createdBy) || hasRole('admin');
+      
+      // Nested ingredients in imported configs
+      match /ingredients/{ingredientId} {
+        // Allow read for authenticated users
+        allow read: if isAuthenticated() && rateLimitCheck();
+        
+        // Allow create with medical data validation
+        allow create: if isAuthenticated() &&
+          isValidIngredientData(request.resource.data) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.createdAt == request.time &&
+          rateLimitCheck();
+        
+        // Allow update with validation
+        allow update: if isAuthenticated() &&
+          isValidIngredientData(request.resource.data) &&
+          request.resource.data.modifiedBy == request.auth.uid &&
+          request.resource.data.modifiedAt == request.time &&
+          rateLimitCheck();
+        
+        // Allow delete for authenticated users
+        allow delete: if isAuthenticated();
+      }
     }
     
     // Baseline configs - Immutable reference data
@@ -137,6 +159,22 @@ service cloud.firestore {
       
       // Only admins can delete baseline configs
       allow delete: if hasRole('admin');
+      
+      // Nested ingredients in baseline configs
+      match /ingredients/{ingredientId} {
+        // Read-only for all authenticated users
+        allow read: if isAuthenticated() && rateLimitCheck();
+        
+        // Only admins can create baseline ingredients
+        allow create: if hasRole('admin') &&
+          isValidIngredientData(request.resource.data);
+        
+        // Baseline ingredients are immutable
+        allow update: if false;
+        
+        // Only admins can delete baseline ingredients
+        allow delete: if hasRole('admin');
+      }
     }
     
     // Shared ingredients - Cross-reference ingredient data

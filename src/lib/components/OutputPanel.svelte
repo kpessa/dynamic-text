@@ -2,7 +2,7 @@
   import { logError } from '$lib/logger';
   import { sectionStore } from '../../stores/sectionStore.svelte.ts';
   import { uiStore } from '../../stores/uiStore.svelte.ts';
-  import { sectionService } from '../services/domain/sectionService.js';
+  import { sectionService } from '../services/sectionService';
   
   // Reactive state
   const sections = $derived(sectionStore.sections);

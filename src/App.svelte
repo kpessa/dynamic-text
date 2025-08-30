@@ -15,66 +15,21 @@
   // Feature flag to enable Skeleton UI components
   const USE_SKELETON_UI = true; // Set to true to use Skeleton components
   
-  // Services - temporarily comment out missing imports
-  // import { sanitizeHTML, createMockMe, transpileCode, evaluateCode, stripHTML, validateTestOutput, extractStylesFromHTML, runTestCase } from './lib/services/execution/codeExecutionService';
-  // import { sectionsToJSON, sectionsToLineObjects, exportAsHTML, exportAsMarkdown, importFromJSON, validateImportData } from './lib/services/export/exportService';
-  // import { runSectionTests, createDefaultTestCase, validateTestCase, calculateTestStats, formatTestResults } from './lib/services/testing/testingService';
-  // import { createSection, updateSectionContent, deleteSection as deleteSectionService, toggleSectionEditing, convertToDynamic, reorderSections, extractUsedKeys, hasUnsavedChanges as checkUnsavedChanges, migrateSections, countSectionsByType, generatePreviewHTML } from './lib/services/domain/sectionServiceLegacy';
-  // import { copyToClipboard, copyJSONToClipboard, copyCodeSnippet } from './lib/services/utilities/clipboardService';
-  // import { getIngredientBadgeColor, getPopulationColor, getPopulationName, formatTimestamp, formatFileSize, debounce, throttle, generateId, sortPopulationTypes } from './lib/services/utilities/uiHelpers';
+  // Services
+  import { sanitizeHTML, createMockMe, transpileCode, evaluateCode, stripHTML, validateTestOutput, extractStylesFromHTML, runTestCase } from './lib/services/codeExecutionService';
+  import { sectionsToJSON, sectionsToLineObjects, exportAsHTML, exportAsMarkdown, importFromJSON, validateImportData } from './lib/services/exportService';
+  import { runSectionTests, createDefaultTestCase, validateTestCase, calculateTestStats, formatTestResults } from './lib/services/testingService';
+  import { createSection, updateSectionContent, deleteSection as deleteSectionService, toggleSectionEditing, convertToDynamic, reorderSections, extractUsedKeys, hasUnsavedChanges as checkUnsavedChanges, migrateSections, countSectionsByType, generatePreviewHTML } from './lib/services/sectionService';
+  import { copyToClipboard, copyJSONToClipboard, copyCodeSnippet } from './lib/services/clipboardService';
+  import { getIngredientBadgeColor, getPopulationColor, getPopulationName, formatTimestamp, formatFileSize, debounce, throttle, generateId, sortPopulationTypes } from './lib/services/uiHelpers';
   
-  import { transformCode as lazyTranspileCode, preloadBabel } from './lib/utils/lazyBabel';
-  import DOMPurify from 'dompurify';
+  import { preloadBabel } from './lib/utils/lazyBabel';
   import { onMount } from 'svelte';
   
   // Preload Babel after component mounts
   onMount(() => {
     setTimeout(() => preloadBabel(), 1000);
   });
-  
-  // Temporary placeholder functions for missing services
-  const sanitizeHTML = (html) => DOMPurify.sanitize(html, { ADD_TAGS: ['style'], ADD_ATTR: ['style'] });
-  const stripHTML = (html) => { const tmp = document.createElement('div'); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ''; };
-  const createMockMe = () => ({ getValue: () => 0, ingredients: {} });
-  const transpileCode = async (code) => lazyTranspileCode(code);
-  const evaluateCode = (code) => { try { return new Function('return ' + code)(); } catch (e) { return 'Error: ' + e.message; } };
-  const validateTestOutput = (actual, expected) => actual === expected;
-  const extractStylesFromHTML = (html) => ({});
-  const runTestCase = (section, testCase) => ({ passed: false, actual: '', error: 'Not implemented' });
-  const sectionsToJSON = (sections) => JSON.stringify(sections, null, 2);
-  const sectionsToLineObjects = (sections) => sections.map(s => ({ type: s.type, content: s.content }));
-  const exportAsHTML = (sections) => sections.map(s => s.content).join('\n');
-  const exportAsMarkdown = (sections) => sections.map(s => s.content).join('\n\n');
-  const importFromJSON = (json) => JSON.parse(json);
-  const validateImportData = (data) => ({ isValid: true, errors: [] });
-  const runSectionTests = (sections) => ({ passed: 0, failed: 0, total: 0 });
-  const createDefaultTestCase = () => ({ name: 'Test', variables: {}, expectedOutput: '' });
-  const validateTestCase = (testCase) => ({ isValid: true, errors: [] });
-  const calculateTestStats = (results) => ({ passed: 0, failed: 0, total: 0 });
-  const formatTestResults = (results) => 'Test results';
-  const createSection = (type) => ({ id: Date.now(), type, name: '', content: '', testCases: [] });
-  const updateSectionContent = (section, content) => ({ ...section, content });
-  const deleteSectionService = (id) => {};
-  const toggleSectionEditing = (section) => ({ ...section, editing: !section.editing });
-  const convertToDynamic = (section) => ({ ...section, type: 'dynamic' });
-  const reorderSections = (sections, from, to) => sections;
-  const extractUsedKeys = (code) => [];
-  const checkUnsavedChanges = () => false;
-  const migrateSections = (sections) => sections;
-  const countSectionsByType = (sections) => ({ static: 0, dynamic: 0 });
-  const generatePreviewHTML = (sections) => sections.map(s => s.content).join('');
-  const copyToClipboard = (text) => navigator.clipboard.writeText(text);
-  const copyJSONToClipboard = (json) => navigator.clipboard.writeText(JSON.stringify(json, null, 2));
-  const copyCodeSnippet = (code) => navigator.clipboard.writeText(code);
-  const getIngredientBadgeColor = (type) => 'gray';
-  const getPopulationColor = (type) => 'blue';
-  const getPopulationName = (type) => type;
-  const formatTimestamp = (ts) => new Date(ts).toLocaleString();
-  const formatFileSize = (size) => size + ' bytes';
-  const debounce = (fn, delay) => { let timeout; return (...args) => { clearTimeout(timeout); timeout = setTimeout(() => fn(...args), delay); }; };
-  const throttle = (fn, delay) => { let last = 0; return (...args) => { const now = Date.now(); if (now - last >= delay) { last = now; fn(...args); } }; };
-  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
-  const sortPopulationTypes = (types) => types.sort();
   
   // Components
   import CodeEditor from './lib/CodeEditor.svelte';

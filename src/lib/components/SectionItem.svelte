@@ -3,7 +3,7 @@
   import { workspaceStore } from '../../stores/workspaceStore.svelte.ts';
   import { testStore } from '../../stores/testStore.svelte.ts';
   import { uiStore } from '../../stores/uiStore.svelte.ts';
-  import { sectionService } from '../services/domain/sectionService.js';
+  import { sectionService } from '../services/sectionService';
   import CodeEditor from '../CodeEditor.svelte';
   import TestGeneratorButton from '../TestGeneratorButton.svelte';
   import { extractKeysFromCode, extractDirectKeysFromCode, isValidKey, getKeyCategory, getCanonicalKey } from '../tpnLegacy.js';

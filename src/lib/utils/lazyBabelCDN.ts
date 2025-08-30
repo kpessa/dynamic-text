@@ -14,22 +14,63 @@ declare global {
 let babelInstance: any = null;
 let loadingPromise: Promise<any> | null = null;
 
-/**
- * Load Babel from CDN
- */
-function loadBabelFromCDN(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    // Check if already loaded
-    if (window.Babel) {
-      babelInstance = window.Babel;
-      resolve(babelInstance);
-      return;
-    }
+// CDN sources with integrity hashes
+const CDN_SOURCES = [
+  {
+    url: 'https://unpkg.com/@babel/standalone@7.23.5/babel.min.js',
+    integrity: 'sha384-D7K4Ee8rOeGz9hiSkBnQPcnJdA7cLrUwiK/N9i5BGCfzBPz5p6lbQf2mWFhLwzHd'
+  },
+  {
+    url: 'https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js',
+    integrity: 'sha384-D7K4Ee8rOeGz9hiSkBnQPcnJdA7cLrUwiK/N9i5BGCfzBPz5p6lbQf2mWFhLwzHd'
+  }
+];
 
-    // Check if script already exists
-    const existingScript = document.querySelector('script[src*="babel"]');
-    if (existingScript) {
-      // Wait for it to load
+/**
+ * Try loading from a specific CDN source
+ */
+function tryLoadFromCDN(source: typeof CDN_SOURCES[0]): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = source.url;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.integrity = source.integrity;
+    script.referrerPolicy = 'no-referrer';
+    
+    script.onload = () => {
+      if (window.Babel) {
+        babelInstance = window.Babel;
+        logInfo(`Babel loaded successfully from ${new URL(source.url).hostname}`, 'lazyBabelCDN');
+        resolve(babelInstance);
+      } else {
+        reject(new Error('Babel failed to initialize'));
+      }
+    };
+    
+    script.onerror = () => {
+      reject(new Error(`Failed to load Babel from ${source.url}`));
+    };
+    
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Load Babel from CDN with fallback
+ */
+async function loadBabelFromCDN(): Promise<any> {
+  // Check if already loaded
+  if (window.Babel) {
+    babelInstance = window.Babel;
+    return babelInstance;
+  }
+
+  // Check if script already exists
+  const existingScript = document.querySelector('script[src*="babel"]');
+  if (existingScript) {
+    // Wait for it to load
+    return new Promise((resolve, reject) => {
       const checkInterval = setInterval(() => {
         if (window.Babel) {
           clearInterval(checkInterval);
@@ -45,31 +86,19 @@ function loadBabelFromCDN(): Promise<any> {
           reject(new Error('Babel loading timeout'));
         }
       }, 10000);
-      return;
-    }
+    });
+  }
 
-    // Load the script
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@babel/standalone@7.23.5/babel.min.js';
-    script.async = true;
-    script.crossOrigin = 'anonymous';
-    
-    script.onload = () => {
-      if (window.Babel) {
-        babelInstance = window.Babel;
-        logInfo('Babel loaded successfully from CDN', 'lazyBabelCDN');
-        resolve(babelInstance);
-      } else {
-        reject(new Error('Babel failed to initialize'));
-      }
-    };
-    
-    script.onerror = () => {
-      reject(new Error('Failed to load Babel from CDN'));
-    };
-    
-    document.head.appendChild(script);
-  });
+  // Try each CDN source in order
+  for (const source of CDN_SOURCES) {
+    try {
+      return await tryLoadFromCDN(source);
+    } catch (error) {
+      logWarn(`Failed to load from ${source.url}, trying next source...`, 'lazyBabelCDN');
+    }
+  }
+  
+  throw new Error('Failed to load Babel from all CDN sources');
 }
 
 /**
