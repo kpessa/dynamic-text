@@ -116,6 +116,77 @@ vi.mock('@babel/standalone', () => ({
   })
 }));
 
+// Mock Web Worker for secureCodeExecution tests
+class MockWorker {
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  
+  postMessage(data: any): void {
+    // Simulate worker response
+    setTimeout(() => {
+      if (this.onmessage) {
+        // Handle different message types
+        if (data.type === 'INITIALIZE') {
+          this.onmessage(new MessageEvent('message', {
+            data: {
+              id: data.id,
+              success: true,
+              result: { initialized: true }
+            }
+          }));
+        } else if (data.type === 'EXECUTE_CODE') {
+          // Simple mock execution
+          const { code, context } = data.payload || {};
+          if (code && code.includes('error')) {
+            this.onmessage(new MessageEvent('message', {
+              data: {
+                id: data.id,
+                success: false,
+                error: 'Execution error'
+              }
+            }));
+          } else {
+            // Mock successful execution
+            let result = 'test result';
+            if (code && code.includes('getValue')) {
+              result = '100'; // Mock TPN value
+            }
+            this.onmessage(new MessageEvent('message', {
+              data: {
+                id: data.id,
+                success: true,
+                result: {
+                  result,
+                  executionTime: 10,
+                  success: true
+                }
+              }
+            }));
+          }
+        } else if (data.type === 'VALIDATE_CODE') {
+          this.onmessage(new MessageEvent('message', {
+            data: {
+              id: data.id,
+              success: true,
+              result: {
+                valid: !data.payload?.code?.includes('invalid'),
+                errors: []
+              }
+            }
+          }));
+        }
+      }
+    }, 10);
+  }
+  
+  terminate(): void {
+    // Mock terminate
+  }
+}
+
+// @ts-ignore
+global.Worker = MockWorker;
+
 // Clean up after each test
 afterEach(() => {
   vi.clearAllMocks();

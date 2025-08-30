@@ -168,6 +168,8 @@
   let showKPTManager = $state(false);
   let showPopulationDropdown = $state(false);
   let loadingPopulations = $state(false);
+  let isSavingDocument = $state(false);
+  let isLoadingDocument = $state(false);
   
   // Organized state for refactored Navbar
   let navbarUiState = $state({
@@ -443,27 +445,44 @@
   
   // Generate preview HTML combining all sections
   let previewHTML = $state('');
+  let isPreviewUpdating = $state(false);
+  
+  // Create the preview update function
+  async function updatePreview() {
+    isPreviewUpdating = true;
+    try {
+      const htmlParts = await Promise.all(sections.map(async section => {
+        if (section.type === 'static') {
+          // Replace newlines with <br> for proper line break rendering
+          return sanitizeHTML(section.content.replace(/\n/g, '<br>'));
+        } else if (section.type === 'dynamic') {
+          const testCase = activeTestCase[section.id];
+          const evaluated = await evaluateCodeWithKPT(section.content, testCase?.variables);
+          // Also handle line breaks in dynamic content
+          const evalString = evaluated || '';
+          return sanitizeHTML(evalString.replace(/\n/g, '<br>'));
+        }
+        return '';
+      }));
+      
+      previewHTML = htmlParts.join('<br>');
+    } finally {
+      isPreviewUpdating = false;
+    }
+  }
+  
+  // Create debounced version for typing updates (300ms)
+  const debouncedPreviewUpdate = debounce(updatePreview, 300);
   
   // Update preview when sections or values change
-  $effect(async () => {
+  $effect(() => {
     // Access currentIngredientValues to create a dependency
     const ingredientVals = { ...currentIngredientValues };
+    const sectionContents = sections.map(s => s.content).join('');
+    const testCases = JSON.stringify(activeTestCase);
     
-    const htmlParts = await Promise.all(sections.map(async section => {
-      if (section.type === 'static') {
-        // Replace newlines with <br> for proper line break rendering
-        return sanitizeHTML(section.content.replace(/\n/g, '<br>'));
-      } else if (section.type === 'dynamic') {
-        const testCase = activeTestCase[section.id];
-        const evaluated = await evaluateCodeWithKPT(section.content, testCase?.variables);
-        // Also handle line breaks in dynamic content
-        const evalString = evaluated || '';
-        return sanitizeHTML(evalString.replace(/\n/g, '<br>'));
-      }
-      return '';
-    }));
-    
-    previewHTML = htmlParts.join('<br>');
+    // Use debounced update for smooth typing experience
+    debouncedPreviewUpdate();
   });
   
   let jsonOutput = $derived(sectionsToJSON(sections));
@@ -1087,6 +1106,90 @@
       alert('Failed to save reference. Please try again.');
     }
   }
+
+  // Save document to Firebase (sections only, no TPN reference)
+  async function saveDocumentToFirebase(name = null) {
+    if (isSavingDocument) return;
+    
+    try {
+      isSavingDocument = true;
+      const { sectionFirebaseService } = await import('./lib/services/sectionService.js');
+      
+      // Save the document
+      const documentId = await sectionFirebaseService.saveDocument(sections, name);
+      
+      // Update state
+      workspaceStore.setLastSavedTime(new Date());
+      sectionStore.markAsSaved();
+      
+      toastStore.trigger({
+        message: `Document saved successfully`,
+        background: 'variant-filled-success'
+      });
+      
+      return documentId;
+    } catch (error) {
+      logError('Error saving document:', error);
+      toastStore.trigger({
+        message: 'Failed to save document. Please try again.',
+        background: 'variant-filled-error'
+      });
+      throw error;
+    } finally {
+      isSavingDocument = false;
+    }
+  }
+
+  // Load document from Firebase
+  async function loadDocumentFromFirebase(documentId) {
+    if (isLoadingDocument) return;
+    
+    try {
+      isLoadingDocument = true;
+      const { sectionFirebaseService } = await import('./lib/services/sectionService.js');
+      
+      // Load the document
+      const document = await sectionFirebaseService.loadDocument(documentId);
+      
+      if (!document) {
+        throw new Error('Document not found');
+      }
+      
+      // Set sections
+      sectionStore.setSections(document.sections);
+      
+      // Update state
+      workspaceStore.setLastSavedTime(document.modifiedAt ? new Date(document.modifiedAt.seconds * 1000) : null);
+      sectionStore.markAsSaved();
+      
+      toastStore.trigger({
+        message: `Document "${document.name}" loaded successfully`,
+        background: 'variant-filled-success'
+      });
+      
+      return document;
+    } catch (error) {
+      logError('Error loading document:', error);
+      toastStore.trigger({
+        message: 'Failed to load document. Please try again.',
+        background: 'variant-filled-error'
+      });
+      throw error;
+    } finally {
+      isLoadingDocument = false;
+    }
+  }
+
+  // List available documents
+  async function listDocuments() {
+    try {
+      const { sectionFirebaseService } = await import('./lib/services/sectionService.js');
+      return await sectionFirebaseService.listDocuments();
+    } catch (error) {
+      logError('Error listing documents:', error);
+      return [];
+    }
+  }
   
   // Handle save with commit message dialog
   function handleSaveWithCommit() {
@@ -1458,9 +1561,29 @@
         </button>
         <button 
           class="btn-success"
-          onclick={handleSaveWithCommit}
+          onclick={() => saveDocumentToFirebase()}
+          disabled={!hasUnsavedChanges || isSavingDocument}
         >
-          💾 Save
+          {isSavingDocument ? '⏳ Saving...' : '💾 Save'}
+        </button>
+        <button 
+          class="btn-primary"
+          onclick={async () => {
+            const docs = await listDocuments();
+            if (docs.length > 0) {
+              // For now, load the most recent document
+              // In production, you'd show a dialog to select
+              await loadDocumentFromFirebase(docs[0].id);
+            } else {
+              toastStore.trigger({
+                message: 'No saved documents found',
+                background: 'variant-filled-warning'
+              });
+            }
+          }}
+          disabled={isLoadingDocument}
+        >
+          {isLoadingDocument ? '⏳ Loading...' : '📂 Load'}
         </button>
         <button 
           class="btn-info"
