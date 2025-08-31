@@ -30,6 +30,7 @@
   import { previewEngineService } from './lib/services/previewEngineService';
   import { testRunnerService } from './lib/services/testRunnerService';
   import { sectionManagementService } from './lib/services/sectionManagementService';
+  import { ingredientExtractionService } from './lib/services/ingredientExtractionService';
   // Modal service removed - using local state due to bind: requirements
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
@@ -135,60 +136,12 @@
   
   // Extract all referenced ingredients from sections
   let referencedIngredients = $derived.by(() => {
-    const allKeys = new Set();
-    
-    // Extract from dynamic sections
-    sections.forEach(section => {
-      if (section.type === 'dynamic') {
-        const keys = extractKeysFromCode(section.content);
-        keys.forEach(key => {
-          if (isValidKey(key)) {
-            allKeys.add(key);
-          }
-        });
-      }
-    });
-    
-    // Also check test case variables
-    sections.forEach(section => {
-      if (section.testCases) {
-        section.testCases.forEach(tc => {
-          Object.keys(tc.variables || {}).forEach(key => {
-            if (isValidKey(key)) {
-              allKeys.add(key);
-            }
-          });
-        });
-      }
-    });
-    
-    const result = Array.from(allKeys).sort();
-    return result;
+    return ingredientExtractionService.extractReferencedIngredients(sections);
   });
   
   // Extract ingredients per section for badge display
   let ingredientsBySection = $derived.by(() => {
-    const result = {};
-    
-    sections.forEach(section => {
-      if (section.type === 'dynamic') {
-        const keys = extractDirectKeysFromCode(section.content); // Use direct keys only for badges
-        const validKeys = keys.filter(key => isValidKey(key) && !isCalculatedValue(key));
-        const calculatedKeys = keys.filter(key => isCalculatedValue(key));
-        const nonTpnKeys = keys.filter(key => !isValidKey(key));
-        
-        if (validKeys.length > 0 || nonTpnKeys.length > 0 || calculatedKeys.length > 0) {
-          result[section.id] = {
-            tpnKeys: validKeys,
-            calculatedKeys: calculatedKeys,
-            customKeys: nonTpnKeys,
-            allKeys: keys
-          };
-        }
-      }
-    });
-    
-    return result;
+    return ingredientExtractionService.extractIngredientsBySection(sections);
   });
   
   
@@ -555,39 +508,7 @@
 
   // Auto-populate test cases with extracted ingredients
   $effect(() => {
-    Object.entries(ingredientsBySection).forEach(([sectionId, { allKeys }]) => {
-      const section = sections.find(s => s.id === parseInt(sectionId));
-      if (section && section.testCases) {
-        section.testCases.forEach(testCase => {
-          // Add any new keys that aren't already in the test case
-          allKeys.forEach(key => {
-            // Skip calculated values - they don't need to be in test variables
-            if (isCalculatedValue(key)) {
-              return;
-            }
-            
-            if (testCase.variables[key] === undefined) {
-              // Set default value based on whether it's a TPN key or custom
-              if (isValidKey(key)) {
-                // For TPN keys, use appropriate defaults
-                testCase.variables[key] = 0;
-              } else {
-                // For custom keys, use empty string
-                testCase.variables[key] = '';
-              }
-            }
-          });
-          
-          // Remove variables that are no longer referenced in the code
-          // But keep calculated values out of the variables
-          Object.keys(testCase.variables).forEach(key => {
-            if (!allKeys.includes(key) || isCalculatedValue(key)) {
-              delete testCase.variables[key];
-            }
-          });
-        });
-      }
-    });
+    ingredientExtractionService.autoPopulateTestCases(sections, ingredientsBySection);
   });
   
   // Handlers for new components
