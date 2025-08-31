@@ -31,6 +31,7 @@
   import { testRunnerService } from './lib/services/testRunnerService';
   import { sectionManagementService } from './lib/services/sectionManagementService';
   import { ingredientExtractionService } from './lib/services/ingredientExtractionService';
+  import { referenceEditService } from './lib/services/referenceEditService';
   // Modal service removed - using local state due to bind: requirements
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
@@ -555,20 +556,21 @@
       const { referenceService } = await import('./lib/firebaseDataService.js');
       const { isIngredientShared } = await import('./lib/sharedIngredientService.js');
       
-      // Prepare the reference data
-      const referenceData = {
-        id: loadedReferenceId,
-        name: currentReferenceName,
-        sections: sections,
-        populationType: currentPopulationType,
-        healthSystem: currentHealthSystem,
-        // Include validation data
-        validationStatus: currentValidationStatus,
-        validationNotes: currentValidationNotes,
-        validatedBy: currentValidatedBy,
-        validatedAt: currentValidatedAt,
-        testResults: currentTestResults
-      };
+      // Prepare the reference data using the service
+      const referenceData = referenceEditService.prepareSaveData(
+        loadedReferenceId,
+        currentReferenceName,
+        sections,
+        currentPopulationType,
+        currentHealthSystem,
+        {
+          currentValidationStatus,
+          currentValidationNotes,
+          currentValidatedBy,
+          currentValidatedAt,
+          currentTestResults
+        }
+      );
       
       // Check if this ingredient is shared
       const sharedStatus = await isIngredientShared(loadedIngredient.id);
@@ -642,76 +644,48 @@
   }
   
   function handleEditReference(ingredient, reference) {
-    console.log('App: handleEditReference called', {
-      ingredient: ingredient.name,
-      reference: reference?.name,
-      hasSections: !!(reference?.sections),
-      fullReference: reference
-    });
-    
-    // Load the reference for editing
     if (reference) {
-      // Check if sections exist and have content
-      if (!reference.sections || reference.sections.length === 0) {
-        console.warn('Reference has empty sections! User needs to run "Fix Empty Sections" in Ingredient Manager.');
-        // Show a warning to the user
-        alert(`This reference has no content sections. Please run "Fix Empty Sections" in the Ingredient Manager to populate the clinical notes.`);
+      const result = referenceEditService.loadReferenceForEdit(reference, ingredient);
+      
+      if (!result.success) {
+        alert(result.error);
         return;
       }
       
-      setSections(reference.sections);
-      workContextStore.currentIngredient = ingredient.name;
-      workContextStore.currentReferenceName = reference.name;
-      currentPopulationType = reference.populationType;
-      workContextStore.loadedReferenceId = reference.id;
-      workContextStore.hasUnsavedChanges = false;
-      workContextStore.lastSavedTime = reference.updatedAt;
-      workContextStore.originalSections = JSON.stringify(reference.sections);
+      // Apply all state updates
+      setSections(result.sections);
+      
+      // Update work context
+      Object.assign(workContextStore, result.workContext);
+      
+      // Update current state
+      currentPopulationType = result.currentPopulationType;
       
       // Load validation data
-      currentValidationStatus = reference.validationStatus || 'untested';
-      currentValidationNotes = reference.validationNotes || '';
-      currentValidatedBy = reference.validatedBy || null;
-      currentValidatedAt = reference.validatedAt || null;
-      currentTestResults = reference.testResults || null;
+      currentValidationStatus = result.validationData.currentValidationStatus;
+      currentValidationNotes = result.validationData.currentValidationNotes;
+      currentValidatedBy = result.validationData.currentValidatedBy;
+      currentValidatedAt = result.validationData.currentValidatedAt;
+      currentTestResults = result.validationData.currentTestResults;
       
-      // Close all other views to ensure Dynamic Text Editor is visible
-      showIngredientManager = false;
-      // Don't close diff viewer - allow it to stay open for comparison
-      showMigrationTool = false;
-      showAIWorkflowInspector = false;
-      showTestGeneratorModal = false;
-      uiStateStore.showSidebar = false;
+      // Close views
+      showIngredientManager = result.viewsToClose.showIngredientManager;
+      showMigrationTool = result.viewsToClose.showMigrationTool;
+      showAIWorkflowInspector = result.viewsToClose.showAIWorkflowInspector;
+      showTestGeneratorModal = result.viewsToClose.showTestGeneratorModal;
+      uiStateStore.showSidebar = result.viewsToClose.showSidebar;
       
-      // Ensure preview panel is visible
-      uiStateStore.previewCollapsed = false;
-      previewMode = 'preview';
+      // Update view settings
+      uiStateStore.previewCollapsed = result.viewSettings.previewCollapsed;
+      previewMode = result.viewSettings.previewMode;
       
-      // Store full ingredient and reference details
-      loadedIngredient = ingredient;
-      loadedReference = reference;
-      currentHealthSystem = reference.healthSystem;
+      // Store loaded data
+      loadedIngredient = result.loadedData.loadedIngredient;
+      loadedReference = result.loadedData.loadedReference;
+      currentHealthSystem = result.loadedData.currentHealthSystem;
       
-      console.log('App: Reference loaded successfully', {
-        sectionsCount: sections.length,
-        viewsClosed: true,
-        previewVisible: !previewCollapsed
-      });
-      
-      // Scroll to top of the editor to show the loaded content
-      // Also flash a visual indicator
-      setTimeout(() => {
-        const editorElement = document.querySelector('.editor');
-        if (editorElement) {
-          editorElement.scrollTop = 0;
-          // Add a brief highlight animation
-          editorElement.style.transition = 'background-color 0.3s ease';
-          editorElement.style.backgroundColor = '#e8f4fd';
-          setTimeout(() => {
-            editorElement.style.backgroundColor = '';
-          }, 300);
-        }
-      }, 100);
+      // Apply visual feedback
+      referenceEditService.applyLoadingFeedback();
     }
   }
   
