@@ -155,3 +155,13 @@ App.svelte (main orchestrator)
 - `api/generate-tests.js` - AI test generation endpoint
 - `vercel.json` - Vercel deployment configuration
 - `VERSIONING_ROADMAP.md` - Detailed versioning implementation guide
+- Always search first search for .ts files and not .js as i prefer to use typescript in this project
+- Always use rune $state, $derived and new rune syntax when creating svelte components.  when working with svelte stores.. always save them as *.svelte.ts so you can use rune syntax and typescript
+- I'd like to follow TDD (test driven development). Specificially "TDD Agentic Workflow:                                  │
+│                                                                                                                           │
+│   Write Tests: First, create a comprehensive test suite for the requested functionality.                                  │
+│                                                                                                                           │
+│   Make It Green: Then, write the minimum amount of code required to make all tests pass.                                  │
+│                                                                                                                           │
+│   Refactor: Finally, refactor the code for clarity and maintainability, ensuring all tests continue to pass."
+- I want to use the playwright mcp server to test and make sure functionality is working.  I also care a lot about good clean and intuitive design, when testing a story, if it involves interacting with the website.  I want to take a screenshot and make sure it meets good design practices.  I want to use the playwright mcp server for testing at it allows me to look at dom and see console logging

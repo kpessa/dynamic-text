@@ -32,7 +32,12 @@ export interface TPNValues {
 export interface TPNInstance {
   getValue: (key: string) => number;
   populationType?: string;
+  advisorType?: 'NEO' | 'CHILD' | 'ADOLESCENT' | 'ADULT';
 }
+
+// TPN Advisor Types
+export type TPNAdvisorType = 'NEO' | 'CHILD' | 'ADOLESCENT' | 'ADULT';
+export type TPNAdvisorAlias = 'neonatal' | 'child' | 'adolescent' | 'adult' | 'infant';
 
 // Ingredient types
 export interface Ingredient {

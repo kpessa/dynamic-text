@@ -32,6 +32,7 @@
   import { sectionManagementService } from './lib/services/sectionManagementService';
   import { ingredientExtractionService } from './lib/services/ingredientExtractionService';
   import { referenceEditService } from './lib/services/referenceEditService';
+  import { firebaseSaveService } from './lib/services/firebaseSaveService';
   // Modal service removed - using local state due to bind: requirements
   import { POPULATION_TYPES } from './lib/firebaseDataService.js';
   import { uiStateStore } from './stores/uiStateStore.svelte.ts';
@@ -547,52 +548,47 @@
   
   // Save current work with commit message
   async function saveCurrentWork(commitMessage = null) {
-    if (!loadedIngredient || !loadedReferenceId) {
-      alert('No reference loaded to save');
-      return;
-    }
+    const validationData = {
+      currentValidationStatus,
+      currentValidationNotes,
+      currentValidatedBy,
+      currentValidatedAt,
+      currentTestResults
+    };
     
-    try {
-      const { referenceService } = await import('./lib/firebaseDataService.js');
-      const { isIngredientShared } = await import('./lib/sharedIngredientService.js');
-      
-      // Prepare the reference data using the service
-      const referenceData = referenceEditService.prepareSaveData(
-        loadedReferenceId,
-        currentReferenceName,
-        sections,
-        currentPopulationType,
-        currentHealthSystem,
-        {
-          currentValidationStatus,
-          currentValidationNotes,
-          currentValidatedBy,
-          currentValidatedAt,
-          currentTestResults
-        }
-      );
-      
-      // Check if this ingredient is shared
-      const sharedStatus = await isIngredientShared(loadedIngredient.id);
-      
-      if (sharedStatus.isShared && sharedStatus.sharedCount > 1) {
+    const result = await firebaseSaveService.handleSaveWorkflow(
+      loadedIngredient,
+      loadedReferenceId,
+      currentReferenceName,
+      sections,
+      currentPopulationType,
+      currentHealthSystem,
+      validationData,
+      commitMessage
+    );
+    
+    if (!result.success) {
+      if (result.requiresSelectiveApply) {
         // Show selective apply dialog
+        const { referenceService } = await import('./lib/firebaseDataService.js');
+        const referenceData = firebaseSaveService.prepareSaveData(
+          loadedReferenceId,
+          currentReferenceName,
+          sections,
+          currentPopulationType,
+          currentHealthSystem,
+          validationData
+        );
         pendingReferenceData = { ...referenceData, commitMessage };
         showSelectiveApply = true;
-      } else {
-        // Save normally
-        await referenceService.saveReference(loadedIngredient.id, referenceData, commitMessage);
-        
-        // Update state
-        workContextStore.hasUnsavedChanges = false;
-        workContextStore.lastSavedTime = new Date();
-        workContextStore.originalSections = JSON.stringify(sections);
-        
-        console.log('Reference saved successfully with commit message:', commitMessage);
+      } else if (result.error) {
+        alert(result.error);
       }
-    } catch (error) {
-      console.error('Error saving reference:', error);
-      alert('Failed to save reference. Please try again.');
+    } else {
+      // Update state on successful save
+      workContextStore.hasUnsavedChanges = false;
+      workContextStore.lastSavedTime = new Date();
+      workContextStore.originalSections = JSON.stringify(sections);
     }
   }
   
@@ -706,35 +702,11 @@
     
     loadingPopulations = true;
     try {
-      // Import the reference service
-      const { referenceService } = await import('./lib/firebaseDataService.js');
-      
-      // Get all references for the current ingredient
-      const allReferences = await referenceService.getReferencesForIngredient(loadedIngredient.id);
-      
-      // Group by population type and filter by health system if applicable
-      const populationMap = new Map();
-      
-      allReferences.forEach(ref => {
-        // If we have a current health system, only show references from that system
-        if (!currentHealthSystem || ref.healthSystem === currentHealthSystem) {
-          if (!populationMap.has(ref.populationType)) {
-            populationMap.set(ref.populationType, []);
-          }
-          populationMap.get(ref.populationType).push(ref);
-        }
-      });
-      
-      // Convert to array format for display
-      availablePopulations = Array.from(populationMap.entries()).map(([popType, refs]) => ({
-        populationType: popType,
-        references: refs,
-        isActive: popType === currentPopulationType
-      }));
-      
-      // Sort by population type order
-      const order = [POPULATION_TYPES.NEO, POPULATION_TYPES.CHILD, POPULATION_TYPES.ADOLESCENT, POPULATION_TYPES.ADULT];
-      availablePopulations.sort((a, b) => order.indexOf(a.populationType) - order.indexOf(b.populationType));
+      availablePopulations = await firebaseSaveService.loadPopulationTypes(
+        loadedIngredient.id,
+        currentHealthSystem,
+        currentPopulationType
+      );
       
       showPopulationDropdown = true;
     } catch (error) {
