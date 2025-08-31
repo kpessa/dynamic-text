@@ -14,6 +14,7 @@
   import IngredientInputPanel from './lib/IngredientInputPanel.svelte';
   import TestGeneratorButton from './lib/TestGeneratorButton.svelte';
   import TestGeneratorModal from './lib/TestGeneratorModal.svelte';
+  import TestCaseModal from './lib/TestCaseModal.svelte';
   import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
   import Navbar from './lib/Navbar.svelte';
   import IngredientManager from './lib/IngredientManager.svelte';
@@ -77,6 +78,8 @@
   
   // Modal state - keeping as local state due to bind: requirements in templates
   let showTestGeneratorModal = $state(false);
+  let showTestCaseModal = $state(false);
+  let testCaseModalSection = $state(null);
   let showAIWorkflowInspector = $state(false);
   let showIngredientManager = $state(false);
   let showDiffViewer = $state(false);
@@ -515,6 +518,24 @@
   function handleAITestsGenerated(sectionId, testsToImport) {
     // Use the same import logic as the existing test generator
     handleImportTests(sectionId, testsToImport);
+  }
+  
+  function openTestCaseModal(sectionId) {
+    console.log('openTestCaseModal called with sectionId:', sectionId);
+    const section = sections.find(s => s.id === sectionId);
+    console.log('Found section:', section);
+    if (section && section.type === 'dynamic') {
+      testCaseModalSection = section;
+      showTestCaseModal = true;
+      console.log('Modal should be open now, showTestCaseModal:', showTestCaseModal);
+    }
+  }
+  
+  function handleTestCaseModalSave(sectionId, updatedTestCases) {
+    sections = sections.map(s => 
+      s.id === sectionId ? { ...s, testCases: updatedTestCases } : s
+    );
+    checkForChanges();
   }
   
   function handleImportTests(sectionId, testsToImport) {
@@ -1068,6 +1089,7 @@
         onActiveTestCaseSet={setActiveTestCase}
         onTestsGenerated={handleTestsGenerated}
         onAIInspectorOpen={openAIWorkflowInspector}
+        onManageTestCases={openTestCaseModal}
         onConvertToDynamic={handleConvertToDynamic}
         onEditingSectionChange={(sectionId) => workContextStore.editingSection = sectionId}
       />
@@ -1183,6 +1205,13 @@
     generatedTests={currentGeneratedTests}
     onImportTests={handleImportTests}
     sectionId={targetSectionId}
+  />
+  
+  <!-- Test Case Modal -->
+  <TestCaseModal
+    bind:isOpen={showTestCaseModal}
+    bind:section={testCaseModalSection}
+    onSave={handleTestCaseModalSave}
   />
   
   <!-- AI Workflow Inspector -->

@@ -29,6 +29,7 @@
   export let onAIInspectorOpen = () => {};
   export let onConvertToDynamic = () => {};
   export let onEditingSectionChange = () => {};
+  export let onManageTestCases = () => {};
   
   function addVariable(sectionId, testIndex) {
     const varName = prompt('Variable name:');
@@ -249,6 +250,13 @@
                 {/if}
               </button>
               <div class="test-actions">
+                <button 
+                  class="manage-tests-btn" 
+                  onclick={() => onManageTestCases(section.id)}
+                  title="Manage test cases in full-screen modal"
+                >
+                  🧪 Manage Test Cases
+                </button>
                 <button 
                   class="add-test-btn" 
                   onclick={() => onTestCaseAdd(section.id)}
@@ -681,6 +689,23 @@
   .test-actions {
     display: flex;
     gap: 0.5rem;
+  }
+  
+  .manage-tests-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid #667eea;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+  
+  .manage-tests-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
   }
   
   .add-test-btn {

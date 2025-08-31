@@ -1,4 +1,4 @@
-import type { TestCase } from './testingService';
+import type { TestCase } from './testRunnerService';
 import type { PopulationType } from '../types';
 import { auth } from '../firebase';
 
@@ -110,13 +110,13 @@ class AITestService {
 
 		// Handle different test categories from the API response
 		if (tests.basicFunctionality) {
-			testCases.push(...this.mapTestCategory(tests.basicFunctionality, 'basic'));
+			testCases.push(...this.mapTestCategory(tests.basicFunctionality, 'basicFunctionality'));
 		}
 		if (tests.edgeCases) {
-			testCases.push(...this.mapTestCategory(tests.edgeCases, 'edge'));
+			testCases.push(...this.mapTestCategory(tests.edgeCases, 'edgeCases'));
 		}
 		if (tests.qaBreaking) {
-			testCases.push(...this.mapTestCategory(tests.qaBreaking, 'qa'));
+			testCases.push(...this.mapTestCategory(tests.qaBreaking, 'qaBreaking'));
 		}
 
 		// If no categories, assume it's a flat array

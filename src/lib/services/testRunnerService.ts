@@ -7,6 +7,7 @@ export interface TestCase {
   expectedStyles?: string;
   matchType?: 'exact' | 'contains' | 'regex';
   testResult?: TestResult;
+  category?: 'basicFunctionality' | 'edgeCases' | 'qaBreaking';
 }
 
 export interface TestResult {

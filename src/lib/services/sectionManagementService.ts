@@ -3,16 +3,13 @@
  * Handles CRUD operations for sections and test cases
  */
 
+import type { TestCase } from './testRunnerService';
+
 export interface Section {
   id: number | string;
   type: 'static' | 'dynamic';
   content: string;
   testCases?: TestCase[];
-}
-
-export interface TestCase {
-  name: string;
-  variables: Record<string, any>;
 }
 
 export class SectionManagementService {
@@ -45,7 +42,7 @@ export class SectionManagementService {
     
     if (type === 'dynamic') {
       newSection.testCases = [
-        { name: 'Default', variables: {} }
+        { name: 'Default', variables: {}, category: 'basicFunctionality' }
       ];
     }
     
@@ -100,7 +97,7 @@ export class SectionManagementService {
           type: 'dynamic' as const,
           content: dynamicContent,
           testCases: [
-            { name: 'Default', variables: {} }
+            { name: 'Default', variables: {}, category: 'basicFunctionality' }
           ]
         };
       }
@@ -116,7 +113,8 @@ export class SectionManagementService {
       if (section.id === sectionId && section.testCases) {
         const newTestCase: TestCase = {
           name: `Test Case ${section.testCases.length + 1}`,
-          variables: {}
+          variables: {},
+          category: 'basicFunctionality'
         };
         return {
           ...section,
