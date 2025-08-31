@@ -22,8 +22,18 @@ function simpleHash(str: string): string {
  * Normalize content for consistent hashing
  * Removes whitespace variations and normalizes line endings
  */
-function normalizeContent(content: string): string {
+function normalizeContent(content: string | any): string {
     if (!content) return '';
+    
+    // Handle non-string content
+    if (typeof content !== 'string') {
+        // If it's an array, join it
+        if (Array.isArray(content)) {
+            return content.map(c => normalizeContent(c)).join(' ');
+        }
+        // Otherwise convert to string
+        return String(content);
+    }
     
     return content
         .replace(/\r\n/g, '\n')  // Normalize line endings

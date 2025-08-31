@@ -28,7 +28,10 @@
     "test:e2e:debug": "playwright test --debug",
     "test:all": "npm run test:unit && npm run test:e2e",
     "size-limit": "npx size-limit",
-    "bundle:stats": "npx vite-bundle-analyzer dist/stats.json"
+    "bundle:stats": "npx vite-bundle-analyzer dist/stats.json",
+    "migrate": "tsx scripts/migrate-to-ingredients.ts",
+    "migrate:dry-run": "tsx scripts/migrate-to-ingredients.ts --dry-run",
+    "migrate:verify": "tsx scripts/migrate-to-ingredients.ts --verify"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.1",
@@ -48,13 +51,17 @@
     "@vercel/node": "^5.3.11",
     "@vitest/coverage-v8": "^2.1.8",
     "@vitest/ui": "^2.1.8",
+    "chalk": "^5.6.0",
+    "commander": "^14.0.0",
     "happy-dom": "^16.7.0",
     "jsdom": "^26.0.0",
+    "ora": "^8.2.0",
     "storybook": "^9.1.1",
     "svelte": "^5.35.5",
     "svelte-check": "^4.3.1",
     "terser": "^5.43.1",
     "tslib": "^2.8.1",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vite": "^7.0.4",
     "vitest": "^2.1.8"
@@ -77,6 +84,7 @@
     "diff": "^8.0.2",
     "diff2html": "^3.4.52",
     "dompurify": "^3.2.6",
+    "dotenv": "^17.2.1",
     "firebase": "^12.0.0",
     "prettier": "^3.6.2",
     "vercel": "^44.7.0"

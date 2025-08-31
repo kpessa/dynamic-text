@@ -165,3 +165,4 @@ App.svelte (main orchestrator)
 │                                                                                                                           │
 │   Refactor: Finally, refactor the code for clarity and maintainability, ensuring all tests continue to pass."
 - I want to use the playwright mcp server to test and make sure functionality is working.  I also care a lot about good clean and intuitive design, when testing a story, if it involves interacting with the website.  I want to take a screenshot and make sure it meets good design practices.  I want to use the playwright mcp server for testing at it allows me to look at dom and see console logging
+- if running migration scripts, use the firebase cli..  i want to use the vercel cli to keep track of environment variables

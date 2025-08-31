@@ -3,6 +3,7 @@
   import { isFirebaseConfigured } from './firebase.js';
   import { configService, normalizeConfigId } from './firebaseDataService.js';
   import DuplicateReportModal from './DuplicateReportModal.svelte';
+  import ImportWizard from './components/ImportWizard.svelte';
   
   let { 
     onLoadReference = () => {}, 
@@ -22,6 +23,7 @@
   let configSearchQuery = $state('');
   let lastImportReport = $state(null);
   let showDuplicateReport = $state(false);
+  let showSmartImportWizard = $state(false);
   
   // Filter states
   let filters = $state({
@@ -1497,6 +1499,9 @@
       <button class="import-btn" onclick={() => showImportDialog = true}>
         📥 Import
       </button>
+      <button class="import-btn" onclick={() => showSmartImportWizard = true} title="Smart Import with Deduplication">
+        🎯 Smart Import
+      </button>
       <button class="config-btn" onclick={() => showConfigDialog = true} title="Manage TPN Configs">
         🔧 Configs
       </button>
@@ -2625,6 +2630,19 @@
   onClose={() => showDuplicateReport = false}
   onProceed={() => showDuplicateReport = false}
 />
+
+<!-- Smart Import Wizard -->
+{#if showSmartImportWizard}
+  <ImportWizard 
+    onClose={() => showSmartImportWizard = false}
+    onImportComplete={(result) => {
+      console.log('Smart import completed:', result);
+      showSmartImportWizard = false;
+      // Optionally refresh the sidebar content
+      loadFirebaseReferences();
+    }}
+  />
+{/if}
 
 <style>
   .sidebar {

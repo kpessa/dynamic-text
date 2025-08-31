@@ -1,0 +1,46 @@
+{
+  "INGREDIENT": [
+    {
+      "keyname": "TestCalcium",
+      "displayName": "Test Calcium",
+      "category": "Micronutrient",
+      "sections": [
+        {
+          "type": "javascript",
+          "content": "// Calculate calcium levels\nconst calciumLevel = me.getValue('calcium') || 0;\nreturn calciumLevel * 1.5;"
+        }
+      ],
+      "tests": [
+        {
+          "name": "Test 1",
+          "variables": {
+            "calcium": 100
+          },
+          "expected": "150"
+        }
+      ]
+    },
+    {
+      "keyname": "TestIron",
+      "displayName": "Test Iron",
+      "category": "Micronutrient",
+      "sections": [
+        {
+          "type": "javascript",
+          "content": "// Calculate iron levels\nconst ironLevel = me.getValue('iron') || 0;\nreturn ironLevel * 2;"
+        }
+      ]
+    },
+    {
+      "keyname": "UniqueAdditive",
+      "displayName": "Unique Additive",
+      "category": "Additive",
+      "sections": [
+        {
+          "type": "html",
+          "content": "<div>This is a unique additive</div>"
+        }
+      ]
+    }
+  ]
+}
