@@ -184,8 +184,8 @@
                   bind:value={selectedPopulationType}
                   class="population-select"
                 >
-                  <option value={POPULATION_TYPES.NEONATAL}>Neonatal</option>
-                  <option value={POPULATION_TYPES.PEDIATRIC}>Child</option>
+                  <option value={POPULATION_TYPES.NEO}>Neonatal</option>
+                  <option value={POPULATION_TYPES.CHILD}>Child</option>
                   <option value={POPULATION_TYPES.ADOLESCENT}>Adolescent</option>
                   <option value={POPULATION_TYPES.ADULT}>Adult</option>
                 </select>

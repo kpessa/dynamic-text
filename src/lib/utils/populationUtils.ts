@@ -7,8 +7,8 @@ import { POPULATION_TYPES } from '../firebaseDataService';
  */
 export function getPopulationColor(populationType: string): string {
   const colors: Record<string, string> = {
-    [POPULATION_TYPES.NEONATAL]: '#ff6b6b',
-    [POPULATION_TYPES.PEDIATRIC]: '#4ecdc4',
+    [POPULATION_TYPES.NEO]: '#ff6b6b',
+    [POPULATION_TYPES.CHILD]: '#4ecdc4',
     [POPULATION_TYPES.ADOLESCENT]: '#45b7d1',
     [POPULATION_TYPES.ADULT]: '#5f27cd',
     // Handle legacy values from Firebase
@@ -28,8 +28,8 @@ export function getPopulationColor(populationType: string): string {
  */
 export function getPopulationName(populationType: string): string {
   const names: Record<string, string> = {
-    [POPULATION_TYPES.NEONATAL]: 'Neonatal',
-    [POPULATION_TYPES.PEDIATRIC]: 'Child',
+    [POPULATION_TYPES.NEO]: 'Neonatal',
+    [POPULATION_TYPES.CHILD]: 'Child',
     [POPULATION_TYPES.ADOLESCENT]: 'Adolescent',
     [POPULATION_TYPES.ADULT]: 'Adult',
     // Handle legacy values from Firebase

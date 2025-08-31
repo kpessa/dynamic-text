@@ -46,11 +46,11 @@ describe('WorkspaceStore', () => {
     });
 
     it('should set and get current population type', () => {
-      workspaceStore.setCurrentPopulationType(POPULATION_TYPES.NEONATAL);
-      expect(workspaceStore.currentPopulationType).toBe(POPULATION_TYPES.NEONATAL);
+      workspaceStore.setCurrentPopulationType(POPULATION_TYPES.NEO);
+      expect(workspaceStore.currentPopulationType).toBe(POPULATION_TYPES.NEO);
       
-      workspaceStore.setCurrentPopulationType(POPULATION_TYPES.PEDIATRIC);
-      expect(workspaceStore.currentPopulationType).toBe(POPULATION_TYPES.PEDIATRIC);
+      workspaceStore.setCurrentPopulationType(POPULATION_TYPES.CHILD);
+      expect(workspaceStore.currentPopulationType).toBe(POPULATION_TYPES.CHILD);
     });
   });
 
@@ -149,7 +149,7 @@ describe('WorkspaceStore', () => {
         id: 'ref-123',
         name: 'Test Reference',
         healthSystem: 'Test Health System',
-        populationType: POPULATION_TYPES.PEDIATRIC,
+        populationType: POPULATION_TYPES.CHILD,
         validationStatus: 'passed',
         validationNotes: 'Previously validated',
         validatedBy: 'validator-user',
@@ -169,7 +169,7 @@ describe('WorkspaceStore', () => {
       expect(workspaceStore.loadedReferenceId).toBe('ref-123');
       expect(workspaceStore.currentReferenceName).toBe('Test Reference');
       expect(workspaceStore.currentHealthSystem).toBe('Test Health System');
-      expect(workspaceStore.currentPopulationType).toBe(POPULATION_TYPES.PEDIATRIC);
+      expect(workspaceStore.currentPopulationType).toBe(POPULATION_TYPES.CHILD);
       
       // Check ingredient data
       expect(workspaceStore.loadedIngredient).toEqual(mockIngredient);
@@ -262,7 +262,7 @@ describe('WorkspaceStore', () => {
     it('should set available populations', () => {
       const populations = [
         { id: POPULATION_TYPES.ADULT, name: 'Adult' },
-        { id: POPULATION_TYPES.PEDIATRIC, name: 'Pediatric' }
+        { id: POPULATION_TYPES.CHILD, name: 'Pediatric' }
       ];
       
       workspaceStore.setAvailablePopulations(populations);
@@ -276,7 +276,7 @@ describe('WorkspaceStore', () => {
       workspaceStore.setCurrentIngredient('Test Ingredient');
       workspaceStore.setCurrentReferenceName('Test Reference');
       workspaceStore.setCurrentHealthSystem('Test Health System');
-      workspaceStore.setCurrentPopulationType(POPULATION_TYPES.PEDIATRIC);
+      workspaceStore.setCurrentPopulationType(POPULATION_TYPES.CHILD);
       workspaceStore.setFirebaseEnabled(true);
       workspaceStore.setActiveConfigId('config-123');
       workspaceStore.markAsChanged();

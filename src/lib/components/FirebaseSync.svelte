@@ -99,8 +99,8 @@
   function getPopulationColor(populationType) {
     const colors = {
       [POPULATION_TYPES.ADULT]: '#007bff',
-      [POPULATION_TYPES.PEDIATRIC]: '#28a745',
-      [POPULATION_TYPES.NEONATAL]: '#ffc107',
+      [POPULATION_TYPES.CHILD]: '#28a745',
+      [POPULATION_TYPES.NEO]: '#ffc107',
     };
     return colors[populationType] || '#6c757d';
   }
@@ -108,8 +108,8 @@
   function getPopulationName(populationType) {
     const names = {
       [POPULATION_TYPES.ADULT]: 'Adult',
-      [POPULATION_TYPES.PEDIATRIC]: 'Pediatric',
-      [POPULATION_TYPES.NEONATAL]: 'Neonatal',
+      [POPULATION_TYPES.CHILD]: 'Pediatric',
+      [POPULATION_TYPES.NEO]: 'Neonatal',
     };
     return names[populationType] || populationType;
   }

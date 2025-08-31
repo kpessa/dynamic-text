@@ -838,7 +838,7 @@
       }));
       
       // Sort by population type order
-      const order = [POPULATION_TYPES.NEONATAL, POPULATION_TYPES.PEDIATRIC, POPULATION_TYPES.ADOLESCENT, POPULATION_TYPES.ADULT];
+      const order = [POPULATION_TYPES.NEO, POPULATION_TYPES.CHILD, POPULATION_TYPES.ADOLESCENT, POPULATION_TYPES.ADULT];
       availablePopulations.sort((a, b) => order.indexOf(a.populationType) - order.indexOf(b.populationType));
       
       showPopulationDropdown = true;

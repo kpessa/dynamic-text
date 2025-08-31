@@ -35,12 +35,12 @@
   
   // Population type display info
   const populationInfo = {
-    [POPULATION_TYPES.NEONATAL]: {
+    [POPULATION_TYPES.NEO]: {
       name: 'Neonatal',
       color: '#ff6b6b',
       bgColor: '#ffe0e0'
     },
-    [POPULATION_TYPES.PEDIATRIC]: {
+    [POPULATION_TYPES.CHILD]: {
       name: 'Child', 
       color: '#4ecdc4',
       bgColor: '#e0f7f5'
