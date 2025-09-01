@@ -7,7 +7,11 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.{test,spec}.{js,ts}', 'src/**/*.{test,spec}.{js,ts}'],
+    include: [
+      'tests/**/*.{test,spec}.{js,ts}', 
+      'src/**/*.{test,spec}.{js,ts}',
+      'src/**/__tests__/**/*.{test,spec}.{js,ts}'
+    ],
     exclude: [
       'node_modules',
       'dist',
@@ -45,7 +49,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      '$lib': path.resolve(__dirname, './src/lib'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@stores': path.resolve(__dirname, './src/stores'),
+      '@components': path.resolve(__dirname, './src/lib/components')
     }
   }
 });
