@@ -210,6 +210,34 @@ function createSandbox(context = {}) {
     };
   };
   
+  // Merge custom functions if provided
+  const mergeCustomFunctions = (kptNamespace, customFunctions) => {
+    if (!customFunctions || !Array.isArray(customFunctions)) {
+      return kptNamespace;
+    }
+    
+    const merged = { ...kptNamespace };
+    
+    for (const func of customFunctions) {
+      if (func.name && func.code && func.isCustom) {
+        try {
+          // Create function with proper context binding
+          const funcBody = func.code;
+          const compiledFunc = new Function('return ' + funcBody)();
+          
+          // Bind the function to the me context for access to getValue etc
+          merged[func.name] = function(...args) {
+            return compiledFunc.apply(sandbox.me, args);
+          };
+        } catch (error) {
+          console.error(`Failed to compile custom function ${func.name}:`, error);
+        }
+      }
+    }
+    
+    return merged;
+  };
+  
   // Safe global objects for medical calculations
   const sandbox = {
     // Math functions
@@ -307,7 +335,11 @@ function createSandbox(context = {}) {
   }
   
   // Initialize KPT namespace with the me context
-  sandbox.me.kpt = createKPTNamespace(sandbox.me);
+  // Create base KPT namespace with built-in functions
+  const baseKPT = createKPTNamespace(sandbox.me);
+  
+  // Merge custom functions if provided in context
+  sandbox.me.kpt = mergeCustomFunctions(baseKPT, context.customFunctions);
   
   return sandbox
 }

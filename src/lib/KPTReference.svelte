@@ -4,7 +4,11 @@
   let { 
     onFunctionSelect = (func) => {},
     isExpanded = false,
-    onClose = () => {}
+    onClose = () => {},
+    onCreateFunction = () => {},
+    onEditFunction = (funcId) => {},
+    onDeleteFunction = (funcId) => {},
+    customFunctions = []
   } = $props();
   
   let searchQuery = $state('');
@@ -67,12 +71,30 @@
     { category: 'ALIASES', name: 'calories', description: 'Total calories', example: 'kpt.calories', params: 'number (calculated)' }
   ];
   
+  // Combine built-in and custom functions
+  let allFunctions = $derived.by(() => {
+    const builtIn = kptFunctions.map(f => ({ ...f, isCustom: false }));
+    const custom = customFunctions.map(f => ({
+      category: f.category?.toUpperCase().replace(/-/g, '_') || 'CUSTOM',
+      name: f.name,
+      description: f.description,
+      example: f.example || `${f.name}()`,
+      params: f.signature || '',
+      isCustom: true,
+      id: f.id
+    }));
+    return [...builtIn, ...custom];
+  });
+  
   // Get all categories
-  const categories = ['ALL', ...Array.from(new Set(kptFunctions.map(f => f.category)))];
+  const categories = $derived.by(() => {
+    const allCategories = new Set(allFunctions.map(f => f.category));
+    return ['ALL', ...Array.from(allCategories)];
+  });
   
   // Filter functions based on search and category
   let filteredFunctions = $derived.by(() => {
-    let functions = kptFunctions;
+    let functions = allFunctions;
     
     // Filter by category
     if (selectedCategory !== 'ALL') {
@@ -103,7 +125,13 @@
       'HTML_BUILDERS': 'HTML Builders',
       'UTILITIES': 'Utilities',
       'MATH': 'Math',
-      'ALIASES': 'Aliases'
+      'ALIASES': 'Aliases',
+      'CUSTOM': 'Custom',
+      'TEXT': 'Text',
+      'FORMATTING': 'Formatting',
+      'TPN': 'TPN',
+      'HTML': 'HTML',
+      'UTILITY': 'Utility'
     };
     return labels[category] || category;
   }
@@ -161,13 +189,23 @@
         </button>
       </div>
       
+      <div class="custom-functions-actions">
+        <button 
+          onclick={onCreateFunction} 
+          class="create-function-btn"
+          title="Create a new custom KPT function"
+        >
+          ➕ Create Custom Function
+        </button>
+      </div>
+      
       <div class="usage-hint">
         <strong>Usage:</strong> Add <code>let &#123; functionName &#125; = kpt;</code> at the start of your dynamic sections
       </div>
       
       <div class="functions-list">
         {#each filteredFunctions as func (func.name)}
-          <div class="function-item">
+          <div class="function-item {func.isCustom ? 'custom-function' : ''}">
             <div class="function-header">
               <button 
                 class="function-name"
@@ -175,8 +213,29 @@
                 title="Click to insert function name"
               >
                 <code>{func.name}</code>
+                {#if func.isCustom}
+                  <span class="custom-badge">Custom</span>
+                {/if}
               </button>
               <span class="function-category">{getCategoryLabel(func.category)}</span>
+              {#if func.isCustom}
+                <div class="function-actions">
+                  <button 
+                    onclick={() => onEditFunction(func.id)}
+                    class="edit-btn"
+                    title="Edit function"
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    onclick={() => onDeleteFunction(func.id)}
+                    class="delete-btn"
+                    title="Delete function"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              {/if}
             </div>
             
             <div class="function-description">
@@ -361,6 +420,63 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 8px;
+  }
+  
+  .function-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  
+  .edit-btn, .delete-btn {
+    padding: 2px 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  
+  .edit-btn:hover, .delete-btn:hover {
+    opacity: 1;
+  }
+  
+  .custom-badge {
+    background: #22c55e;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+  
+  .custom-function {
+    background: #f0fdf4;
+    border-left: 3px solid #22c55e;
+  }
+  
+  .custom-functions-actions {
+    padding: 8px;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .create-function-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background: #22c55e;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+  
+  .create-function-btn:hover {
+    background: #16a34a;
   }
 
   .function-name {

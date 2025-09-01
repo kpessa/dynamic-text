@@ -18,6 +18,8 @@
   import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
   import Navbar from './lib/Navbar.svelte';
   import KPTReference from './lib/KPTReference.svelte';
+  import KPTFunctionEditor from './lib/components/KPTFunctionEditor.svelte';
+  import { KPTCrudService } from './lib/services/KPTCrudService';
   import IngredientManager from './lib/IngredientManager.svelte';
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
   import DataMigrationTool from './lib/DataMigrationTool.svelte';
@@ -94,6 +96,14 @@
   let showSelectiveApply = $state(false);
   let showTestSummary = $state(false);
   let showKPTReference = $state(false);
+  let showKPTFunctionEditor = $state(false);
+  let kptFunctionEditorMode = $state('create');
+  let kptFunctionEditorFunctionId = $state(null);
+  
+  // KPT CRUD Service
+  let kptCrudService = null;
+  let customKPTFunctions = $state([]);
+  let currentUserId = $state('anonymous');
   
   // Modal data
   let selectedIngredientForDiff = $state(null);
@@ -117,8 +127,14 @@
   let availablePopulations = $state([]);
   let loadingPopulations = $state(false);
   
-  // Initialize Firebase authentication
+  // Initialize Firebase authentication and KPT service
   $effect(() => {
+    // Initialize KPT CRUD Service
+    if (!kptCrudService) {
+      kptCrudService = new KPTCrudService();
+      loadCustomFunctions();
+    }
+    
     if (firebaseEnabled) {
       // Sign in anonymously when the app loads
       signInAnonymouslyUser().catch(error => {
@@ -129,6 +145,8 @@
       const unsubscribe = onAuthStateChange((user) => {
         if (user) {
           console.log('User authenticated:', user.uid);
+          currentUserId = user.uid;
+          loadCustomFunctions();
         }
       });
       
@@ -137,6 +155,46 @@
       };
     }
   });
+  
+  // Load custom KPT functions
+  async function loadCustomFunctions() {
+    if (!kptCrudService) return;
+    try {
+      customKPTFunctions = await kptCrudService.getUserFunctions(currentUserId);
+    } catch (error) {
+      console.error('Failed to load custom KPT functions:', error);
+      customKPTFunctions = [];
+    }
+  }
+  
+  // Handle KPT function operations
+  function handleCreateKPTFunction() {
+    kptFunctionEditorMode = 'create';
+    kptFunctionEditorFunctionId = null;
+    showKPTFunctionEditor = true;
+  }
+  
+  function handleEditKPTFunction(functionId) {
+    kptFunctionEditorMode = 'edit';
+    kptFunctionEditorFunctionId = functionId;
+    showKPTFunctionEditor = true;
+  }
+  
+  async function handleDeleteKPTFunction(functionId) {
+    if (confirm('Are you sure you want to delete this custom function?')) {
+      try {
+        await kptCrudService.deleteFunction(functionId);
+        await loadCustomFunctions();
+      } catch (error) {
+        console.error('Failed to delete function:', error);
+      }
+    }
+  }
+  
+  async function handleSaveKPTFunction(func) {
+    showKPTFunctionEditor = false;
+    await loadCustomFunctions();
+  }
   
   // Extract all referenced ingredients from sections
   let referencedIngredients = $derived.by(() => {
@@ -1084,6 +1142,30 @@
     onSave={handleTestCaseModalSave}
   />
   
+  <!-- KPT Function Editor Modal -->
+  {#if showKPTFunctionEditor}
+    <div class="modal-backdrop" onclick={() => showKPTFunctionEditor = false}>
+      <div class="modal-content" onclick={(e) => e.stopPropagation()}>
+        <div class="modal-header">
+          <h2>{kptFunctionEditorMode === 'create' ? 'Create Custom KPT Function' : 'Edit Custom KPT Function'}</h2>
+          <button 
+            class="modal-close" 
+            onclick={() => showKPTFunctionEditor = false}
+          >
+            ×
+          </button>
+        </div>
+        <KPTFunctionEditor
+          mode={kptFunctionEditorMode}
+          functionId={kptFunctionEditorFunctionId}
+          userId={currentUserId}
+          onSave={handleSaveKPTFunction}
+          onCancel={() => showKPTFunctionEditor = false}
+        />
+      </div>
+    </div>
+  {/if}
+  
   <!-- AI Workflow Inspector -->
   <AIWorkflowInspector
     bind:isOpen={showAIWorkflowInspector}
@@ -1098,19 +1180,23 @@
       onToggle={() => uiStateStore.toggleKeyReference()}
       onKeySelect={handleKeyInsert}
     />
-    
-    <KPTReference
-      isExpanded={showKPTReference}
-      onClose={() => showKPTReference = false}
-      onFunctionSelect={(func) => {
-        // Insert the KPT function example into the editor
-        if (editingSection && func.example) {
-          const exampleCode = `me.kpt.${func.example}`;
-          handleKeyInsert(exampleCode);
-        }
-      }}
-    />
   {/if}
+  
+  <KPTReference
+    isExpanded={showKPTReference}
+    onClose={() => showKPTReference = false}
+    customFunctions={customKPTFunctions}
+    onCreateFunction={handleCreateKPTFunction}
+    onEditFunction={handleEditKPTFunction}
+    onDeleteFunction={handleDeleteKPTFunction}
+    onFunctionSelect={(func) => {
+      // Insert the KPT function example into the editor
+      if (editingSection && func.example) {
+        const exampleCode = `me.kpt.${func.example}`;
+        handleKeyInsert(exampleCode);
+      }
+    }}
+  />
   
   <!-- Firebase components -->
   {#if showIngredientManager}
@@ -2675,5 +2761,61 @@
   
   .btn-primary:hover {
     background-color: #0056b3;
+  }
+  
+  /* KPT Function Editor Modal */
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 800px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #333;
+  }
+  
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal-close:hover {
+    color: #333;
   }
 </style>
