@@ -5,6 +5,100 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "healthSystem",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ingredients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ingredients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "healthSystem",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "populationType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ingredients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isShared",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ingredients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ingredients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ingredients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "displayName",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "ingredients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "category",
           "order": "ASCENDING"
         },

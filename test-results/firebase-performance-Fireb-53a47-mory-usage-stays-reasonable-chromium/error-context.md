@@ -1,0 +1,374 @@
+# Page snapshot
+
+```yaml
+- main:
+  - banner "Main navigation":
+    - button "Show sidebar navigation": Show sidebar
+    - heading "TPN Dynamic Text Editor" [level=1]
+    - button "🛠️ KPT"
+    - button "Open ingredient manager": Ingredients
+    - button "🚀 Migrate"
+    - button "Create new document": New
+    - button "Export content to clipboard": Export
+    - button "Open preferences": Preferences
+    - button "Show keyboard shortcuts": Shortcuts
+  - heading "Content Sections" [level=2]
+  - button "🧪 Run All Tests"
+  - button "+ Static HTML"
+  - button "+ Dynamic JS"
+  - list:
+    - text: 📄
+    - heading "Start Creating Your Reference Text" [level=3]
+    - paragraph: Add sections to build your dynamic text content
+    - button "📝 Add Static HTML For fixed content and formatting"
+    - button "⚡ Add Dynamic JavaScript For calculations and logic"
+  - button "👁️ Preview"
+  - button "📊 Output"
+  - button "▶"
+- button "Close modal overlay":
+  - dialog "Ingredient Manager":
+    - button "×"
+    - heading "📦 Ingredient Library" [level=2]
+    - text: 50 of 50 ingredients
+    - button "☐ Select"
+    - textbox "🔍 Search ingredients..."
+    - combobox:
+      - option "All Categories" [selected]
+      - option "BASIC PARAMETERS"
+      - option "MACRONUTRIENTS"
+      - option "ELECTROLYTES"
+      - option "ADDITIVES"
+      - option "PREFERENCES"
+      - option "CALCULATED VOLUMES"
+      - option "CLINICAL CALCULATIONS"
+      - option "WEIGHT CALCULATIONS"
+      - option "OTHER"
+    - combobox:
+      - option "All Health Systems" [selected]
+    - checkbox "Show only with differences"
+    - text: Show only with differences
+    - button "🔍 Find All Variations"
+    - paragraph: If some ingredients are missing parentheses (e.g., "Amino Acids Trophamine" instead of "Amino Acids (Trophamine)"), you can fix them.
+    - button "🔧 Fix Missing Parentheses"
+    - button "📁 Fix Categories"
+    - button "🗑️ Clear All & Start Fresh"
+    - heading "MACRONUTRIENTS" [level=3]
+    - text: 3 ingredients
+    - button "Carbohydrates 📄 🔍 Carbohydrates Load References View Details":
+      - heading "Carbohydrates" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Carbohydrates
+      - button "Load References"
+      - button "View Details"
+    - button "Fat 📄 🔍 Fat Load References View Details":
+      - heading "Fat" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Fat
+      - button "Load References"
+      - button "View Details"
+    - button "Protein 📄 🔍 Protein Load References View Details":
+      - heading "Protein" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Protein
+      - button "Load References"
+      - button "View Details"
+    - heading "ELECTROLYTES" [level=3]
+    - text: 17 ingredients
+    - button "Acetate 📄 🔍 Acetate Load References View Details":
+      - heading "Acetate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Acetate
+      - button "Load References"
+      - button "View Details"
+    - 'button "Calcium v1 📄 🔍 Calcium Updated: 8/31/2025 Load References View Details"':
+      - heading "Calcium" [level=4]
+      - button "v1"
+      - button "📄"
+      - button "🔍"
+      - paragraph: Calcium
+      - text: "Updated: 8/31/2025"
+      - button "Load References"
+      - button "View Details"
+    - button "Calcium Gluconate 📄 🔍 Load References View Details":
+      - heading "Calcium Gluconate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Chloride 📄 🔍 Chloride Load References View Details":
+      - heading "Chloride" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Chloride
+      - button "Load References"
+      - button "View Details"
+    - button "Magnesium 📄 🔍 Magnesium Load References View Details":
+      - heading "Magnesium" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Magnesium
+      - button "Load References"
+      - button "View Details"
+    - button "Magnesium Sulfate 📄 🔍 Load References View Details":
+      - heading "Magnesium Sulfate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Phosphate 📄 🔍 Phosphate Load References View Details":
+      - heading "Phosphate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Phosphate
+      - button "Load References"
+      - button "View Details"
+    - button "Potassium 📄 🔍 Potassium Load References View Details":
+      - heading "Potassium" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Potassium
+      - button "Load References"
+      - button "View Details"
+    - button "Potassium Acetate 📄 🔍 Load References View Details":
+      - heading "Potassium Acetate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Potassium Chloride 📄 🔍 Load References View Details":
+      - heading "Potassium Chloride" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph
+      - button "Load References"
+      - button "View Details"
+    - button "Potassium Phosphate 📄 🔍 Load References View Details":
+      - heading "Potassium Phosphate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Sodium 📄 🔍 Sodium Load References View Details":
+      - heading "Sodium" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Sodium
+      - button "Load References"
+      - button "View Details"
+    - button "Sodium Acetate 📄 🔍 Load References View Details":
+      - heading "Sodium Acetate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Sodium Chloride 📄 🔍 Load References View Details":
+      - heading "Sodium Chloride" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Sodium Phosphate 📄 🔍 Load References View Details":
+      - heading "Sodium Phosphate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Zinc Chloride 📄 🔍 Zinc Chloride Load References View Details":
+      - heading "Zinc Chloride" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Zinc Chloride
+      - button "Load References"
+      - button "View Details"
+    - button "Zinc Sulfate 📄 🔍 Zinc Sulfate Load References View Details":
+      - heading "Zinc Sulfate" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Zinc Sulfate
+      - button "Load References"
+      - button "View Details"
+    - heading "ADDITIVES" [level=3]
+    - text: 22 ingredients
+    - button "Chromium 📄 🔍 Chromium Load References View Details":
+      - heading "Chromium" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Chromium
+      - button "Load References"
+      - button "View Details"
+    - button "Copper 📄 🔍 Copper Load References View Details":
+      - heading "Copper" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Copper
+      - button "Load References"
+      - button "View Details"
+    - button "Cysteine 📄 🔍 Cysteine Load References View Details":
+      - heading "Cysteine" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Cysteine
+      - button "Load References"
+      - button "View Details"
+    - button "Famotidine 📄 🔍 Famotidine Load References View Details":
+      - heading "Famotidine" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Famotidine
+      - button "Load References"
+      - button "View Details"
+    - button "Heparin 📄 🔍 Heparin Load References View Details":
+      - heading "Heparin" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Heparin
+      - button "Load References"
+      - button "View Details"
+    - button "Insulin 📄 🔍 Regular Insulin Load References View Details":
+      - heading "Insulin" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Regular Insulin
+      - button "Load References"
+      - button "View Details"
+    - button "Levocarnitine 📄 🔍 levOCARNitine Load References View Details":
+      - heading "Levocarnitine" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: levOCARNitine
+      - button "Load References"
+      - button "View Details"
+    - button "Manganese 📄 🔍 Manganese Load References View Details":
+      - heading "Manganese" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Manganese
+      - button "Load References"
+      - button "View Details"
+    - button "Multi Vitamin 📄 🔍 Multivitamin (Pediatric MVI) Load References View Details":
+      - heading "Multi Vitamin" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Multivitamin (Pediatric MVI)
+      - button "Load References"
+      - button "View Details"
+    - button "Multi Vitamin PED 📄 🔍 Pediatric Multivitamin (MVI) Load References View Details":
+      - heading "Multi Vitamin PED" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Pediatric Multivitamin (MVI)
+      - button "Load References"
+      - button "View Details"
+    - 'button "Multrys 📄 🔍 Trace Elements (Multrys) Updated: 8/4/2025 Load References View Details"':
+      - heading "Multrys" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Trace Elements (Multrys)
+      - text: "Updated: 8/4/2025"
+      - button "Load References"
+      - button "View Details"
+    - button "Pyridoxine 📄 🔍 Load References View Details":
+      - heading "Pyridoxine" [level=4]
+      - button "📄"
+      - button "🔍"
+      - button "Load References"
+      - button "View Details"
+    - button "Ranitidine 📄 🔍 Ranitidine Load References View Details":
+      - heading "Ranitidine" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Ranitidine
+      - button "Load References"
+      - button "View Details"
+    - button "Selenium 📄 🔍 Selenium Load References View Details":
+      - heading "Selenium" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Selenium
+      - button "Load References"
+      - button "View Details"
+    - button "Thiamine 📄 🔍 Thiamine (Vitamin B1) Load References View Details":
+      - heading "Thiamine" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Thiamine (Vitamin B1)
+      - button "Load References"
+      - button "View Details"
+    - button "Trace 4 📄 🔍 Trace elements 4 Load References View Details":
+      - heading "Trace 4" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Trace elements 4
+      - button "Load References"
+      - button "View Details"
+    - button "Trace 4C 📄 🔍 Trace elements 4C Load References View Details":
+      - heading "Trace 4C" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Trace elements 4C
+      - button "Load References"
+      - button "View Details"
+    - button "Trace 5 📄 🔍 Trace elements w/selenium Load References View Details":
+      - heading "Trace 5" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Trace elements w/selenium
+      - button "Load References"
+      - button "View Details"
+    - button "Trace 5C 📄 🔍 Trace elements w/selenium Load References View Details":
+      - heading "Trace 5C" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Trace elements w/selenium
+      - button "Load References"
+      - button "View Details"
+    - button "Trace Elements 📄 🔍 Neonatal trace elements Load References View Details":
+      - heading "Trace Elements" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Neonatal trace elements
+      - button "Load References"
+      - button "View Details"
+    - 'button "Tralement 🔗 2 🔍 Trace Elements (Tralement) Updated: 8/4/2025 Load References View Details"':
+      - heading "Tralement" [level=4]
+      - button "🔗 2"
+      - button "🔍"
+      - paragraph: Trace Elements (Tralement)
+      - text: "Updated: 8/4/2025"
+      - button "Load References"
+      - button "View Details"
+    - button "Vitamin K 📄 🔍 Phytonadione (Vitamin K) Load References View Details":
+      - heading "Vitamin K" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Phytonadione (Vitamin K)
+      - button "Load References"
+      - button "View Details"
+    - heading "CALCULATED VOLUMES" [level=3]
+    - text: 3 ingredients
+    - button "Mix 📄 🔍 Volume Load References View Details":
+      - heading "Mix" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Volume
+      - button "Load References"
+      - button "View Details"
+    - button "TPNVolume 📄 🔍 Volume Load References View Details":
+      - heading "TPNVolume" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: Volume
+      - button "Load References"
+      - button "View Details"
+    - button "Water 📄 🔍 DO NOT USE Load References View Details":
+      - heading "Water" [level=4]
+      - button "📄"
+      - button "🔍"
+      - paragraph: DO NOT USE
+      - button "Load References"
+      - button "View Details"
+```

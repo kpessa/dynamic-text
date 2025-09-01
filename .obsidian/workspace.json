@@ -1,0 +1,209 @@
+{
+  "main": {
+    "id": "adc0c62a2329b43a",
+    "type": "split",
+    "children": [
+      {
+        "id": "649c3c06018074ec",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c790bf224c4a0d28",
+            "type": "leaf",
+            "state": {
+              "type": "release-notes",
+              "state": {
+                "currentVersion": "1.9.12"
+              },
+              "icon": "lucide-book-up",
+              "title": "Release Notes 1.9.12"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "451fb3f9ac889de0",
+    "type": "split",
+    "children": [
+      {
+        "id": "6b107c97bb70ecf5",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c21ac2a0ed5c0215",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "889dfe15a678a765",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "a1a1664c2f86b92d",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "7541b2a95f582aff",
+    "type": "split",
+    "children": [
+      {
+        "id": "f4f06a06054933ee",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "87a3dd5fd567e346",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "d046711e791d83cc",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "153355d9867d4a59",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "862780ec104b7cdb",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "c790bf224c4a0d28",
+  "lastOpenFiles": [
+    "docs/stories/4.2-firebase-performance-optimization.story.md.tmp.38741.1756760162744",
+    "test-results/firebase-performance-Fireb-88af4-taset-500-items-efficiently-firefox",
+    "test-results/firebase-performance-Perfo-250a6-formance-metrics-to-console-chromium/error-context.md",
+    "test-results/firebase-performance-Perfo-250a6-formance-metrics-to-console-chromium/video.webm",
+    "test-results/firebase-performance-Perfo-250a6-formance-metrics-to-console-chromium/test-failed-1.png",
+    "test-results/firebase-performance-Perfo-250a6-formance-metrics-to-console-chromium",
+    "test-results/firebase-performance-Fireb-166a8-d-load-instantly-on-revisit-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-166a8-d-load-instantly-on-revisit-chromium/video.webm",
+    "test-results/firebase-performance-Fireb-8f9f0-ng-indicator-while-fetching-firefox/error-context.md",
+    "test-results/firebase-performance-Fireb-8f9f0-ng-indicator-while-fetching-firefox/video.webm",
+    "test-results/firebase-performance-Fireb-166a8-d-load-instantly-on-revisit-chromium/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-8f9f0-ng-indicator-while-fetching-firefox/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-166a8-d-load-instantly-on-revisit-chromium",
+    "test-results/firebase-performance-Fireb-8f9f0-ng-indicator-while-fetching-firefox",
+    "test-results/firebase-performance-Fireb-03a16-uld-load-in-under-2-seconds-firefox/error-context.md",
+    "test-results/firebase-performance-Fireb-03a16-uld-load-in-under-2-seconds-firefox/video.webm",
+    "test-results/firebase-performance-Fireb-03a16-uld-load-in-under-2-seconds-firefox/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-03a16-uld-load-in-under-2-seconds-firefox",
+    "test-results/firebase-performance-Fireb-8de10-equests-should-be-optimized-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-8de10-equests-should-be-optimized-chromium/video.webm",
+    "test-results/firebase-performance-Fireb-53a47-mory-usage-stays-reasonable-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-8de10-equests-should-be-optimized-chromium/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-53a47-mory-usage-stays-reasonable-chromium/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-c3c29-dle-slow-network-gracefully-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-c3c29-dle-slow-network-gracefully-chromium/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-88af4-taset-500-items-efficiently-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-88af4-taset-500-items-efficiently-chromium/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-139ab--under-300ms-after-debounce-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-139ab--under-300ms-after-debounce-chromium/test-failed-1.png",
+    "test-results/firebase-performance-Fireb-03a16-uld-load-in-under-2-seconds-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-8f9f0-ng-indicator-while-fetching-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-4e4ec-ad-next-page-in-under-500ms-chromium/error-context.md",
+    "test-results/firebase-performance-Fireb-03a16-uld-load-in-under-2-seconds-chromium/test-failed-1.png",
+    "docs/stories/4.4.5-performance-optimizations.story.md",
+    "docs/stories/4.4.4-error-boundaries.story.md",
+    "docs/stories/4.4.3-typescript-migration.story.md",
+    "docs/stories/4.4.2-pure-ui-extraction.story.md",
+    "docs/stories/4.4.1-firebase-service-consolidation.story.md",
+    "docs/stories/epic-4.4-conservative-refactoring.md"
+  ]
+}
