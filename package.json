@@ -29,9 +29,18 @@
     "test:all": "npm run test:unit && npm run test:e2e",
     "size-limit": "npx size-limit",
     "bundle:stats": "npx vite-bundle-analyzer dist/stats.json",
+    "playwright:install": "playwright install chromium",
+    "playwright:mcp": "pnpm exec mcp-server-playwright",
+    "test:browser": "playwright test --headed",
+    "test:interactive": "playwright test e2e/interactive-test.spec.ts --project=chromium --reporter=list",
     "migrate": "tsx scripts/migrate-to-ingredients.ts",
     "migrate:dry-run": "tsx scripts/migrate-to-ingredients.ts --dry-run",
-    "migrate:verify": "tsx scripts/migrate-to-ingredients.ts --verify"
+    "migrate:verify": "tsx scripts/migrate-to-ingredients.ts --verify",
+    "emulator:start": "firebase emulators:start --import=./emulator-data --export-on-exit",
+    "emulator:export": "firebase emulators:export ./emulator-data",
+    "emulator:clean": "rm -rf .firebase firestore-debug.log ui-debug.log",
+    "emulator:backup": "./scripts/firebase-backup.sh",
+    "test:emulator": "firebase emulators:exec --only firestore,auth \"npm run test\""
   },
   "devDependencies": {
     "@playwright/test": "^1.50.1",
