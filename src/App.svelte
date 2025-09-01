@@ -17,6 +17,7 @@
   import TestCaseModal from './lib/TestCaseModal.svelte';
   import AIWorkflowInspector from './lib/AIWorkflowInspector.svelte';
   import Navbar from './lib/Navbar.svelte';
+  import KPTReference from './lib/KPTReference.svelte';
   import IngredientManager from './lib/IngredientManager.svelte';
   import IngredientDiffViewer from './lib/IngredientDiffViewer.svelte';
   import DataMigrationTool from './lib/DataMigrationTool.svelte';
@@ -92,6 +93,7 @@
   let showExportModal = $state(false);
   let showSelectiveApply = $state(false);
   let showTestSummary = $state(false);
+  let showKPTReference = $state(false);
   
   // Modal data
   let selectedIngredientForDiff = $state(null);
@@ -752,6 +754,7 @@
       bind:outputMode
       showKeyReference={showKeyReference}
       onKeyReferenceToggle={() => uiStateStore.toggleKeyReference()}
+      bind:showKPTReference
       currentReferenceName={currentReferenceName}
       currentIngredient={currentIngredient}
       hasUnsavedChanges={hasUnsavedChanges}
@@ -1094,6 +1097,18 @@
       isExpanded={showKeyReference}
       onToggle={() => uiStateStore.toggleKeyReference()}
       onKeySelect={handleKeyInsert}
+    />
+    
+    <KPTReference
+      isExpanded={showKPTReference}
+      onClose={() => showKPTReference = false}
+      onFunctionSelect={(func) => {
+        // Insert the KPT function example into the editor
+        if (editingSection && func.example) {
+          const exampleCode = `me.kpt.${func.example}`;
+          handleKeyInsert(exampleCode);
+        }
+      }}
     />
   {/if}
   
